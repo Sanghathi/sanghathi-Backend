@@ -1,0 +1,46 @@
+[
+  [
+    {
+      "from": "mentor",
+      "text": "Hi Aarav, I noticed you missed a few classes this month. Can you tell me why?"
+    },
+    {
+      "from": "student",
+      "text": "Sorry, I had some personal issue "
+    },
+    {
+      "from": "mentor",
+      "text": "I understand that personal issues can arise, but it's important to prioritize your education. Have you thought about making up the missed classes?"
+    },
+    {
+      "from": "student",
+      "text": "Yes, I plan on attending the makeup classes next week."
+    },
+    {
+      "from": "mentor",
+      "text": "That's great to hear, Aarav. Keep up the good work."
+    }
+  ],
+  [
+    {
+      "from": "mentor",
+      "text": "Hi Aarav, I noticed you missed a few classes this month. Why is that?"
+    },
+    {
+      "from": "student",
+      "text": "Hi ma'am, I've been struggling with some mental health issues and it's been hard to attend classes regularly."
+    },
+    {
+      "from": "mentor",
+      "text": "Well, you just have to push through it and show up to class. Your education is important."
+    },
+    {
+      "from": "student",
+      "text": "I know, but it's not that simple. I really need some support right now."
+    },
+    {
+      "from": "mentor",
+      "text": "Sorry to hear that, but as your mentor, my advice is to just keep attending classes. That's the best thing you can do."
+    }
+  ]
+]

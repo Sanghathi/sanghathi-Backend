@@ -1,0 +1,62 @@
+[
+  {
+    "firstName": "Aarav",
+    "middleName": "",
+    "lastName": "Patel",
+    "email": "aaravpatel@example.com",
+    "role": "student",
+    "phone": "1234567890",
+    "password": "password",
+    "passwordConfirm": "password",
+    "department": "Computer Science",
+    "usn": "CS101"
+  },
+  {
+    "firstName": "Aditi",
+    "middleName": "",
+    "lastName": "Sharma",
+    "email": "aditisharma@example.com",
+    "role": "student",
+    "phone": "1234567891",
+    "password": "password",
+    "passwordConfirm": "password",
+    "department": "Electronics",
+    "usn": "EC102"
+  },
+  {
+    "firstName": "Aryan",
+    "middleName": "",
+    "lastName": "Singh",
+    "email": "aryansingh@example.com",
+    "role": "student",
+    "phone": "1234567892",
+    "password": "password",
+    "passwordConfirm": "password",
+    "department": "Mechanical",
+    "usn": "ME103"
+  },
+  {
+    "firstName": "Ishaan",
+    "middleName": "",
+    "lastName": "Gupta",
+    "email": "ishaangupta@example.com",
+    "role": "student",
+    "phone": "1234567893",
+    "password": "password",
+    "passwordConfirm": "password",
+    "department": "Computer Science",
+    "usn": "CS104"
+  },
+  {
+    "firstName": "Kavya",
+    "middleName": "",
+    "lastName": "Mishra",
+    "email": "kavyamishra@example.com",
+    "role": "student",
+    "phone": "1234567894",
+    "password": "password",
+    "passwordConfirm": "password",
+    "department": "Electronics",
+    "usn": "EC105"
+  }
+]
