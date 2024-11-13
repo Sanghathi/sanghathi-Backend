@@ -15,17 +15,17 @@ const userSchema = new Schema({
     unique: true,
     lowercase: true,
   },
-  phone: {
-    type: String,
-  },
+  phone: String,
   avatar: String,
   role: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Role",
   },
-  lastActivity: {
-    type: Date,
+  roleName: {
+    type: String,
+    required: false,
   },
+  lastActivity: Date,
   status: {
     type: String,
     enum: ["active", "inactive", "suspended"],
@@ -37,17 +37,7 @@ const userSchema = new Schema({
     minlength: 8,
     select: false,
   },
-  passwordConfirm: {
-    type: String,
-    required: [true, "Please confirm your password"],
-    validate: {
-      //This only works on CREATE and SAVE!!!
-      validator: function (el) {
-        return el === this.password;
-      },
-      message: "Password do not match!",
-    },
-  },
+  passwordConfirm: String,
   passwordChangedAt: Date,
   passwordResetToken: String,
   passwordResetExpires: Date,

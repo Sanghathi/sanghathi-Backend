@@ -43,7 +43,8 @@ export const signup = catchAsync(async (req, res, next) => {
     email,
     password,
     passwordConfirm,
-    role: role ? role._id : undefined, // Assign the role _id if available, otherwise set it as undefined
+    role: role ? role._id : undefined,
+    roleName,
   });
 
   const token = signToken(newUser._id);
