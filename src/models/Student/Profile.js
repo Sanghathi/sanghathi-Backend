@@ -37,7 +37,10 @@ const studentProfileSchema = new Schema({
     minlength: 12,
     maxlength: 12,
   },
-  physicallyChallenged: { type: Boolean },
+  physicallyChallenged: { 
+    type: String, // Change to String to accept "Yes" and "No"
+    enum: ["Yes", "No"], // Optional: enforce specific values
+  },
   admissionDate: { type: Date },
   sportsLevel: {
     type: String,

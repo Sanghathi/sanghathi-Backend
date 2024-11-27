@@ -8,7 +8,7 @@ import AppError from "./utils/appError.js";
 import globalErrorHandler from "./controllers/errorController.js";
 
 //routes
-import admissionRouter from "./routes/Student/AdmissionRoutes.js";
+import admissionRouter from "./routes/Student/admissionRoutes.js";
 import userRouter from "./routes/userRoutes.js";
 // import conversationRouter from "./routes/conversationRoutes.js";
 import meetingRouter from "./routes/meetingRoutes.js";
@@ -24,6 +24,10 @@ import academicRouter from "./routes/Student/academicCRUD.js";
 import testSummaryRoutes from "./routes/testSummaryRoutes.js";
 // import sendAttendanceNotifications from "./routes/Student/sendEmail.js";
 import ptmRouter from "./routes/Student/PTMRoutes.js";
+import localGuardianRoutes from "./routes/Student/localGuardianRoutes.js";
+import admissionRoutes from "./routes/Student/admissionRoutes.js";
+import contactDetailsRoutes from "./routes/Student/contactDetailsRoutes.js"
+import parentDetailsRoutes from "./routes/Student/parentDetailsRoutes.js";
 const app = express();
 
 //1) GLOBAL MIDDLEWARE
@@ -46,6 +50,7 @@ const limiter = rateLimit({
 app.use("/api", limiter);
 
 //Body parser, reading data from body into req.body
+app.use(express.json()); // Middleware to parse JSON
 app.use(
 	json({
 		limit: "10kb",
@@ -75,6 +80,10 @@ app.use("/api/students/admissions", admissionRouter);
 //Parents Teacher Meeting Records
 app.use("/api/students/ptm", ptmRouter);
 app.use("/api/test-summary", testSummaryRoutes);
+app.use("/api/v1/local-guardians", localGuardianRoutes);
+app.use("/api/v1/admissions", admissionRoutes);
+app.use('/api/v1/contact-details', contactDetailsRoutes);
+app.use('/api/v1/parent-details', parentDetailsRoutes);
 
 // sendAttendanceNotifications();
 /* app.use("/api/academic", academicRouter);

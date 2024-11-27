@@ -1,76 +1,31 @@
-import { Router } from "express";
-const router = Router();
-// import {
-// 	find,
-// 	findById,
-// 	findByIdAndUpdate,
-// 	findByIdAndDelete,
-// } from "../../models/Student/Admissions";
-import Admission from "../../models/Student/Admissions.js";
-import AdmissionSchema from "../../zod/AdmissionValidator.js";
+import express from "express";
+import {
+  createAdmission,
+  getAdmissionById,
+  getAllAdmissions,
+  updateAdmissionById,
+  deleteAdmissionById,
+} from "../../controllers/Student/admissionController.js";
 
-// Create Admission
-router.post("/", async (req, res) => {
-	try {
-		const validationCheck = AdmissionSchema.safeParse(req.body);
-		const admission = new Admission(req.body);
-		const savedAdmission = await admission.save();
-		res.status(201).json(savedAdmission);
-	} catch (error) {
-		res.status(500).json({ error: error.message });
-	}
+const router = express.Router();
+
+router.post('/', async (req, res) => {
+  try {
+    const admission = new Admission(req.body);
+    await admission.save();
+    res.status(201).json({ success: true, data: admission });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
 });
 
-// Read All Admissions
-router.get("/", async (req, res) => {
-	try {
-		const admissions = await Admission.find();
-		res.json(admissions);
-	} catch (error) {
-		res.status(500).json({ error: error.message });
-	}
-});
+router.route("/")
+  .post(createAdmission)       // Create a new admission record
+  .get(getAllAdmissions);      // Get all admissions
 
-// Read Admission by ID
-router.get("/:id", async (req, res) => {
-	try {
-		const admission = await Admission.findById(req.params.id);
-		if (!admission) {
-			return res.status(404).json({ error: "Admission not found" });
-		}
-		res.json(admission);
-	} catch (error) {
-		res.status(500).json({ error: error.message });
-	}
-});
-
-// Update Admission by ID
-router.patch("/:id", async (req, res) => {
-	try {
-		const validationCheck = AdmissionSchema.safeParse(req.body);
-		const admission = await findByIdAndUpdate(req.params.id, req.body, {
-			new: true,
-		});
-		if (!admission) {
-			return res.status(404).json({ error: "Admission not found" });
-		}
-		res.json(admission);
-	} catch (error) {
-		res.status(500).json({ error: error.message });
-	}
-});
-
-// Delete Admission by ID
-router.delete("/:id", async (req, res) => {
-	try {
-		const admission = await Admission.findByIdAndDelete(req.params.id);
-		if (!admission) {
-			return res.status(404).json({ error: "Admission not found" });
-		}
-		res.json({ message: "Admission deleted" });
-	} catch (error) {
-		res.status(500).json({ error: error.message });
-	}
-});
+router.route("/:id")
+  .get(getAdmissionById)       // Get admission by ID
+  .patch(updateAdmissionById)  // Update admission by ID
+  .delete(deleteAdmissionById); // Delete admission by ID
 
 export default router;

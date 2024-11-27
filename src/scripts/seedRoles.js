@@ -6,7 +6,7 @@ async function seedRoles() {
   try {
     // Connect to MongoDB
     await mongoose.connect(
-      "mongodb+srv://dreadwing5:UPw4YunHTB6ISOIi@cluster0.5mb2e.mongodb.net/cmrit-mentor",
+      process.env.MONGODB_URI,
       {
         useNewUrlParser: true,
         useUnifiedTopology: true,

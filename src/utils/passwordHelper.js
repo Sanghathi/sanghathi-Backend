@@ -5,7 +5,6 @@ import { promisify } from "util";
 const pbkdf2Async = promisify(pbkdf2);
 
 export async function encrypt(password) {
-  try{
   const key = await pbkdf2Async(
     password,
     process.env.PASSWORD_SALT,
@@ -15,10 +14,6 @@ export async function encrypt(password) {
   );
 
   return Promise.resolve(key.toString("hex"));
-}catch (error) {
-  console.error("Error in encrypting password:", error);
-  throw error;
-}
 }
 
 export async function compare(password, hash) {

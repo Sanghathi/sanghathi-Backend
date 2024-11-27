@@ -1,36 +1,27 @@
-// Import necessary modules and configurations
-import "./config.js"; // Load configurations (e.g., environment variables)
-import connectDB from "./utils/db.js"; // Database connection utility
-import app from "./index.js"; // Express app instance
-import logger from "./utils/logger.js"; // Logger utility
-import SocketManager from "./utils/socketManager.js"; // Socket manager utility
-import socketController from "./controllers/socketController.js"; // Socket event handler
-import morganMiddleware from "./utils/morganMiddleware.js"; // HTTP request logger
-import dotenv from 'dotenv'; // Environment variable management
-import Role from "./models/Role.js"; // Role model (if needed)
+import "./config.js";
+import connectDB from "./utils/db.js";
+import app from "./index.js";
+import logger from "./utils/logger.js";
+import SocketManager from "./utils/socketManager.js";
+import socketController from "./controllers/socketController.js";
+import morganMiddleware from "./utils/morganMiddleware.js";
 
-// Load environment variables
-dotenv.config();
+import Role from "./models/Role.js";
 
-// Use the morgan middleware for logging HTTP requests
 app.use(morganMiddleware);
 
-// Connect to the database
-connectDB();
-
-// Set up global error handling for uncaught exceptions
 process.on("uncaughtException", (err) => {
   logger.error("UNCAUGHT EXCEPTION! 💥 Shutting down...", {
     error: err.message,
     stack: err.stack,
   });
-  process.exit(1); // Exit the process with an error
+  process.exit(1);
 });
 
-// Define the port to run the server on
+connectDB();
+
 const port = process.env.PORT || 8000;
 
-// Start the server and log successful launch
 const server = app.listen(port, () => {
   logger.info(`${process.env.NODE_ENV} Build 🔥`, {
     environment: process.env.NODE_ENV,
@@ -38,44 +29,23 @@ const server = app.listen(port, () => {
   logger.info(`App running on port ${port}...`, { port });
 });
 
-// Set up Socket.IO server with CORS options
 const io = SocketManager.createServer(server, {
   cors: {
-    origin: process.env.CLIENT_HOST, // Allow connections from the client
-    methods: ["GET", "POST"], // Allowed methods
+    origin: process.env.CLIENT_HOST,
+    methods: ["GET", "POST"],
   },
 });
 
-// Handle Socket.IO connections and events
 io.on("connection", (socket) => {
-  logger.info(`New socket connection: ${socket.id}`);
-  socketController.handleEvents(socket); // Handle socket events
+  socketController.handleEvents(socket);
 });
 
-// Set up global error handling for unhandled promise rejections
 process.on("unhandledRejection", (err) => {
   logger.error("UNHANDLED REJECTION! 💥 Shutting down...", {
     error: err.name,
     message: err.message,
   });
   server.close(() => {
-    process.exit(1); // Exit after closing the server
-  });
-});
-
-// Graceful shutdown on process termination (SIGINT, SIGTERM)
-process.on('SIGINT', () => {
-  logger.info("SIGINT signal received: closing HTTP server");
-  server.close(() => {
-    logger.info("HTTP server closed");
-    process.exit(0); // Exit the process gracefully
-  });
-});
-
-process.on('SIGTERM', () => {
-  logger.info("SIGTERM signal received: closing HTTP server");
-  server.close(() => {
-    logger.info("HTTP server closed");
-    process.exit(0); // Exit the process gracefully
+    process.exit(1);
   });
 });

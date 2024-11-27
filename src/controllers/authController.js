@@ -21,10 +21,6 @@ const cookieOptions = {
 
 if (process.env.NODE_ENV === "production") cookieOptions.secure = true;
 
-// Default user credentials for testing
-const DEFAULT_EMAIL = "demo@example.com"; 
-const DEFAULT_PASSWORD = "test123"; 
-
 export const signup = catchAsync(async (req, res, next) => {
   const { name, email, password, passwordConfirm, role: roleName } = req.body;
 
@@ -43,8 +39,7 @@ export const signup = catchAsync(async (req, res, next) => {
     email,
     password,
     passwordConfirm,
-    role: role ? role._id : undefined,
-    roleName,
+    role: role ? role._id : undefined, // Assign the role _id if available, otherwise set it as undefined
   });
 
   const token = signToken(newUser._id);
@@ -66,31 +61,13 @@ export const login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
   // 1) Check if email and password exist
+
   if (!email || !password) {
     return next(new AppError("Please provide email and password", 400));
   }
 
-  // 2) Check if the provided email and password match the default user
-  if (email === DEFAULT_EMAIL && password === DEFAULT_PASSWORD) {
-    const user = {
-      _id: "default_user_id", // Replace with a valid default user ID if necessary
-      email: DEFAULT_EMAIL,
-      // Add other properties if necessary
-    };
+  // 2) Check if email and password are correct
 
-    // Generate JWT for the default user
-    const token = signToken(user._id); // Signing token using user ID
-
-    return res.status(200).json({
-      status: "success",
-      token,
-      data: {
-        user,
-      },
-    });
-  }
-
-  // 3) Normal user authentication
   const user = await User.findOne({ email }).select("+password");
 
   if (!user || !(await user.checkPassword(password, user.password))) {
@@ -98,10 +75,10 @@ export const login = catchAsync(async (req, res, next) => {
     return next(new AppError("Incorrect email or password", 401));
   }
 
-  // 4) Generate JWT and send it back to the client
+  // 3) Generate JWT and send it back to the client
   const token = signToken(user._id);
 
-  // Remove the password from the response
+  //Remove the password from the response
   user.password = undefined;
   res.status(200).json({
     status: "success",
@@ -113,7 +90,7 @@ export const login = catchAsync(async (req, res, next) => {
 });
 
 export const protect = catchAsync(async (req, res, next) => {
-  // 1) Getting token and check if it's there
+  // 1) Getting token and check if it;s there
   let token;
   if (
     req.headers.authorization &&
@@ -139,6 +116,7 @@ export const protect = catchAsync(async (req, res, next) => {
   }
 
   // 4) Check if user changed password after the token was issued
+
   if (currentUser.changedPasswordAfter(decoded.iat)) {
     return next(
       new AppError("User recently changed password! Please log in again", 401)
@@ -152,29 +130,35 @@ export const protect = catchAsync(async (req, res, next) => {
 
 export function restrictTo(...roles) {
   return (req, res, next) => {
-    // roles ['admin', 'lead-guide'], req.user.role = 'user' => no access
-    // 403 = Forbidden
+    // roles ['admin', 'lead-guide'] , req.user.role = 'user'  => no access
+
+    //403 = Forbidden
     if (!roles.includes(req.user.role)) {
       return next(
         new AppError("You do not have permission to perform this action", 403)
       );
     }
+
     next();
   };
 }
 
 export const forgotPassword = catchAsync(async (req, res, next) => {
-  // 1) Get user based on POSTed email
+  // 1 ) Get user based on POSTed email
+
   const user = await User.findOne({ email: req.body.email });
 
   if (!user) {
     return next(new AppError("There is no user with that email address.", 404));
   }
-  // 2) Generate the random reset token
+  // 2 ) Generate the random reset token
+
   const resetToken = user.createPasswordResetToken();
+
   await user.save({ validateBeforeSave: false });
 
-  // 3) Send it to user's email
+  // 3 ) Send it to user's email
+
   const resetURL = `${req.protocol}://${req.get(
     "host"
   )}/api/v1/users/resetPassword/${resetToken}`;
@@ -203,10 +187,7 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
     );
   }
 });
-
-export function resetPassword(req, res, next) {
-  // Implement the reset password logic here
-}
+export function resetPassword(req, res, next) {}
 
 export function logout(req, res, next) {
   req.logout();

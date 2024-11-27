@@ -49,8 +49,8 @@ export function getUser(req, res) {
 }
 
 export async function createUser(req, res, next) {
-  const { name, email, phone, avatar, role, roleName, password, passwordConfirm } = req.body;
-  console.log("Received user data in backend:", req.body);
+  const { name, email, phone, avatar, role, password, passwordConfirm } =
+    req.body;
   try {
     const newUser = await User.create({
       name,
@@ -58,7 +58,6 @@ export async function createUser(req, res, next) {
       phone,
       avatar,
       role,
-      roleName,
       password,
       passwordConfirm,
     });
@@ -71,7 +70,10 @@ export async function createUser(req, res, next) {
       },
     });
   } catch (err) {
-    logger.error("Error creating user", { error: err.message });
+    logger.error("Error creating user", {
+      error: err.message,
+      stack: err.stack,
+    });
     return next(new AppError(err, 500));
   }
 }
