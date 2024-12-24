@@ -1,24 +1,23 @@
 import { Router } from "express";
 import {
-  getAllStudents,
-  createStudentProfile,
+  createOrUpdateStudentProfile,
   getStudentProfileById,
+  getAllStudents,
+  deleteStudentProfileById,
 } from "../../controllers/Student/studentController.js";
 
 const router = Router();
 
-// POST /api/v1/students
+// Get all students
 router.get("/", getAllStudents);
 
-router.post("/profile", createStudentProfile);
+// Create or update student profile
+router.post("/profile", createOrUpdateStudentProfile);
 
-// GET /api/v1/students/:id
+// Get a student profile by ID
 router.get("/profile/:id", getStudentProfileById);
 
-// PATCH /api/v1/students/:id
-// router.patch("/:id", studentController.updateStudentProfileById);
-
-// DELETE /api/v1/students/:id
-// router.delete("/:id", studentController.deleteStudentProfileById);
+// Delete a student profile by ID
+router.delete("/profile/:id", deleteStudentProfileById);
 
 export default router;

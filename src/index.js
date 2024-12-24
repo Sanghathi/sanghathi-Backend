@@ -8,7 +8,7 @@ import AppError from "./utils/appError.js";
 import globalErrorHandler from "./controllers/errorController.js";
 
 //routes
-import admissionRouter from "./routes/Student/admissionRoutes.js";
+import admissionRouter from "./routes/Student/AdmissionRoutes.js";
 import userRouter from "./routes/userRoutes.js";
 // import conversationRouter from "./routes/conversationRoutes.js";
 import meetingRouter from "./routes/meetingRoutes.js";
@@ -25,9 +25,11 @@ import testSummaryRoutes from "./routes/testSummaryRoutes.js";
 // import sendAttendanceNotifications from "./routes/Student/sendEmail.js";
 import ptmRouter from "./routes/Student/PTMRoutes.js";
 import localGuardianRoutes from "./routes/Student/localGuardianRoutes.js";
-import admissionRoutes from "./routes/Student/admissionRoutes.js";
+import admissionRoutes from "./routes/Student/AdmissionRoutes.js";
 import contactDetailsRoutes from "./routes/Student/contactDetailsRoutes.js"
 import parentDetailsRoutes from "./routes/Student/parentDetailsRoutes.js";
+import ActivityRoutes from "./routes/CareerReview/ActivityRoutes.js"
+import CareerCounsellingRoutes from "./routes/CareerReview/CareerCounsellingRoutes.js";
 const app = express();
 
 //1) GLOBAL MIDDLEWARE
@@ -85,10 +87,13 @@ app.use("/api/v1/admissions", admissionRoutes);
 app.use('/api/v1/contact-details', contactDetailsRoutes);
 app.use('/api/v1/parent-details', parentDetailsRoutes);
 
-// sendAttendanceNotifications();
-/* app.use("/api/academic", academicRouter);
+//CareerReview
+app.use("/api/activities", ActivityRoutes);
+app.use("/api/career-counselling", CareerCounsellingRoutes);
 
-*/
+// sendAttendanceNotifications();	
+app.use("/api/academic", academicRouter);
+
 
 //Handle non-existing routes
 app.all("*", (req, res, next) => {
@@ -97,5 +102,6 @@ app.all("*", (req, res, next) => {
 
 //Error handling middleware
 app.use(globalErrorHandler);
+
 
 export default app;

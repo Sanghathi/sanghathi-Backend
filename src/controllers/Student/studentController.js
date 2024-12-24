@@ -1,16 +1,14 @@
 import StudentProfile from "../../models/Student/Profile.js";
-
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 import User from "../../models/User.js";
 
-export const createStudentProfile = catchAsync(async (req, res, next) => {
-  // create a new student personal data document
+// Create or Update Student Profile
+export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) => {
   const {
     userId,
     fullName,
     department,
-    nameOnMarksheet,
     personalEmail,
     email,
     usn,
@@ -30,53 +28,51 @@ export const createStudentProfile = catchAsync(async (req, res, next) => {
     admissionDate,
     sportsLevel,
     defenceOrExServiceman,
-    isForeigner,
     photo,
   } = req.body;
 
-  const studentProfile = new StudentProfile({
-    userId,
-    fullName,
-    department,
-    nameOnMarksheet,
-    personalEmail,
-    email,
-    usn,
-    dateOfBirth,
-    bloodGroup,
-    mobileNumber,
-    alternatePhoneNumber,
-    nationality,
-    domicile,
-    religion,
-    category,
-    caste,
-    hostelite,
-    subCaste,
-    aadharCardNumber,
-    physicallyChallenged,
-    admissionDate,
-    sportsLevel,
-    defenceOrExServiceman,
-    isForeigner,
-    photo,
-  });
+  try {
+    const updatedProfile = await StudentProfile.findOneAndUpdate(
+      { userId },
+      {
+        fullName,
+        department,
+        personalEmail,
+        email,
+        usn,
+        dateOfBirth,
+        bloodGroup,
+        mobileNumber,
+        alternatePhoneNumber,
+        nationality,
+        domicile,
+        religion,
+        category,
+        caste,
+        hostelite,
+        subCaste,
+        aadharCardNumber,
+        physicallyChallenged,
+        admissionDate,
+        sportsLevel,
+        defenceOrExServiceman,
+        photo,
+      },
+      { new: true, upsert: true } 
+    );
 
-  // save the student personal data document to the database
-  const savedProfile = await studentProfile.save().catch((err) => {
+    res.status(200).json({
+      status: "success",
+      data: {
+        studentProfile: updatedProfile,
+      },
+    });
+  } catch (err) {
     next(new AppError(err.message, 400));
-  });
-
-  if (!savedProfile) return;
-
-  res.status(201).json({
-    status: "success",
-    data: {
-      studentProfile: savedProfile,
-    },
-  });
+  }
 });
 
+// Get a Student Profile by User ID
 export const getStudentProfileById = catchAsync(async (req, res, next) => {
   const { id } = req.params;
 
@@ -94,6 +90,7 @@ export const getStudentProfileById = catchAsync(async (req, res, next) => {
   });
 });
 
+// Get All Students
 export const getAllStudents = catchAsync(async (req, res, next) => {
   const students = await User.aggregate([
     {
@@ -147,5 +144,21 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     data: students,
+  });
+});
+
+// Delete a Student Profile
+export const deleteStudentProfileById = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+
+  const deletedProfile = await StudentProfile.findOneAndDelete({ userId: id });
+
+  if (!deletedProfile) {
+    return next(new AppError("Student profile not found for deletion", 404));
+  }
+
+  res.status(204).json({
+    status: "success",
+    data: null,
   });
 });
