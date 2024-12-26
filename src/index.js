@@ -30,6 +30,7 @@ import contactDetailsRoutes from "./routes/Student/contactDetailsRoutes.js"
 import parentDetailsRoutes from "./routes/Student/parentDetailsRoutes.js";
 import ActivityRoutes from "./routes/CareerReview/ActivityRoutes.js"
 import CareerCounsellingRoutes from "./routes/CareerReview/CareerCounsellingRoutes.js";
+import ProffessionalBodyRoutes from "./routes/CareerReview/ProffessionalBodyRoutes.js";
 const app = express();
 
 //1) GLOBAL MIDDLEWARE
@@ -90,6 +91,7 @@ app.use('/api/v1/parent-details', parentDetailsRoutes);
 //CareerReview
 app.use("/api/activities", ActivityRoutes);
 app.use("/api/career-counselling", CareerCounsellingRoutes);
+app.use("/api/proffessional-body", ProffessionalBodyRoutes);
 
 // sendAttendanceNotifications();	
 app.use("/api/academic", academicRouter);
