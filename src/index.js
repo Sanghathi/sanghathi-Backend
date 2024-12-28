@@ -28,9 +28,12 @@ import localGuardianRoutes from "./routes/Student/localGuardianRoutes.js";
 import admissionRoutes from "./routes/Student/AdmissionRoutes.js";
 import contactDetailsRoutes from "./routes/Student/contactDetailsRoutes.js"
 import parentDetailsRoutes from "./routes/Student/parentDetailsRoutes.js";
-import ActivityRoutes from "./routes/CareerReview/ActivityRoutes.js"
 import CareerCounsellingRoutes from "./routes/CareerReview/CareerCounsellingRoutes.js";
 import ProffessionalBodyRoutes from "./routes/CareerReview/ProffessionalBodyRoutes.js";
+import MoocRoutes from "./routes/CareerReview/MoocRoutes.js";
+import MiniProjectRoutes from "./routes/CareerReview/MiniProjectRoutes.js";
+import ActivityRoutes from "./routes/CareerReview/ActivityRoutes.js";
+import HobbiesRoutes from "./routes/CareerReview/HobbiesRoutes.js";
 const app = express();
 
 //1) GLOBAL MIDDLEWARE
@@ -78,7 +81,6 @@ app.use("/api/threads", threadRouter);
 app.use("/api/students", studentRouter);
 app.use("/api/students/attendance", attendanceRouter);
 app.use("/api/students/academic", academicRouter);
-app.use("/api/students/academic", academicRouter);
 app.use("/api/students/admissions", admissionRouter);
 //Parents Teacher Meeting Records
 app.use("/api/students/ptm", ptmRouter);
@@ -89,9 +91,12 @@ app.use('/api/v1/contact-details', contactDetailsRoutes);
 app.use('/api/v1/parent-details', parentDetailsRoutes);
 
 //CareerReview
-app.use("/api/activities", ActivityRoutes);
 app.use("/api/career-counselling", CareerCounsellingRoutes);
 app.use("/api/proffessional-body", ProffessionalBodyRoutes);
+app.use("/api/mooc-data", MoocRoutes);
+app.use("/api/project", MiniProjectRoutes);
+app.use("/api/activity-data", ActivityRoutes);
+app.use("/api/hobbies-data", HobbiesRoutes);
 
 // sendAttendanceNotifications();	
 app.use("/api/academic", academicRouter);
