@@ -1,5 +1,5 @@
 import express from "express";
-import { ParentDetails } from "../../models/Student/ParentDetails.js"; 
+import { ParentDetails } from "../../models/Student/ParentDetails.js"; // Ensure correct path to the model
 
 const router = express.Router();
 

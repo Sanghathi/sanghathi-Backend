@@ -58,5 +58,17 @@
     "passwordConfirm": "password",
     "department": "Electronics",
     "usn": "EC105"
+  },
+  {
+    "firstName": "Kumar",
+    "middleName": "",
+    "lastName": "Mishra",
+    "email": "kumar@example.com",
+    "role": "student",
+    "phone": "1234567894",
+    "password": "password",
+    "passwordConfirm": "password",
+    "department": "Computer Science",
+    "usn": "1CR23IS106"
   }
 ]

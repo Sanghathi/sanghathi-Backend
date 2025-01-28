@@ -25,10 +25,17 @@ router.post("/login", login);
 router.post("/forgotPassword", forgotPassword);
 router.patch("/resetPassword/:token", resetPassword);
 router.get("/logout", logout);
+// router
+//   .route("/")
+//   .get(getAllUsers)
+//   .post(protect, authorizePermissions("create:users"), createUser);
+
+
 router
   .route("/")
   .get(getAllUsers)
-  .post(protect, authorizePermissions("create:users"), createUser);
+  .post(createUser); // No middleware
+
 
 router
   .route("/:id")
