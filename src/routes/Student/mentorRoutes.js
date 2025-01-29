@@ -8,16 +8,12 @@ const router = Router();
 // API route for creating a new mentorship
 router.post("/", async (req, res, next) => {
   try {
-    // Get mentor and mentee IDs from request body
     const { mentorId, menteeId, startDate } = req.body;
 
-    // Find mentor and mentee by their IDs, and populate the 'role' field
+    // Find mentor and mentee
     const mentor = await User.findById(mentorId).populate("role");
     const mentee = await User.findById(menteeId).populate("role");
 
-    console.log(mentee, mentor);
-
-    // Check if mentor and mentee exist and have the correct role
     if (!mentor || !mentor.role || mentor.role.name !== "faculty") {
       return res.status(400).json({ message: "Invalid mentor ID" });
     }
@@ -26,18 +22,32 @@ router.post("/", async (req, res, next) => {
       return res.status(400).json({ message: "Invalid mentee ID" });
     }
 
-    // Create new mentorship with mentor and mentee IDs and current date as start date
-    const mentorship = new Mentorship({
-      mentorId,
-      menteeId,
-      startDate,
+    // Check if mentee already has a mentor
+    const existingMentorship = await Mentorship.findOne({ menteeId });
+    if (existingMentorship) {
+      // Update existing mentorship
+      existingMentorship.mentorId = mentorId;
+      existingMentorship.startDate = startDate;
+      await existingMentorship.save();
+    } else {
+      // Create new mentorship
+      const mentorship = new Mentorship({
+        mentorId,
+        menteeId,
+        startDate,
+      });
+      await mentorship.save();
+    }
+
+    // Return the updated mentor information
+    return res.status(201).json({ 
+      message: "Mentorship created successfully",
+      mentor: {
+        _id: mentor._id,
+        name: mentor.name
+      }
     });
-    // Save mentorship to database
-    await mentorship.save();
-    // Return success response
-    return res.status(201).json({ message: "Mentorship created successfully" });
   } catch (error) {
-    // Handle errors
     console.error(error);
     return res.status(500).json({ message: "Server error" });
   }

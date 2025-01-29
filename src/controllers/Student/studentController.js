@@ -86,11 +86,66 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
     return next(new AppError("Student role not found", 404));
   }
 
-  // Find all users with the role of 'student'
-  const students = await User.find({ role: studentRole._id })
-    .skip((page - 1) * parseInt(limit))
-    .limit(parseInt(limit))
-    .select("name email phone avatar status role");
+  // Use aggregation pipeline to get students with mentor information
+  const students = await User.aggregate([
+    {
+      $match: { role: studentRole._id }
+    },
+    {
+      $lookup: {
+        from: "mentorships",
+        localField: "_id",
+        foreignField: "menteeId",
+        as: "mentorship"
+      }
+    },
+    {
+      $unwind: {
+        path: "$mentorship",
+        preserveNullAndEmptyArrays: true
+      }
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "mentorship.mentorId",
+        foreignField: "_id",
+        as: "mentorInfo"
+      }
+    },
+    {
+      $unwind: {
+        path: "$mentorInfo",
+        preserveNullAndEmptyArrays: true
+      }
+    },
+    {
+      $project: {
+        name: 1,
+        email: 1,
+        phone: 1,
+        avatar: 1,
+        status: 1,
+        role: 1,
+        mentor: {
+          $cond: {
+            if: "$mentorInfo",
+            then: {
+              _id: "$mentorInfo._id",
+              name: "$mentorInfo.name"
+            },
+            else: null
+          }
+        }
+      }
+    },
+    {
+      $skip: (parseInt(page) - 1) * parseInt(limit)
+    },
+    {
+      $limit: parseInt(limit)
+    }
+  ]);
 
   // Count total students
   const totalStudents = await User.countDocuments({ role: studentRole._id });
@@ -120,82 +175,6 @@ export const getStudentProfileById = catchAsync(async (req, res, next) => {
     data: {
       studentProfile,
     },
-  });
-});
-
-/**
- * Create a new student.
- */
-// Updated createStudentProfile method
-
-export const createStudentProfile = catchAsync(async (req, res, next) => {
-  const { name, email, phone, password, passwordConfirm } = req.body;
-
-  // Find the "student" role by name to get the ObjectId
-  const studentRole = await Role.findOne({ name: "student" });
-  if (!studentRole) {
-    return next(new AppError("Student role not found", 404));
-  }
-
-  // Find the "mentor" role by name to get the ObjectId
-  const mentorRole = await Role.findOne({ name: "mentor" });
-  if (!mentorRole) {
-    return next(new AppError("Mentor role not found", 404));
-  }
-
-  // Find all mentors
-  const mentors = await User.find({ role: mentorRole._id });
-  if (mentors.length === 0) {
-    return next(new AppError("No mentors available for assignment", 404));
-  }
-
-  // Randomly assign a mentor to the new student
-  const assignedMentor = mentors[Math.floor(Math.random() * mentors.length)];
-
-  // Create a new student
-  const student = await User.create({
-    name,
-    email,
-    phone,
-    password,
-    passwordConfirm,
-    role: studentRole._id, // Pass the ObjectId of the student role
-    mentor: assignedMentor._id, // Assign the mentor's ObjectId
-  });
-
-  res.status(201).json({
-    status: "success",
-    data: {
-      student,
-      assignedMentor: {
-        id: assignedMentor._id,
-        name: assignedMentor.name,
-        email: assignedMentor.email,
-      },
-    },
-  });
-});
-
-
-/**
- * Update a student's details.
- */
-export const updateStudent = catchAsync(async (req, res, next) => {
-  const { id } = req.params;
-
-  // Find and update the student
-  const student = await User.findByIdAndUpdate(id, req.body, {
-    new: true,
-    runValidators: true,
-  });
-
-  if (!student) {
-    return next(new AppError("Student not found", 404));
-  }
-
-  res.status(200).json({
-    status: "success",
-    data: student,
   });
 });
 

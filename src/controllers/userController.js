@@ -54,16 +54,28 @@ export function getUser(req, res) {
 
 // Create a new user
 export async function createUser(req, res, next) {
-  const { name, email, phone, avatar, role, password, passwordConfirm } = req.body;
-
   try {
-    // Create a new user with the provided data
+    console.log("Received Data:", req.body); // Debugging log
+
+    const { name, email, phone, avatar, role, roleName, password, passwordConfirm } = req.body;
+
+    if (!roleName) {
+      return next(new AppError("roleName is required but not provided", 400));
+    }
+
+    const roleDoc = await Role.findById(role);
+    if (!roleDoc) {
+      return next(new AppError("Invalid role ID", 400));
+    }
+
+    // ✅ Check if the User model actually has roleName
     const newUser = await User.create({
       name,
       email,
       phone,
       avatar,
       role,
+      roleName,  // Ensure this is saved in the database
       password,
       passwordConfirm,
     });
@@ -78,18 +90,30 @@ export async function createUser(req, res, next) {
       },
     });
   } catch (err) {
-    // Log error if something goes wrong
-    logger.error("Error creating user", { error: err.message, stack: err.stack });
-    return next(new AppError(err.message || "An error occurred while creating the user", 500));
+    console.error("Error in createUser:", err);
+    next(new AppError(err.message || "Error creating user", 500));
   }
 }
+
 
 // Update user details
 export const updateUser = catchAsync(async (req, res, next) => {
   const { id: userId } = req.params;
+  const { role } = req.body;
 
-  // Update the user and return the new document
-  const updatedUser = await User.findByIdAndUpdate(userId, req.body, {
+  let updateData = { ...req.body };
+
+  // If role is being updated, fetch the new role name
+  if (role) {
+    const roleDoc = await Role.findById(role);
+    if (!roleDoc) {
+      return next(new AppError("Invalid role ID", 400));
+    }
+    updateData.roleName = roleDoc.name; // Update roleName in DB
+  }
+
+  // Update user details
+  const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
     runValidators: true,
     new: true,
   });
