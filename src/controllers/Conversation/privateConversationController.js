@@ -18,13 +18,14 @@ export const getAllConversations = catchAsync(async (req, res, next) => {
 });
 
 export const getAllConversationsOfUser = catchAsync(async (req, res, next) => {
-  const { id: userId } = req.params;
+  const userId = req.user._id;
   const conversations = await PrivateConversation.find({
     participants: { $in: [userId] },
   }).populate({
     path: "participants",
     select: "name avatar",
-  });
+    options: { _id: 1 } // Explicit ID inclusion
+  })
 
   res.status(200).json({
     status: "success",

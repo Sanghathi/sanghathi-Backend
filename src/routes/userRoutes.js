@@ -25,16 +25,11 @@ router.post("/login", login);
 router.post("/forgotPassword", forgotPassword);
 router.patch("/resetPassword/:token", resetPassword);
 router.get("/logout", logout);
-// router
-//   .route("/")
-//   .get(getAllUsers)
-//   .post(protect, authorizePermissions("create:users"), createUser);
-
 
 router
   .route("/")
   .get(getAllUsers)
-  .post(createUser); // No middleware
+  .post(createUser); 
 
 
 router
@@ -42,10 +37,6 @@ router
   .get(getUser)
   .patch(protect, authorizePermissions("update:users"), updateUser)
   .delete(protect, authorizePermissions("delete:users"), deleteUser);
-
-// router
-//   .route("/:id/threads")
-//   .get(protect, authorizePermissions("read:threads"), getAllThreadsOfUser);
 
 router.route("/:id/threads").get(getAllThreadsOfUser);
 

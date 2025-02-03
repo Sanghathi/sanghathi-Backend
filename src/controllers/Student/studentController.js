@@ -5,12 +5,13 @@ import AppError from "../../utils/appError.js";
 import StudentProfile from "../../models/Student/Profile.js";
 
 
-
 export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) => {
+
   const {
     userId,
     fullName,
     department,
+    sem,
     personalEmail,
     email,
     usn,
@@ -33,34 +34,45 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
     photo,
   } = req.body;
 
+  if (!userId) {
+    return next(new AppError("User ID is required", 400));
+  }
+
+  const profileData = {
+    userId,
+    fullName: {
+      firstName: fullName?.firstName,
+      lastName: fullName?.lastName,
+    },
+    department,
+    sem,
+    personalEmail,
+    email,
+    usn,
+    dateOfBirth,
+    bloodGroup,
+    mobileNumber,
+    alternatePhoneNumber,
+    nationality,
+    domicile,
+    religion,
+    category,
+    caste,
+    hostelite,
+    subCaste,
+    aadharCardNumber,
+    physicallyChallenged,
+    admissionDate,
+    sportsLevel,
+    defenceOrExServiceman,
+    photo,
+  };
+
   try {
     const updatedProfile = await StudentProfile.findOneAndUpdate(
-      { userId },
-      {
-        fullName,
-        department,
-        personalEmail,
-        email,
-        usn,
-        dateOfBirth,
-        bloodGroup,
-        mobileNumber,
-        alternatePhoneNumber,
-        nationality,
-        domicile,
-        religion,
-        category,
-        caste,
-        hostelite,
-        subCaste,
-        aadharCardNumber,
-        physicallyChallenged,
-        admissionDate,
-        sportsLevel,
-        defenceOrExServiceman,
-        photo,
-      },
-      { new: true, upsert: true } 
+      { userId }, 
+      { $set: profileData },
+      { upsert: true, new: true }
     );
 
     res.status(200).json({
@@ -74,11 +86,12 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
   }
 });
 
+
 /**
  * Fetch all students based on the role with pagination.
  */
 export const getAllStudents = catchAsync(async (req, res, next) => {
-  const { page = 1, limit = 10 } = req.query;
+  let { page = 1, limit = 100 } = req.query;
 
   // Find the role for 'student'
   const studentRole = await Role.findOne({ name: "student" });
@@ -90,6 +103,32 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
   const students = await User.aggregate([
     {
       $match: { role: studentRole._id }
+    },
+    {
+      $project: {
+        _id: 1,
+        name: 1,
+        email: 1,
+        phone: 1,
+        avatar: 1,
+        status: 1,
+        role: 1,
+        profileId: "$profile"
+      }
+    },
+    {
+      $lookup: {
+        from: "studentprofiles",
+        localField: "_id",
+        foreignField: "userId",
+        as: "profileData"
+      }
+    },
+    {
+      $unwind: {
+        path: "$profileData",
+        preserveNullAndEmptyArrays: true
+      }
     },
     {
       $lookup: {
@@ -127,6 +166,11 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
         avatar: 1,
         status: 1,
         role: 1,
+        profile: {
+          usn: "$profileData.usn",
+          department: "$profileData.department",
+          sem: "$profileData.sem"
+        },
         mentor: {
           $cond: {
             if: "$mentorInfo",

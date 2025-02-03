@@ -5,12 +5,12 @@ const { Schema, model } = mongoose;
 const mentorshipSchema = new Schema({
   mentorId: {
     type: Schema.Types.ObjectId,
-    ref: "Users",
+    ref: "User",
     required: true,
   },
   menteeId: {
     type: Schema.Types.ObjectId,
-    ref: "Users",
+    ref: "User",
     required: true,
   },
   startDate: {

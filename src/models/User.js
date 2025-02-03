@@ -1,7 +1,6 @@
 import { randomBytes, createHash } from "crypto";
 import mongoose from "mongoose";
 import { encrypt, compare } from "../utils/passwordHelper.js";
-
 const { model, Schema } = mongoose;
 
 const userSchema = new Schema({
@@ -18,13 +17,20 @@ const userSchema = new Schema({
   phone: {
     type: String,
   },
-  avatar: String,
+  avatar: {
+    type: String,
+  },
   role: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Role",
   },
   roleName: {
     type: String,
+    required: true,
+  },
+  profile: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "StudentProfile",
     required: true,
   },
   lastActivity: {
@@ -45,7 +51,6 @@ const userSchema = new Schema({
     type: String,
     required: [true, "Please confirm your password"],
     validate: {
-      //This only works on CREATE and SAVE!!!
       validator: function (el) {
         return el === this.password;
       },
@@ -58,13 +63,8 @@ const userSchema = new Schema({
 });
 
 userSchema.pre("save", async function (next) {
-  //Only run this function if password was actually modified
   if (!this.isModified("password")) return next();
-  //Hash the password
-
   this.password = await encrypt(this.password);
-
-  //Delete passwordConfirm field
   this.passwordConfirm = undefined; //This is to prevent saving the passwordConfirm to the database
   next();
 });
@@ -84,8 +84,6 @@ userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
     );
     return JWTTimestamp < changedTimestamp;
   }
-
-  //False means not changed
   return false;
 };
 

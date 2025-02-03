@@ -3,45 +3,90 @@ import mongoose from "mongoose";
 const { model, Schema } = mongoose;
 
 const studentProfileSchema = new Schema({
-  fullName: {
-    firstName: { type: String, required: true },
-    middleName: String,
-    lastName: { type: String, required: true },
-  },
   userId: {
     type: Schema.Types.ObjectId,
-    ref: "Users",
-    required: true,
+    ref: "User",
+    required: false,
+  },
+  fullName: {
+    firstName: { 
+      type: String, 
+      required: true 
+    },
+    middleName: {
+      type: String
+    },
+    lastName: { 
+      type: String, 
+      required: true 
+    },
   },
   department: {
     type: String,
     required: true,
   },
-  usn: { type: String, required: true },
-  nameOnMarksheet: { type: String },
-  personalEmail: { type: String },
-  email: { type: String },
-  dateOfBirth: { type: Date },
-  bloodGroup: { type: String },
-  mobileNumber: { type: String },
-  alternatePhoneNumber: String,
-  nationality: { type: String },
-  domicile: String,
-  religion: String,
-  category: String,
-  caste: String,
-  hostelite: String,
-  subCaste: String,
-  aadharCardNumber: {
+  sem: {
+    type: Number,
+    required: true,
+  },
+  usn: { 
     type: String,
+    required: true 
+  },
+  nameOnMarksheet: { 
+    type: String 
+  },
+  personalEmail: { 
+    type: String 
+  },
+  email: { 
+    type: String 
+  },
+  dateOfBirth: { 
+    type: Date
+  },
+  bloodGroup: { 
+    type: String 
+  },
+  mobileNumber: { 
+    type: Number ,
+  },
+  alternatePhoneNumber: {
+    type: Number,
+  },
+  nationality: { 
+    type: String 
+  },
+  domicile: {
+    type: String
+  },
+  religion: {
+    type: String
+  },
+  category: {
+    type: String
+  },
+  caste: {
+    type: String
+  },
+  hostelite: {
+    type: String
+  },
+  subCaste: {
+    type: String
+  },
+  aadharCardNumber: {
+    type: Number,
     minlength: 12,
     maxlength: 12,
   },
   physicallyChallenged: { 
-    type: String, // Change to String to accept "Yes" and "No"
-    enum: ["Yes", "No"], // Optional: enforce specific values
+    type: String, 
+    enum: ["Yes", "No"],
   },
-  admissionDate: { type: Date },
+  admissionDate: { 
+    type: Date 
+  },
   sportsLevel: {
     type: String,
     enum: ["State", "National", "International", "Not Applicable"],
@@ -50,8 +95,12 @@ const studentProfileSchema = new Schema({
     type: String,
     enum: ["Defence", "Ex-Serviceman", "Not Applicable"],
   },
-  isForeigner: { type: Boolean },
-  photo: String,
+  isForeigner: { 
+    type: Boolean 
+  },
+  photo: {
+    type: String
+  },
 });
 
 const StudentProfile = model("StudentProfile", studentProfileSchema);

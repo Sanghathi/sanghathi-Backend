@@ -16,6 +16,16 @@ const PrivateConversationSchema = new Schema({
       ref: "Messages",
     },
   ],
+  body: String,
+  senderId: { 
+    type: Schema.Types.ObjectId, 
+    ref: 'Users',
+    required: true 
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 const PrivateConversation = model(

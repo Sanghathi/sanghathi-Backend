@@ -57,7 +57,7 @@ export async function createUser(req, res, next) {
   try {
     console.log("Received Data:", req.body); // Debugging log
 
-    const { name, email, phone, avatar, role, roleName, password, passwordConfirm } = req.body;
+    const { name, email, phone, avatar, role, roleName, profile, password, passwordConfirm } = req.body;
 
     if (!roleName) {
       return next(new AppError("roleName is required but not provided", 400));
@@ -75,7 +75,8 @@ export async function createUser(req, res, next) {
       phone,
       avatar,
       role,
-      roleName,  // Ensure this is saved in the database
+      roleName,
+      profile,
       password,
       passwordConfirm,
     });
