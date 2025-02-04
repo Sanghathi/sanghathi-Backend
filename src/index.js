@@ -35,7 +35,6 @@ import MiniProjectRoutes from "./routes/CareerReview/MiniProjectRoutes.js";
 import ActivityRoutes from "./routes/CareerReview/ActivityRoutes.js";
 import HobbiesRoutes from "./routes/CareerReview/HobbiesRoutes.js";
 import roleRoutes from './routes/roleRoutes.js';
-import ViewUserRoutes from "./routes/Admin/ViewUserRoutes.js";
 const app = express();
 
 //1) GLOBAL MIDDLEWARE
@@ -100,7 +99,6 @@ app.use("/api/project", MiniProjectRoutes);
 app.use("/api/activity-data", ActivityRoutes);
 app.use("/api/hobbies-data", HobbiesRoutes);
 app.use('/api', roleRoutes);
-app.use('/api/users', ViewUserRoutes);
 
 // sendAttendanceNotifications();
 

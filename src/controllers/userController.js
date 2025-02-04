@@ -2,7 +2,7 @@ import User from "../models/User.js";
 import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 import Role from "../models/Role.js";
-import logger from "../utils/logger.js"; // Ensure you have a logger setup
+import logger from "../utils/logger.js";
 
 // Get all users with optional role filtering
 export const getAllUsers = catchAsync(async (req, res, next) => {
@@ -68,7 +68,6 @@ export async function createUser(req, res, next) {
       return next(new AppError("Invalid role ID", 400));
     }
 
-    // ✅ Check if the User model actually has roleName
     const newUser = await User.create({
       name,
       email,
@@ -86,6 +85,7 @@ export async function createUser(req, res, next) {
 
     res.status(201).json({
       status: "success",
+      _id: newUser._id,
       data: {
         user: newUser,
       },

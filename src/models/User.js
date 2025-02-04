@@ -31,7 +31,7 @@ const userSchema = new Schema({
   profile: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "StudentProfile",
-    required: true,
+    required: false,
   },
   lastActivity: {
     type: Date,
