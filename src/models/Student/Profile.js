@@ -33,9 +33,6 @@ const studentProfileSchema = new Schema({
     type: String,
     required: true 
   },
-  nameOnMarksheet: { 
-    type: String 
-  },
   personalEmail: { 
     type: String 
   },
@@ -70,9 +67,6 @@ const studentProfileSchema = new Schema({
     type: String
   },
   hostelite: {
-    type: String
-  },
-  subCaste: {
     type: String
   },
   aadharCardNumber: {

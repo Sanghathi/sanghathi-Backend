@@ -13,6 +13,7 @@ import userRouter from "./routes/userRoutes.js";
 // import conversationRouter from "./routes/conversationRoutes.js";
 import meetingRouter from "./routes/meetingRoutes.js";
 import studentRouter from "./routes/Student/studentRoutes.js";
+import facultyRouter from "./routes/Faculty/FacultyDetailsRoutes.js";
 import attendanceRouter from "./routes/attendanceRoutes.js";
 import mentorRouter from "./routes/Student/mentorRoutes.js";
 import notificationRouter from "./routes/notificationRoutes.js";
@@ -90,6 +91,9 @@ app.use("/api/v1/local-guardians", localGuardianRoutes);
 app.use("/api/v1/admissions", admissionRoutes);
 app.use('/api/v1/contact-details', contactDetailsRoutes);
 app.use('/api/v1/parent-details', parentDetailsRoutes);
+
+//Faculty
+app.use("/api/faculty", facultyRouter);
 
 //CareerReview
 app.use("/api/career-counselling", CareerCounsellingRoutes);
