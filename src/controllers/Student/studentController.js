@@ -34,9 +34,6 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
     photo,
   } = req.body;
 
-  if (!userId) {
-    return next(new AppError("User ID is required", 400));
-  }
 
   const profileData = {
     userId,

@@ -4,6 +4,11 @@ import { encrypt, compare } from "../utils/passwordHelper.js";
 const { model, Schema } = mongoose;
 
 const userSchema = new Schema({
+  profile: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "StudentProfile",
+    required: false,
+  },
   name: {
     type: String,
     required: [true, "Please tell us your name!"],
@@ -27,11 +32,6 @@ const userSchema = new Schema({
   roleName: {
     type: String,
     required: true,
-  },
-  profile: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "StudentProfile",
-    required: false,
   },
   lastActivity: {
     type: Date,

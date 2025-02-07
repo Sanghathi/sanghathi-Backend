@@ -13,6 +13,7 @@ router.get("/", getAllStudents);
 
 // Create or update student profile
 router.post("/profile", createOrUpdateStudentProfile);
+router.patch("/profile/:id", createOrUpdateStudentProfile);
 
 // Get a student profile by ID
 router.get("/profile/:id", getStudentProfileById);

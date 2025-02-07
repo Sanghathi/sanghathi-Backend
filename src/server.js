@@ -6,8 +6,6 @@ import SocketManager from "./utils/socketManager.js";
 import socketController from "./controllers/socketController.js";
 import morganMiddleware from "./utils/morganMiddleware.js";
 
-import Role from "./models/Role.js";
-
 app.use(morganMiddleware);
 
 process.on("uncaughtException", (err) => {
