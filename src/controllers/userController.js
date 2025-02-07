@@ -98,9 +98,10 @@ export async function createUser(req, res, next) {
 
 
 // Update user details
+// Update user details
 export const updateUser = catchAsync(async (req, res, next) => {
   const { id: userId } = req.params;
-  const { role } = req.body;
+  const { role, profileId } = req.body; // Extract profileId
 
   let updateData = { ...req.body };
 
@@ -111,6 +112,11 @@ export const updateUser = catchAsync(async (req, res, next) => {
       return next(new AppError("Invalid role ID", 400));
     }
     updateData.roleName = roleDoc.name; // Update roleName in DB
+  }
+
+  // Ensure profileId gets updated
+  if (profileId) {
+    updateData.profile = profileId;
   }
 
   // Update user details
@@ -130,6 +136,7 @@ export const updateUser = catchAsync(async (req, res, next) => {
     },
   });
 });
+
 
 // Delete a user
 export const deleteUser = catchAsync(async (req, res, next) => {
