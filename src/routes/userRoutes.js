@@ -35,8 +35,8 @@ router
 router
   .route("/:id")
   .get(getUser)
-  .patch(protect, authorizePermissions("update:users"), updateUser)
-  .delete(protect, authorizePermissions("delete:users"), deleteUser);
+  .patch(updateUser)
+  .delete(deleteUser);
 
 router.route("/:id/threads").get(getAllThreadsOfUser);
 
