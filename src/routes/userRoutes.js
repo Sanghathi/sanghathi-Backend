@@ -5,6 +5,7 @@ import {
   getUser,
   updateUser,
   deleteUser,
+  getUserByUSN,
 } from "../controllers/userController.js";
 import {
   signup,
@@ -26,11 +27,13 @@ router.post("/forgotPassword", forgotPassword);
 router.patch("/resetPassword/:token", resetPassword);
 router.get("/logout", logout);
 
+router.get("/usn/:usn", getUserByUSN);
 router
   .route("/")
   .get(getAllUsers)
   .post(createUser); 
-
+  
+//Get using UserId
 
 router
   .route("/:id")

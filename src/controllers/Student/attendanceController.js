@@ -2,6 +2,7 @@ import axios from "axios";
 import Attendance from "../../models/Student/Attendance.js";
 import ThreadService from "../../services/threadService.js";
 import logger from "../../utils/logger.js";
+import AppError from "../../utils/appError.js";
 
 const threadService = new ThreadService();
 
@@ -22,8 +23,8 @@ const sendAttendanceReport = async (attendanceData) => {
     }
   } catch (error) {
     logger.error("Error creating user", {
-      error: err.message,
-      stack: err.stack,
+      error: error.message,
+      stack: error.stack,
     });
     throw new Error(`Error sending attendance report: ${error}`);
   }
@@ -54,7 +55,7 @@ export const checkMinimumAttendance = async (attendanceData) => {
   if (overallAttendance < MINIMUM_ATTENDANCE_CRITERIA) {
     try {
       // Send attendance report to the API
-      await sendAttendanceReport(attendanceData);
+      //await sendAttendanceReport(attendanceData);
 
       // Get the mentor of the student
       // const mentor = await getMentor(userID);
@@ -79,6 +80,8 @@ export const checkMinimumAttendance = async (attendanceData) => {
 };
 
 export const submitAttendanceData = async (req, res) => {
+  console.log("User ID received:", req.params.userId);
+  console.log("Request body:", req.body);
   try {
     const attendanceData = req.body;
     attendanceData.userId = req.params.userId;
@@ -86,7 +89,26 @@ export const submitAttendanceData = async (req, res) => {
     attendanceData.overallAttendance = await checkMinimumAttendance(
       attendanceData
     );
-    const attendance = await Attendance.create(attendanceData);
+
+    const filter = {
+      userId: attendanceData.userId,
+      semester: attendanceData.semester,
+      month: attendanceData.month,
+    };
+    const update = {
+      $set: {
+        subjects: attendanceData.subjects,
+        overallAttendance: attendanceData.overallAttendance,
+      },
+    };
+    const options = { upsert: true, new: true };
+
+    const attendance = await Attendance.findOneAndUpdate(
+      filter,
+      update,
+      options
+    );
+
     res.status(201).json({
       status: "success",
       data: {
@@ -97,6 +119,23 @@ export const submitAttendanceData = async (req, res) => {
     console.error("Error in submitAttendanceData:", error.message);
     res.status(400).json({ message: error.message });
   }
+};
+
+export const getAttendanceById = async (req, res, next) => {
+  const { id } = req.params;
+
+  const attendance = await Attendance.findOne({ userId: id });
+
+  if (!attendance) {
+    return next(new AppError("Attendance not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      attendance,
+    },
+  });
 };
 
 //This is for testing purposes, we want to quickly delete data
