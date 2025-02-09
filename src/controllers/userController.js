@@ -157,3 +157,17 @@ export const deleteUser = catchAsync(async (req, res, next) => {
     message: "User deleted successfully",
   });
 });
+
+//Get User by USN
+export const getUserByUSN = async (req, res) => {
+  try {
+    const { usn } = req.params;
+    const user = await User.findOne({ usn }).select("_id");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json({ userId: user._id });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
