@@ -16,6 +16,7 @@ import studentRouter from "./routes/Student/studentRoutes.js";
 import facultyRouter from "./routes/Faculty/FacultyDetailsRoutes.js";
 import attendanceRouter from "./routes/attendanceRoutes.js";
 import mentorRouter from "./routes/Student/mentorRoutes.js";
+import mentorRoutes from "./routes/Student/mentorRoutes.js";
 import notificationRouter from "./routes/notificationRoutes.js";
 import campusBuddyRouter from "./routes/CampusBuddy/campusBuddy.js";
 import privateConversationRouter from "./routes/Conversation/privateConversationRoutes.js";
@@ -27,7 +28,7 @@ import testSummaryRoutes from "./routes/testSummaryRoutes.js";
 import ptmRouter from "./routes/Student/PTMRoutes.js";
 import localGuardianRoutes from "./routes/Student/localGuardianRoutes.js";
 import admissionRoutes from "./routes/Student/AdmissionRoutes.js";
-import contactDetailsRoutes from "./routes/Student/contactDetailsRoutes.js"
+import contactDetailsRoutes from "./routes/Student/contactDetailsRoutes.js";
 import parentDetailsRoutes from "./routes/Student/parentDetailsRoutes.js";
 import CareerCounsellingRoutes from "./routes/CareerReview/CareerCounsellingRoutes.js";
 import ProffessionalBodyRoutes from "./routes/CareerReview/ProffessionalBodyRoutes.js";
@@ -35,7 +36,7 @@ import MoocRoutes from "./routes/CareerReview/MoocRoutes.js";
 import MiniProjectRoutes from "./routes/CareerReview/MiniProjectRoutes.js";
 import ActivityRoutes from "./routes/CareerReview/ActivityRoutes.js";
 import HobbiesRoutes from "./routes/CareerReview/HobbiesRoutes.js";
-import roleRoutes from './routes/roleRoutes.js';
+import roleRoutes from "./routes/roleRoutes.js";
 const app = express();
 
 //1) GLOBAL MIDDLEWARE
@@ -50,19 +51,19 @@ app.use(helmet());
 app.use(morgan("dev"));
 
 const limiter = rateLimit({
-	max: 100,
-	windowMs: 60 * 60 * 1000,
-	//allow 100 requests per hour per IP
-	message: "Too many requests from this IP, please try again in an hour!",
+  max: 100,
+  windowMs: 60 * 60 * 1000,
+  //allow 100 requests per hour per IP
+  message: "Too many requests from this IP, please try again in an hour!",
 });
 app.use("/api", limiter);
 
 //Body parser, reading data from body into req.body
 app.use(express.json()); // Middleware to parse JSON
 app.use(
-	json({
-		limit: "10kb",
-	})
+  json({
+    limit: "10kb",
+  })
 );
 
 // Data sanitization against NoSQL query injection
@@ -76,6 +77,7 @@ app.use("/api/users", userRouter);
 app.use("/api/messages", messageRouter);
 app.use("/api/meetings", meetingRouter);
 app.use("/api/mentors", mentorRouter);
+app.use("/api/mentorship", mentorRoutes);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/campus-buddy", campusBuddyRouter);
 app.use("/api/private-conversations", privateConversationRouter);
@@ -89,8 +91,8 @@ app.use("/api/students/ptm", ptmRouter);
 app.use("/api/test-summary", testSummaryRoutes);
 app.use("/api/v1/local-guardians", localGuardianRoutes);
 app.use("/api/v1/admissions", admissionRoutes);
-app.use('/api/v1/contact-details', contactDetailsRoutes);
-app.use('/api/v1/parent-details', parentDetailsRoutes);
+app.use("/api/v1/contact-details", contactDetailsRoutes);
+app.use("/api/v1/parent-details", parentDetailsRoutes);
 
 //Faculty
 app.use("/api/faculty", facultyRouter);
@@ -102,17 +104,16 @@ app.use("/api/mooc-data", MoocRoutes);
 app.use("/api/project", MiniProjectRoutes);
 app.use("/api/activity-data", ActivityRoutes);
 app.use("/api/hobbies-data", HobbiesRoutes);
-app.use('/api', roleRoutes);
+app.use("/api", roleRoutes);
 
 // sendAttendanceNotifications();
 
 //Handle non-existing routes
 app.all("*", (req, res, next) => {
-	next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
+  next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 
 //Error handling middleware
 app.use(globalErrorHandler);
-
 
 export default app;
