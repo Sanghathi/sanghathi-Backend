@@ -13,6 +13,7 @@ import userRouter from "./routes/userRoutes.js";
 // import conversationRouter from "./routes/conversationRoutes.js";
 import meetingRouter from "./routes/meetingRoutes.js";
 import studentRouter from "./routes/Student/studentRoutes.js";
+import studentProfileRoutes from "./routes/Student/studentProfileRoutes.js";
 import facultyRouter from "./routes/Faculty/FacultyDetailsRoutes.js";
 import attendanceRouter from "./routes/attendanceRoutes.js";
 import mentorRouter from "./routes/Student/mentorRoutes.js";
@@ -86,6 +87,7 @@ app.use("/api/students", studentRouter);
 app.use("/api/students/attendance", attendanceRouter);
 app.use("/api/students/academic", academicRouter);
 app.use("/api/students/admissions", admissionRouter);
+app.use("/api/student-profiles", studentProfileRoutes); 
 //Parents Teacher Meeting Records
 app.use("/api/students/ptm", ptmRouter);
 app.use("/api/test-summary", testSummaryRoutes);
