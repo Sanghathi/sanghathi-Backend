@@ -8,6 +8,7 @@ const threadService = new ThreadService();
 
 const MINIMUM_ATTENDANCE_CRITERIA = 75;
 const BASE_URL = process.env.PYTHON_API;
+const BACKEND_URL = process.env.BACKEND_HOST;
 
 const sendAttendanceReport = async (attendanceData) => {
   try {
@@ -30,91 +31,115 @@ const sendAttendanceReport = async (attendanceData) => {
   }
 };
 
-export const checkMinimumAttendance = async (attendanceData) => {
-  if (!attendanceData || !attendanceData.subjects) {
-    throw new Error("Invalid attendance data provided");
+export const checkMinimumAttendance = async (userId, semester, month, subjects) => { 
+  if (!subjects) {
+    throw new Error("Subjects array is undefined");
   }
+    const totalClasses = subjects.reduce((acc, subject) => acc + (subject.totalClasses || 0), 0);
+    const attendedClasses = subjects.reduce((acc, subject) => acc + (subject.attendedClasses || 0), 0);
 
-  const { userId, semester, month, subjects } = attendanceData;
+    console.log("Total Classes:", totalClasses, "Attended Classes:", attendedClasses);
 
-  const totalClasses = subjects.reduce(
-    (acc, subject) => acc + (subject.totalClasses || 0),
-    0
-  );
-  const attendedClasses = subjects.reduce(
-    (acc, subject) => acc + (subject.attendedClasses || 0),
-    0
-  );
-
-  if (totalClasses === 0) {
-    throw new Error("Total classes cannot be zero");
-  }
-
-  const overallAttendance = (attendedClasses / totalClasses) * 100;
-
-  if (overallAttendance < MINIMUM_ATTENDANCE_CRITERIA) {
-    try {
-      // Send attendance report to the API
-      //await sendAttendanceReport(attendanceData);
-
-      // Get the mentor of the student
-      // const mentor = await getMentor(userID);
-      const mentor = "644a733c18d4e8d70b7bd5b6"; // Use some hard coded value
-
-      // Create a thread with the student and mentor
-      await threadService.createThread(
-        mentor,
-        [userId, mentor],
-        `Attendance issue for ${month} in semester ${semester}`,
-        "attendance"
-      );
-
-      logger.info("SENDING REPORT");
-    } catch (error) {
-      console.error("Error in checkMinimumAttendance:", error);
-      throw error;
+    if (totalClasses === 0) {
+        return 0;
     }
-  }
 
-  return overallAttendance;
+    const overallAttendance = (attendedClasses / totalClasses) * 100;
+    console.log("Overall Attendance:", overallAttendance);
+
+    if (overallAttendance < MINIMUM_ATTENDANCE_CRITERIA) {
+        try {
+          // Get the mentor of the student
+          const mentordetails = await axios.get(`${BACKEND_URL}/api/mentorship/mentor/${userId}`);
+          console.log("Mentor Details: ",mentordetails);
+          const mentorId=mentordetails.data.mentor._id;
+          console.log("Mentor: ", mentorId);
+            await threadService.createThread(
+                mentorId,
+                [userId, mentorId],
+                `Attendance issue for month ${month} in semester ${semester}`,
+                "attendance"
+            );
+            logger.info("SENDING REPORT");
+        } catch (error) {
+            console.error("Error in checkMinimumAttendance:", error);
+            throw error; 
+        }
+    }
+    return overallAttendance;
 };
 
 export const submitAttendanceData = async (req, res) => {
   console.log("User ID received:", req.params.userId);
   console.log("Request body:", req.body);
   try {
-    const attendanceData = req.body;
-    attendanceData.userId = req.params.userId;
+    const { semester, month, subjects } = req.body;
+    const userId = req.params.userId;
 
-    attendanceData.overallAttendance = await checkMinimumAttendance(
-      attendanceData
-    );
+    if (!semester || !month || !subjects) {
+        return res.status(400).json({ message: "Missing required fields (semester, month, subjects)" });
+    }
 
-    const filter = {
-      userId: attendanceData.userId,
-      semester: attendanceData.semester,
-      month: attendanceData.month,
-    };
-    const update = {
-      $set: {
-        subjects: attendanceData.subjects,
-        overallAttendance: attendanceData.overallAttendance,
-      },
-    };
-    const options = { upsert: true, new: true };
+    let overallAttendance;
+    try {
+      overallAttendance = await checkMinimumAttendance(userId, semester, month, subjects);
+    }
+    catch (error) {
+      console.error("Error in checkMinimumAttendance:", error);
+      return res.status(400).json({ message: "Error checking attendance: " + error.message });
+  }
+    const attendance = await Attendance.findOne({ userId });
 
-    const attendance = await Attendance.findOneAndUpdate(
-      filter,
-      update,
-      options
-    );
+    if (!attendance) {
+      // If no attendance record exists for the user, create a new one
+      const newAttendance = new Attendance({
+        userId,
+        semesters: [{
+          semester,
+          months: [{
+            month,
+            subjects,
+            overallAttendance
+          }]
+        }]
+      });
+      await newAttendance.save();
 
-    res.status(201).json({
+      return res.status(201).json({
+        status: "success",
+        data: { attendance: newAttendance },
+      });
+    }
+
+    // Find the semester
+    let semesterObj = attendance.semesters.find(s => s.semester === semester);
+
+    if (!semesterObj) {
+      // If the semester doesn't exist, create it
+      semesterObj = { semester, months: [] };
+      attendance.semesters.push(semesterObj);
+    }
+
+    // Find the month
+    let monthObj = semesterObj.months.find(m => m.month === month);
+
+    if (!monthObj) {
+      // If the month doesn't exist, create it
+      monthObj = { month, subjects, overallAttendance };
+      semesterObj.months.push(monthObj);
+    } else {
+      // If the month exists, update the subjects and overallAttendance
+      monthObj.subjects = subjects;
+      monthObj.overallAttendance = overallAttendance;
+    }
+
+    await attendance.save();
+
+    res.status(200).json({
       status: "success",
-      data: {
-        attendance,
-      },
+      data: { attendance },
     });
+
   } catch (error) {
     console.error("Error in submitAttendanceData:", error.message);
     res.status(400).json({ message: error.message });
@@ -133,7 +158,7 @@ export const getAttendanceById = async (req, res, next) => {
   res.status(200).json({
     status: "success",
     data: {
-      attendance,
+      attendance, // Return the entire attendance document
     },
   });
 };
