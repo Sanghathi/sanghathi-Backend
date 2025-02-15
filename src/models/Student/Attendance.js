@@ -1,33 +1,26 @@
 import mongoose from "mongoose";
 
-const attendanceSchema = new mongoose.Schema(
-  {
-    userId: {
-      type: mongoose.Schema.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    semester: {
-      type: Number,
-      required: true,
-    },
-    month: {
-      type: String,
-      required: true,
-    },
-
-    subjects: [
-      {
-        subjectCode: String,
-        subjectName: String,
-        attendedClasses: Number,
-        totalClasses: Number,
-      },
-    ],
-    overallAttendance: Number,
-  },
-  { timestamps: true }
-);
+const attendanceSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  semesters: [
+    {
+      semester: { type: Number, required: true },
+      months: [
+        {
+          month: { type: Number, required: true },
+          subjects: [
+            {
+              subjectName: String,
+              attendedClasses: Number,
+              totalClasses: Number,
+            },
+          ],
+          overallAttendance: Number,
+        }
+      ]
+    }
+  ]
+});
 
 const Attendance = mongoose.model("Attendance", attendanceSchema);
 export default Attendance;
