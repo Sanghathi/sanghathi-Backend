@@ -50,6 +50,8 @@
     "openai": "^4.47.1",
     "path": "^0.12.7",
     "socket.io": "^4.5.4",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "validator": "^13.7.0",
     "winston": "^3.8.2",
     "winston-daily-rotate-file": "^5.0.0",
@@ -72,6 +74,7 @@
     "eslint-plugin-react": "^7.24.0",
     "nodemon": "^2.0.7",
     "prettier": "^2.3.2",
-    "typescript": "^5.0.4"
+    "typescript": "^5.0.4",
+    "vite": "^6.1.0"
   }
 }
