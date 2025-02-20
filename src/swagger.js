@@ -1,6 +1,6 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
-
+const BASE_URL = process.env.BACKEND_HOST;
 const options = {
   definition: {
     openapi: '3.0.0',
@@ -11,7 +11,7 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:8000', // Update with your backend server URL
+        url: `${BASE_URL}`,
       },
     ],
   },
