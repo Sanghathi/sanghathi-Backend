@@ -39,6 +39,9 @@ import MiniProjectRoutes from "./routes/CareerReview/MiniProjectRoutes.js";
 import ActivityRoutes from "./routes/CareerReview/ActivityRoutes.js";
 import HobbiesRoutes from "./routes/CareerReview/HobbiesRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
+import swaggerDocs from "./swagger.js"; 
+
+
 const app = express();
 
 //1) GLOBAL MIDDLEWARE
@@ -47,6 +50,9 @@ app.use(cors());
 //Set security HTTP headers
 
 app.use(helmet());
+
+// API Documenatation Swagger
+swaggerDocs(app); 
 
 //Development logging
 
