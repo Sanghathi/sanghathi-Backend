@@ -45,7 +45,6 @@ import swaggerDocs from "./swagger.js";
 const app = express();
 
 //1) GLOBAL MIDDLEWARE
-const cors = require("cors");
 
 app.use(cors({
     origin: "https://emithru.netlify.app",
