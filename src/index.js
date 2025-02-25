@@ -47,9 +47,10 @@ const app = express();
 //1) GLOBAL MIDDLEWARE
 
 app.use(cors({
-    origin: "https://emithru.netlify.app",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true // If you are handling cookies or authentication
+    origin: "*",  // Allow requests from any origin
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true  // Allow cookies and authentication headers
 }));
 
 //Set security HTTP headers
