@@ -46,12 +46,7 @@ const app = express();
 
 //1) GLOBAL MIDDLEWARE
 
-app.use(cors({
-    origin: "*",  // Allow requests from any origin
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true  // Allow cookies and authentication headers
-}));
+app.use(cors());
 
 //Set security HTTP headers
 
