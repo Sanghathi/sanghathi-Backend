@@ -41,13 +41,21 @@ import HobbiesRoutes from "./routes/CareerReview/HobbiesRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
 import swaggerDocs from "./swagger.js"; 
 
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename)
 
 const app = express();
+
+
 
 //1) GLOBAL MIDDLEWARE
 
 app.use(cors());
 
+app.use('/src/images', express.static(path.join('src', 'images')));
 //Set security HTTP headers
 
 app.use(helmet());
