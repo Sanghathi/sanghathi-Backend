@@ -10,6 +10,7 @@
   "description": "A mentor platform for students",
   "scripts": {
     "start:ts": "tsc -w",
+    "start": "NODE_ENV=production node src/server.js",
     "dev": "cross-env NODE_ENV=development nodemon src/server.js",
     "start:prod": "NODE_ENV=production node src/server.js",
     "start-all": "concurrently \"cd ../cmrit-mentoring-tool-frontend && yarn run dev\" \"yarn run dev\" \"cd ../cmrit-mentoring-python-api && uvicorn main:app --port 8080 --reload\"",
@@ -28,8 +29,9 @@
   "homepage": "https://github.com/dreadwing5/Tourify#readme",
   "dependencies": {
     "@langchain/community": "^0.3.27",
-    "@langchain/core": "^0.2.2",
-    "@langchain/openai": "^0.0.34",
+    "@langchain/core": "^0.3.43",
+    "@langchain/mistralai": "^0.2.0",
+    "@langchain/openai": "^0.5.0",
     "@supabase/supabase-js": "^2.21.0",
     "axios": "^1.7.2",
     "cors": "^2.8.5",
@@ -60,6 +62,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@flydotio/dockerfile": "^0.7.8",
     "@types/express": "^4.17.17",
     "@types/morgan": "^1.9.4",
     "@types/node": "^18.16.3",

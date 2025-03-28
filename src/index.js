@@ -49,39 +49,22 @@ const __dirname = path.dirname(__filename)
 
 const app = express();
 
-
-
 //1) GLOBAL MIDDLEWARE
-
 app.use(cors());
-
 app.use('/src/images', express.static(path.join('src', 'images')));
-//Set security HTTP headers
-
 app.use(helmet());
-
-// API Documenatation Swagger
-swaggerDocs(app); 
-
-//Development logging
-
 app.use(morgan("dev"));
 
 const limiter = rateLimit({
   max: 100,
   windowMs: 60 * 60 * 1000,
-  //allow 100 requests per hour per IP
   message: "Too many requests from this IP, please try again in an hour!",
 });
 app.use("/api", limiter);
 
 //Body parser, reading data from body into req.body
-app.use(express.json()); // Middleware to parse JSON
-app.use(
-  json({
-    limit: "10kb",
-  })
-);
+app.use(express.json());
+app.use(json({ limit: "10kb" }));
 
 // Data sanitization against NoSQL query injection
 app.use(mongoSanitize());
@@ -90,7 +73,8 @@ app.use(mongoSanitize());
 // Data sanitization against XSS
 // app.use(xss());
 
-app.use("/api/users", userRouter);
+// Mount routes
+app.use("/api/users", userRouter);  // Mount user routes first
 app.use("/api/messages", messageRouter);
 app.use("/api/meetings", meetingRouter);
 app.use("/api/mentors", mentorRouter);
@@ -104,19 +88,14 @@ app.use("/api/students/attendance", attendanceRouter);
 app.use("/api/students/Iat", IatMarksRouter);
 app.use("/api/students/academic", academicRouter);
 app.use("/api/students/admissions", admissionRouter);
-app.use("/api/student-profiles", studentProfileRoutes); 
-//Parents Teacher Meeting Records
+app.use("/api/student-profiles", studentProfileRoutes);
 app.use("/api/students/ptm", ptmRouter);
 app.use("/api/test-summary", testSummaryRoutes);
 app.use("/api/v1/local-guardians", localGuardianRoutes);
 app.use("/api/v1/admissions", admissionRoutes);
 app.use("/api/v1/contact-details", contactDetailsRoutes);
 app.use("/api/v1/parent-details", parentDetailsRoutes);
-
-//Faculty
 app.use("/api/faculty", facultyRouter);
-
-//CareerReview
 app.use("/api/career-counselling", CareerCounsellingRoutes);
 app.use("/api/proffessional-body", ProffessionalBodyRoutes);
 app.use("/api/mooc-data", MoocRoutes);
@@ -125,14 +104,12 @@ app.use("/api/activity-data", ActivityRoutes);
 app.use("/api/hobbies-data", HobbiesRoutes);
 app.use("/api", roleRoutes);
 
-// sendAttendanceNotifications();
-
-//Handle non-existing routes
+// Handle non-existing routes
 app.all("*", (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 
-//Error handling middleware
+// Error handling middleware
 app.use(globalErrorHandler);
 
 export default app;

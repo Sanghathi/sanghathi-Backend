@@ -1,4 +1,3 @@
-
 import { promisify } from "util";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
@@ -6,6 +5,7 @@ import Role from "../models/Role.js";
 import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 import sendEmail from "../utils/email.js";
+import { compare } from "../utils/passwordHelper.js";
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -92,7 +92,7 @@ export const login = catchAsync(async (req, res, next) => {
   // 2) Find user and check password
   const user = await User.findOne({ email }).select("+password");
 
-  if (!user || !(await user.checkPassword(password, user.password))) {
+  if (!user || !(await compare(password, user.password))) {
     return next(new AppError("Incorrect email or password", 401));
   }
 

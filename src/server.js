@@ -19,12 +19,10 @@ process.on("uncaughtException", (err) => {
 
 connectDB();
 
-const port = process.env.PORT || 8000;
+const port = process.env.PORT || 3000;
 
-// Initialize Swagger
-swaggerDocs(app);
 
-const server = app.listen(port, () => {
+const server = app.listen(port, '0.0.0.0', () => {
   logger.info(`${process.env.NODE_ENV} Build 🔥`, {
     environment: process.env.NODE_ENV,
   });
@@ -35,7 +33,7 @@ const server = app.listen(port, () => {
 
 const io = SocketManager.createServer(server, {
   cors: {
-    origin: process.env.CLIENT_HOST,
+    origin: "*",
     methods: ["GET", "POST"],
   },
 });

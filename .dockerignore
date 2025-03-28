@@ -1,0 +1,52 @@
+# Version control
+/.git
+/.github
+
+# Dependencies
+/node_modules
+yarn-debug.log
+yarn-error.log
+npm-debug.log
+
+# Build files
+/dist
+/.vscode
+/.idea
+/.netlify
+
+# Environment and config
+.env
+.env.*
+*.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Docker files (not needed inside the image)
+.dockerignore
+Dockerfile
+fly.toml
+
+# Test files
+*.test.js
+/test
+/tests
+/coverage
+
+# Logs
+/logs
+*.log
+
+# Development files
+README.md
+CHANGELOG.md
+.eslintrc.json
+.prettierrc
+.editorconfig
+
+# Temp files
+/tmp
+/temp
+.DS_Store
+state.json
