@@ -1,6 +1,7 @@
 import { randomBytes, createHash } from "crypto";
 import mongoose from "mongoose";
 import { encrypt, compare } from "../utils/passwordHelper.js";
+import logger from "../utils/logger.js";
 const { model, Schema } = mongoose;
 
 const userSchema = new Schema({

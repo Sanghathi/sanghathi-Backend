@@ -3,6 +3,8 @@ import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 import Role from "../models/Role.js";
 import logger from "../utils/logger.js";
+import bcrypt from "bcrypt";
+import { encrypt, compare } from "../utils/passwordHelper.js";
 
 // Get all users with optional role filtering
 export const getAllUsers = catchAsync(async (req, res, next) => {
@@ -171,3 +173,38 @@ export const getUserByUSN = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const resetPassword = catchAsync(async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword, passwordConfirm, userId } = req.body;
+
+    // Check if passwords match
+    if (newPassword !== passwordConfirm) {
+      return next(new AppError("Passwords do not match", 400));
+    }
+
+    // Find user by ID and select password field
+    const user = await User.findById(userId).select("+password");
+    if (!user) {
+      return next(new AppError("User not found", 404));
+    }
+
+    // Verify current password using the user's method
+    const isPasswordValid = await user.checkPassword(currentPassword, user.password);
+    if (!isPasswordValid) {
+      return next(new AppError("Current password is incorrect", 400));
+    }
+
+    // Update password (the pre-save middleware will handle hashing)
+    user.password = newPassword;
+    user.passwordConfirm = passwordConfirm; // Add passwordConfirm field
+    await user.save();
+
+    res.status(200).json({
+      status: "success",
+      message: "Password updated successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
