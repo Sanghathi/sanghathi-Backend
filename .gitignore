@@ -136,3 +136,8 @@ $RECYCLE.BIN/
 
 # Local Netlify folder
 .netlify
+
+# Fly.io deployment files
+.fly/
+fly.toml
+fly.toml.*
