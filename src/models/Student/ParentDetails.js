@@ -15,7 +15,10 @@ const ParentDetailsSchema = new mongoose.Schema(
     fatherDesignation: { type: String },
     fatherOfficeAddress: { type: String },
     fatherAnnualIncome: { type: Number, min: 0 },
-    fatherOfficePhoneNo: { type: String },
+    fatherOfficePhone: { type: String, required: true }, // Fixed name
+    fatherResidencePhone: { type: String },
+    fatherEmail: { type: String },
+
     motherFirstName: { type: String, required: true },
     motherMiddleName: { type: String },
     motherLastName: { type: String },
@@ -24,7 +27,18 @@ const ParentDetailsSchema = new mongoose.Schema(
     motherDesignation: { type: String },
     motherOfficeAddress: { type: String },
     motherAnnualIncome: { type: Number, min: 0 },
-    motherOfficePhoneNo: { type: String },
+    motherOfficePhone: { type: String, required: true }, // Fixed name
+    motherResidencePhone: { type: String },
+    motherEmail: { type: String },
+
+    mobileNumber: { type: String },
+    residenceAddress: { type: String },
+    fax: { type: String },
+    district: { type: String },
+    taluka: { type: String },
+    village: { type: String },
+    state: { type: String },
+    pincode: { type: String },
   },
   { timestamps: true }
 );
