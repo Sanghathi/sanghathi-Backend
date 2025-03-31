@@ -6,12 +6,13 @@ import {
   updateUser,
   deleteUser,
   getUserByUSN,
+  resetPassword,
 } from "../controllers/userController.js";
 import {
   signup,
   login,
   forgotPassword,
-  resetPassword,
+  resetPassword as resetPasswordWithToken,
   logout,
   protect,
 } from "../controllers/authController.js";
@@ -126,7 +127,7 @@ router.post("/forgotPassword", forgotPassword);
  *       200:
  *         description: Password reset successful
  */
-router.patch("/resetPassword/:token", resetPassword);
+router.patch("/resetPassword/:token", resetPasswordWithToken);
 
 /**
  * @swagger
@@ -269,5 +270,7 @@ router.route("/:id")
  *         description: List of user threads
  */
 router.route("/:id/threads").get(getAllThreadsOfUser);
+
+router.post("/reset-password", protect, resetPassword);
 
 export default router;

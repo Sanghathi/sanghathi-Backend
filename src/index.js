@@ -50,9 +50,20 @@ const __dirname = path.dirname(__filename)
 const app = express();
 
 //1) GLOBAL MIDDLEWARE
-app.use(cors());
+// Configure CORS to allow requests from Netlify
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://e-mithru.netlify.app'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
 app.use('/src/images', express.static(path.join('src', 'images')));
-app.use(helmet());
+// Configure Helmet with cross-origin settings
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false
+}));
 app.use(morgan("dev"));
 
 const limiter = rateLimit({
@@ -94,7 +105,7 @@ app.use("/api/test-summary", testSummaryRoutes);
 app.use("/api/v1/local-guardians", localGuardianRoutes);
 app.use("/api/v1/admissions", admissionRoutes);
 app.use("/api/v1/contact-details", contactDetailsRoutes);
-app.use("/api/v1/parent-details", parentDetailsRoutes);
+app.use("/api/parent-details", parentDetailsRoutes);
 app.use("/api/faculty", facultyRouter);
 app.use("/api/career-counselling", CareerCounsellingRoutes);
 app.use("/api/proffessional-body", ProffessionalBodyRoutes);

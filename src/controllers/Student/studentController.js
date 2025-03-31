@@ -169,11 +169,9 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
 
 
 /**
- * Fetch all students based on the role with pagination.
+ * Fetch all students based on the role.
  */
 export const getAllStudents = catchAsync(async (req, res, next) => {
-  let { page = 1, limit = 100 } = req.query;
-
   // Find the role for 'student'
   const studentRole = await Role.findOne({ name: "student" });
   if (!studentRole) {
@@ -186,28 +184,16 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
       $match: { role: studentRole._id }
     },
     {
-      $project: {
-        _id: 1,
-        name: 1,
-        email: 1,
-        phone: 1,
-        avatar: 1,
-        status: 1,
-        role: 1,
-        profileId: "$profile"
-      }
-    },
-    {
       $lookup: {
         from: "studentprofiles",
         localField: "_id",
         foreignField: "userId",
-        as: "profileData"
+        as: "profile"
       }
     },
     {
       $unwind: {
-        path: "$profileData",
+        path: "$profile",
         preserveNullAndEmptyArrays: true
       }
     },
@@ -230,56 +216,33 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
         from: "users",
         localField: "mentorship.mentorId",
         foreignField: "_id",
-        as: "mentorInfo"
+        as: "mentor"
       }
     },
     {
       $unwind: {
-        path: "$mentorInfo",
+        path: "$mentor",
         preserveNullAndEmptyArrays: true
       }
     },
     {
       $project: {
+        _id: 1,
         name: 1,
         email: 1,
         phone: 1,
         avatar: 1,
         status: 1,
         role: 1,
-        profile: {
-          usn: "$profileData.usn",
-          department: "$profileData.department",
-          sem: "$profileData.sem"
-        },
-        mentor: {
-          $cond: {
-            if: "$mentorInfo",
-            then: {
-              _id: "$mentorInfo._id",
-              name: "$mentorInfo.name"
-            },
-            else: null
-          }
-        }
+        profile: 1,
+        mentor: 1
       }
-    },
-    {
-      $skip: (parseInt(page) - 1) * parseInt(limit)
-    },
-    {
-      $limit: parseInt(limit)
     }
   ]);
 
-  // Count total students
-  const totalStudents = await User.countDocuments({ role: studentRole._id });
-
   res.status(200).json({
     status: "success",
-    total: totalStudents,
-    results: students.length,
-    data: students,
+    data: students
   });
 });
 

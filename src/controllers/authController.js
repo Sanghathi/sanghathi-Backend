@@ -6,6 +6,7 @@ import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 import sendEmail from "../utils/email.js";
 import { compare } from "../utils/passwordHelper.js";
+import { createHash } from "crypto";
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -192,8 +193,7 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
 // Reset Password
 export const resetPassword = catchAsync(async (req, res, next) => {
   // 1) Get user based on the token
-  const hashedToken = crypto
-    .createHash("sha256")
+  const hashedToken = createHash("sha256")
     .update(req.params.token)
     .digest("hex");
 
