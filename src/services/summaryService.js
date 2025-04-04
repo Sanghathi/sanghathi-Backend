@@ -1,8 +1,9 @@
-import { OpenAI } from "@langchain/openai";
+import { ChatOpenAI } from "@langchain/openai";
 
-const model = new OpenAI({
-  model: "gpt-3.5-turbo-instruct",
-  temperature: 0.9,
+const model = new ChatOpenAI({
+  model: "gpt-3.5-turbo",
+  temperature: 0.3,
+  maxTokens: 500,
   openAIApiKey: process.env.OPEN_API_KEY,
 });
 
@@ -38,7 +39,18 @@ export async function generateSummary(thread) {
     return prompt;
   }
 
-  const response = await model.call(prompt);
-
-  return response;
+  try {
+    const response = await model.invoke(prompt);
+    // Extract the content from the AIMessage object
+    const summary = response.content;
+    
+    // Ensure the response is properly formatted and complete
+    if (!summary || summary.length < 10) {
+      return "Unable to generate a complete summary. Please try again.";
+    }
+    return summary;
+  } catch (error) {
+    console.error("Error generating summary:", error);
+    return "Error generating summary. Please try again.";
+  }
 }

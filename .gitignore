@@ -141,3 +141,4 @@ $RECYCLE.BIN/
 .fly/
 fly.toml
 fly.toml.*
+.github/workflows/fly-deploy.yml
