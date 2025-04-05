@@ -38,9 +38,10 @@ import MoocRoutes from "./routes/CareerReview/MoocRoutes.js";
 import MiniProjectRoutes from "./routes/CareerReview/MiniProjectRoutes.js";
 import ActivityRoutes from "./routes/CareerReview/ActivityRoutes.js";
 import HobbiesRoutes from "./routes/CareerReview/HobbiesRoutes.js";
-import roleRoutes from "./routes/roleRoutes.js";
-import swaggerDocs from "./swagger.js";
+import roleRoutes from "./routes/roleRoutes.js;
+import swaggerDocs from "./swagger.js"; 
 import placementRoutes from "./routes/Placements/PlacementRoutes.js";
+import poAttainmentRoutes from "./routes/Student/poAttainmentRoutes.js";
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -124,6 +125,7 @@ app.use("/api/activity-data", ActivityRoutes);
 app.use("/api/hobbies-data", HobbiesRoutes);
 app.use("/api", roleRoutes);
 app.use("/api/placement", placementRoutes);
+app.use("/api/po-attainment", poAttainmentRoutes);
 
 // Handle non-existing routes
 app.all("*", (req, res, next) => {

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-
+const { model, Schema } = mongoose;
 const ParentDetailsSchema = new mongoose.Schema(
   {
     userId: {
@@ -7,40 +7,29 @@ const ParentDetailsSchema = new mongoose.Schema(
       ref: "User",
       required: false,
     },
-    fatherFirstName: { type: String, required: true },
+    fatherFirstName: { type: String },
     fatherMiddleName: { type: String },
     fatherLastName: { type: String },
-    fatherOccupation: { type: String, required: true },
-    fatherOrganization: { type: String },
-    fatherDesignation: { type: String },
-    fatherOfficeAddress: { type: String },
-    fatherAnnualIncome: { type: Number, min: 0 },
-    fatherOfficePhone: { type: String, required: true }, // Fixed name
-    fatherResidencePhone: { type: String },
-    fatherEmail: { type: String },
-
-    motherFirstName: { type: String, required: true },
+    motherFirstName: { type: String },
     motherMiddleName: { type: String },
     motherLastName: { type: String },
-    motherOccupation: { type: String, required: true },
+    fatherOccupation: { type: String },
+    fatherOrganization: { type: String },
+    fatherDesignation: { type: String },
+    fatherOfficePhone: { type: String },
+    fatherOfficeAddress: { type: String },
+    fatherAnnualIncome: { type: Number },
+    motherOccupation: { type: String },
     motherOrganization: { type: String },
     motherDesignation: { type: String },
+    motherOfficePhone: { type: String },
     motherOfficeAddress: { type: String },
-    motherAnnualIncome: { type: Number, min: 0 },
-    motherOfficePhone: { type: String, required: true }, // Fixed name
-    motherResidencePhone: { type: String },
-    motherEmail: { type: String },
+    motherAnnualIncome: { type: Number },
 
-    mobileNumber: { type: String },
-    residenceAddress: { type: String },
-    fax: { type: String },
-    district: { type: String },
-    taluka: { type: String },
-    village: { type: String },
-    state: { type: String },
-    pincode: { type: String },
   },
   { timestamps: true }
 );
 
-export const ParentDetails = mongoose.model("ParentDetails", ParentDetailsSchema);
+const ParentDetails = model("ParentDetails", ParentDetailsSchema);
+
+export default ParentDetails;
