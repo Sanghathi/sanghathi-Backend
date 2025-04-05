@@ -38,33 +38,42 @@ import MoocRoutes from "./routes/CareerReview/MoocRoutes.js";
 import MiniProjectRoutes from "./routes/CareerReview/MiniProjectRoutes.js";
 import ActivityRoutes from "./routes/CareerReview/ActivityRoutes.js";
 import HobbiesRoutes from "./routes/CareerReview/HobbiesRoutes.js";
-import roleRoutes from "./routes/roleRoutes.js";
+import roleRoutes from "./routes/roleRoutes.js;
 import swaggerDocs from "./swagger.js"; 
+import placementRoutes from "./routes/Placements/PlacementRoutes.js";
 import poAttainmentRoutes from "./routes/Student/poAttainmentRoutes.js";
 
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename)
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
 //1) GLOBAL MIDDLEWARE
 // Configure CORS to allow requests from Netlify
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://e-mithru.netlify.app'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "https://e-mithru.netlify.app",
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
 
-app.use('/src/images', express.static(path.join('src', 'images')));
+app.use("/src/images", express.static(path.join("src", "images")));
 // Configure Helmet with cross-origin settings
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: false
-}));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false,
+  })
+);
 app.use(morgan("dev"));
 
 const limiter = rateLimit({
@@ -86,7 +95,7 @@ app.use(mongoSanitize());
 // app.use(xss());
 
 // Mount routes
-app.use("/api/users", userRouter);  // Mount user routes first
+app.use("/api/users", userRouter); // Mount user routes first
 app.use("/api/messages", messageRouter);
 app.use("/api/meetings", meetingRouter);
 app.use("/api/mentors", mentorRouter);
@@ -115,6 +124,7 @@ app.use("/api/project", MiniProjectRoutes);
 app.use("/api/activity-data", ActivityRoutes);
 app.use("/api/hobbies-data", HobbiesRoutes);
 app.use("/api", roleRoutes);
+app.use("/api/placement", placementRoutes);
 app.use("/api/po-attainment", poAttainmentRoutes);
 
 // Handle non-existing routes
