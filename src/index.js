@@ -38,7 +38,7 @@ import MoocRoutes from "./routes/CareerReview/MoocRoutes.js";
 import MiniProjectRoutes from "./routes/CareerReview/MiniProjectRoutes.js";
 import ActivityRoutes from "./routes/CareerReview/ActivityRoutes.js";
 import HobbiesRoutes from "./routes/CareerReview/HobbiesRoutes.js";
-import roleRoutes from "./routes/roleRoutes.js;
+import roleRoutes from "./routes/roleRoutes.js";
 import swaggerDocs from "./swagger.js"; 
 import placementRoutes from "./routes/Placements/PlacementRoutes.js";
 import poAttainmentRoutes from "./routes/Student/poAttainmentRoutes.js";
