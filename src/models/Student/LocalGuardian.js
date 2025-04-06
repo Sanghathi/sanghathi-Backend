@@ -14,16 +14,16 @@ const LocalGuardianSchema = new mongoose.Schema({
     required: true
  },
   middleName: { type: String },
-  lastName: { type: String, required: true },
-  email: { type: String, required: true },
-  relationWithGuardian: { type: String, required: true },
-  mobileNumber: { type: String, required: true },
+  lastName: { type: String},
+  email: { type: String},
+  relationWithGuardian: { type: String},
+  mobileNumber: { type: String},
   phoneNumber: { type: String },
-  residenceAddress: { type: String, required: true },
-  taluka: { type: String, required: true },
-  district: { type: String, required: true },
-  state: { type: String, required: true },
-  pincode: { type: String, required: true },
+  residenceAddress: { type: String},
+  taluka: { type: String},
+  district: { type: String},
+  state: { type: String},
+  pincode: { type: String},
 });
 
 export const LocalGuardian = mongoose.model("LocalGuardian", LocalGuardianSchema);
