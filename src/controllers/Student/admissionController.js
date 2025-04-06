@@ -1,99 +1,45 @@
-import Admission from "../../models/Student/Admissions.js";
-import catchAsync from "../../utils/catchAsync.js";
-import AppError from "../../utils/appError.js";
-// Create a new admission record
-export const createAdmission = catchAsync(async (req, res, next) => {
-  // Validate the incoming data (you can add more validations here)
-  const admissionData = req.body;
+import AdmissionDetails from '../../models/Student/Admissions.js';
+import catchAsync from '../../utils/catchAsync.js';
+import AppError from '../../utils/appError.js';
 
-  // Create a new admission record
-  const admission = await Admission.create(admissionData);
+export const createOrUpdateAdmissionDetails = catchAsync(async (req, res, next) => {
+  const { userId, ...admissionData } = req.body;
 
-  // Respond with the created admission record
-  res.status(201).json({
-    status: "success",
-    data: {
-      admission,
-    },
-  });
-});
-
-// Get admission details by ID
-export const getAdmissionById = catchAsync(async (req, res, next) => {
-  const { id } = req.params;
-
-  // Find admission by ID
-  const admission = await Admission.findById(id);
-
-  // If admission not found, throw an error
-  if (!admission) {
-    return next(new AppError("Admission not found", 404));
+  if (!userId) {
+    return next(new AppError('User ID is required', 400));
   }
 
-  // Respond with the found admission record
+  const admissionDetails = await AdmissionDetails.findOneAndUpdate(
+    { userId },
+    admissionData,
+    { new: true, upsert: true, runValidators: true }
+  );
+
   res.status(200).json({
-    status: "success",
-    data: {
-      admission,
-    },
+    status: 'success',
+    data: { admissionDetails }
   });
 });
 
-// Get all admissions
-export const getAllAdmissions = catchAsync(async (req, res, next) => {
-  // Retrieve all admissions from the database
-  const admissions = await Admission.find();
+export const getAdmissionDetailsByUserId = catchAsync(async (req, res, next) => {
+  const { userId } = req.params;
 
-  // Respond with the list of admissions
-  res.status(200).json({
-    status: "success",
-    results: admissions.length, // Include count of admissions
-    data: {
-      admissions,
-    },
-  });
-});
+  const admissionDetails = await AdmissionDetails.findOne({ userId });
 
-// Update admission details by ID
-export const updateAdmissionById = catchAsync(async (req, res, next) => {
-  const { id } = req.params;
-  const updateData = req.body;
-
-  // Find admission by ID and update it
-  const updatedAdmission = await Admission.findByIdAndUpdate(id, updateData, {
-    new: true,
-    runValidators: true,
-  });
-
-  // If updated admission not found, throw an error
-  if (!updatedAdmission) {
-    return next(new AppError("Admission not found", 404));
+  if (!admissionDetails) {
+    return next(new AppError('Admission details not found', 404));
   }
 
-  // Respond with the updated admission record
   res.status(200).json({
-    status: "success",
-    data: {
-      admission: updatedAdmission,
-    },
+    status: 'success',
+    data: { admissionDetails }
   });
 });
 
-// Delete admission record by ID
-export const deleteAdmissionById = catchAsync(async (req, res, next) => {
-  const { id } = req.params;
-
-  // Find admission by ID and delete it
-  const deletedAdmission = await Admission.findByIdAndDelete(id);
-
-  // If deleted admission not found, throw an error
-  if (!deletedAdmission) {
-    return next(new AppError("Admission not found", 404));
-  }
-
-  // Respond with no content status
-  res.status(204).json({
-    status: "success",
-    data: null,
+export const getAllAdmissionDetails = catchAsync(async (req, res) => {
+  const admissionDetails = await AdmissionDetails.find().populate('userId');
+  res.status(200).json({
+    status: 'success',
+    data: admissionDetails
   });
 });
