@@ -1,14 +1,18 @@
-// routes/contactDetailsRoutes.js
-import express from "express";
-// const { createContactDetail, getContactDetails } = require('../controllers/contactDetailsController');
-import {createContactDetail , getContactDetails} from "../../controllers/Student/contactDetailsController.js"
+// routes/Student/contactDetailsRoutes.js
 
-const router = express.Router();
+import express from "express"; // <-- you missed this
+const router = express.Router(); // <-- create router instance
 
-// POST route to create new contact details
-router.post('/', createContactDetail); // Changed to root for versioned route
+import { 
+  createOrUpdateContactDetail,
+  getContactDetails,
+  getContactDetailsByUserId 
+} from "../../controllers/Student/contactDetailsController.js";
 
-// GET route to retrieve all contact details
-router.get('/', getContactDetails); // Changed to root for versioned route
+// Define routes
+router.post("/", createOrUpdateContactDetail);
+router.get("/", getContactDetails); 
+router.get("/:userId", getContactDetailsByUserId);
 
-export default router; 
+// Export router
+export default router;
