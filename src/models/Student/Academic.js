@@ -1,77 +1,34 @@
-// const mongoose = require("mongoose");
 import mongoose from "mongoose";
-const academicsSchema = new mongoose.Schema({
-	sslc: {
-		school: {
-			type: String,
-			required: true,
-		},
-		percentage: {
-			type: Number,
-			required: true,
-		},
-		yearOfPassing: {
-			type: Number,
-			required: true,
-		},
-		schoolAddress: {
-			type: String,
-			required: true,
-		},
-		board: {
-			type: String,
-			enum: ["cbse", "icse", "state board", "others"],
-			required: true,
-		},
-	},
-	puc: {
-		college: {
-			type: String,
-			required: true,
-		},
-		percentage: {
-			type: Number,
-			required: true,
-		},
-		yearOfPassing: {
-			type: Number,
-			required: true,
-		},
-		collegeAddress: {
-			type: String,
-			required: true,
-		},
-		board: {
-			type: String,
-			enum: ["cbse", "icse", "state board", "others"],
-			required: true,
-		},
-	},
-	localEntry: {
-		college: {
-			type: String,
-			// required: true,
-		},
-		percentage: {
-			type: Number,
-			// required: true,
-		},
-		yearOfPassing: {
-			type: Number,
-			// required: true,
-		},
-		collegeAddress: {
-			type: String,
-			// required: true,
-		},
-		board: {
-			type: String,
-			enum: ["cbse", "icse", "state board", "others"],
-			// required: true,
-		},
-	},
-});
 
-const Academics = mongoose.model("Academics", academicsSchema);
+const academicSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+    unique: true
+  },
+  sslc: {
+    school: { type: String, default: "" },
+    percentage: { type: String, default: "" },
+    yearOfPassing: { type: String, default: "" },
+    schoolAddress: { type: String, default: "" },
+    board: { type: String, default: "" }
+  },
+  puc: {
+    college: { type: String, default: "" },
+    percentage: { type: String, default: "" },
+    yearOfPassing: { type: String, default: "" },
+    collegeAddress: { type: String, default: "" },
+    board: { type: String, default: "" }
+  },
+  localEntry: {
+    college: { type: String, default: "" },
+    percentage: { type: String, default: "" },
+    yearOfPassing: { type: String, default: "" },
+    collegeAddress: { type: String, default: "" },
+    board: { type: String, default: "" }
+  }
+}, { timestamps: true });
 
-export default Academics;
+const AcademicDetails = mongoose.model("AcademicDetails", academicSchema);
+export default AcademicDetails;
