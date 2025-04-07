@@ -1,15 +1,49 @@
 import mongoose from "mongoose";
+import mongoose from "mongoose";
 
+const localGuardianSchema = new mongoose.Schema({
 const localGuardianSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
     unique: true
+    ref: "User",
+    required: true,
+    unique: true
   },
+  firstName: {
   firstName: {
     type: String,
     required: true
+  },
+  middleName: String,
+  lastName: {
+    type: String,
+    required: true
+  },
+  email: {
+    type: String,
+    required: true
+  },
+  relationWithGuardian: {
+    type: String,
+    required: true
+  },
+  mobileNumber: {
+    type: String,
+    required: true
+  },
+  phoneNumber: String,
+  residenceAddress: {
+    type: String,
+    required: true
+  },
+  taluka: String,
+  district: String,
+  state: String,
+  pincode: String
+}, { timestamps: true });
   },
   middleName: String,
   lastName: {

@@ -40,16 +40,15 @@ const admissionDetailsSchema = new mongoose.Schema({
     unique: true
   },
   branchChange: {
-    year: { type: String, default: "" },
-    branch: { type: String, default: "" },
-    usn: { type: String, default: "" },
-    collegeId: { type: String, default: "" }
+    year: String,
+    branch: String,
+    usn: String,
+    collegeId: String
   },
-  documentsSubmitted: {
-    type: [String],
-    enum: ["SSLC/ X Marks Card", "PUC/ XII Marks Card", "Caste Certificate", "Migration Certificate"],
-    default: []
-  }
+  documentsSubmitted: [{
+    type: String,
+    enum: ["SSLC/X Marks Card", "PUC/XII Marks Card", "Caste Certificate", "Migration Certificate"]
+  }]
 }, { timestamps: true });
 
 const AdmissionDetails = mongoose.model("AdmissionDetails", admissionDetailsSchema);
