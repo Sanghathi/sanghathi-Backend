@@ -1,31 +1,43 @@
-// const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
-import mongoose from "mongoose" ;
-
-const LocalGuardianSchema = new mongoose.Schema({
+const localGuardianSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: false,
-    unique: true,
+    ref: "User",
+    required: true,
+    unique: true
   },
-  firstName: { 
+  firstName: {
     type: String,
     required: true
- },
-  middleName: { type: String },
-  lastName: { type: String},
-  email: { type: String},
-  relationWithGuardian: { type: String},
-  mobileNumber: { type: String},
-  phoneNumber: { type: String },
-  residenceAddress: { type: String},
-  taluka: { type: String},
-  district: { type: String},
-  state: { type: String},
-  pincode: { type: String},
-});
+  },
+  middleName: String,
+  lastName: {
+    type: String,
+    required: true
+  },
+  email: {
+    type: String,
+    required: true
+  },
+  relationWithGuardian: {
+    type: String,
+    required: true
+  },
+  mobileNumber: {
+    type: String,
+    required: true
+  },
+  phoneNumber: String,
+  residenceAddress: {
+    type: String,
+    required: true
+  },
+  taluka: String,
+  district: String,
+  state: String,
+  pincode: String
+}, { timestamps: true });
 
-export const LocalGuardian = mongoose.model("LocalGuardian", LocalGuardianSchema);
-
-
+const LocalGuardian = mongoose.model("LocalGuardian", localGuardianSchema);
+export default LocalGuardian;

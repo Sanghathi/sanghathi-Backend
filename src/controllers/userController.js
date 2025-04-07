@@ -5,6 +5,7 @@ import Role from "../models/Role.js";
 import logger from "../utils/logger.js";
 import bcrypt from "bcrypt";
 import { encrypt, compare } from "../utils/passwordHelper.js";
+import mongoose from "mongoose";
 
 // Get all users with optional role filtering
 export const getAllUsers = catchAsync(async (req, res, next) => {
@@ -164,12 +165,25 @@ export const deleteUser = catchAsync(async (req, res, next) => {
 export const getUserByUSN = async (req, res) => {
   try {
     const { usn } = req.params;
-    const user = await User.findOne({ usn }).select("_id");
+    
+    // First, find the student profile with this USN
+    const StudentProfile = mongoose.model("StudentProfile");
+    const studentProfile = await StudentProfile.findOne({ usn });
+    
+    if (!studentProfile) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Find the user associated with this profile
+    const user = await User.findOne({ profile: studentProfile._id }).select("_id");
+    
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+    
     res.json({ userId: user._id });
   } catch (error) {
+    console.error("Error in getUserByUSN:", error);
     res.status(500).json({ message: error.message });
   }
 };

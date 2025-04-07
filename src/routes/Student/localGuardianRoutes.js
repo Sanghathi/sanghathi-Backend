@@ -1,22 +1,14 @@
-import express from "express";
+import { Router } from 'express';
 import {
-  getLocalGuardianById,
-  getAllLocalGuardians,
-  updateLocalGuardianById,
-  deleteLocalGuardianById,
   createOrUpdateLocalGuardian,
-} from "../../controllers/Student/localGuardianController.js";
+  getLocalGuardianByUserId
+} from '../../controllers/Student/localGuardianController.js';
 
-const router = express.Router();
+const router = Router();
 
-// Routes for Local Guardians
-router.route("/")
-  .post(createOrUpdateLocalGuardian) // Create or update a Local Guardian
-  .get(getAllLocalGuardians);        // Get all Local Guardians
+router.route('/')
+  .post(createOrUpdateLocalGuardian);
 
-router.route("/:id")
-  .get(getLocalGuardianById)         // Get Local Guardian by ID
-  .patch(updateLocalGuardianById)    // Update Local Guardian by ID
-  .delete(deleteLocalGuardianById);   // Delete Local Guardian by ID
+router.get('/:userId', getLocalGuardianByUserId);
 
 export default router;
