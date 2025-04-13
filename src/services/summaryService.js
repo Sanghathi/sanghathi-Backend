@@ -1,11 +1,4 @@
-import { ChatOpenAI } from "@langchain/openai";
-
-const model = new ChatOpenAI({
-  model: "gpt-3.5-turbo",
-  temperature: 0.3,
-  maxTokens: 500,
-  openAIApiKey: process.env.OPEN_API_KEY,
-});
+import geminiService from "./geminiApi.js";
 
 const conversationSummaryPrompt = (thread) => {
   if (thread.messages.length < 3) {
@@ -40,15 +33,21 @@ export async function generateSummary(thread) {
   }
 
   try {
-    const response = await model.invoke(prompt);
-    // Extract the content from the AIMessage object
-    const summary = response.content;
+    // Generate unique thread ID for this summary request
+    const summaryThreadId = `summary_${thread._id}_${Date.now()}`;
+    
+    // Get response from Gemini service
+    const response = await geminiService.generateResponse(prompt, summaryThreadId);
+    
+    // Clean up the conversation history for this summary thread
+    geminiService.clearConversation(summaryThreadId);
     
     // Ensure the response is properly formatted and complete
-    if (!summary || summary.length < 10) {
+    if (!response || response.length < 10) {
       return "Unable to generate a complete summary. Please try again.";
     }
-    return summary;
+    
+    return response;
   } catch (error) {
     console.error("Error generating summary:", error);
     return "Error generating summary. Please try again.";

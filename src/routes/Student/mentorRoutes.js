@@ -9,20 +9,78 @@ const router = Router();
 // Get all students with their profiles and mentor details
 router.get("/students", async (req, res) => {
   try {
-    const students = await User.find({ roleName: "student" })
-      .populate({
-        path: "profile",
-        model: "StudentProfile",
-        select: "fullName usn department",
-      })
-      .populate({ path: "mentor", model: "User", select: "name" });
+    // First get all students
+    const students = await User.find({ roleName: "student" });
+    console.log(`Fetched ${students.length} students`);
+    
+    // Get all mentorships
+    const mentorships = await Mentorship.find();
+    console.log(`Fetched ${mentorships.length} mentorships`);
+    
+    // Create mentee-to-mentor mapping
+    const menteeToMentorMap = {};
+    for (const mentorship of mentorships) {
+      menteeToMentorMap[mentorship.menteeId.toString()] = mentorship.mentorId;
+    }
+    
+    // Get unique mentor IDs
+    const mentorIds = [...new Set(mentorships.map(m => m.mentorId.toString()))];
+    
+    // Fetch all mentors in a single query
+    const mentors = await User.find({ 
+      _id: { $in: mentorIds.map(id => new mongoose.Types.ObjectId(id)) } 
+    });
+    
+    // Create mentor ID to mentor data mapping
+    const mentorMap = {};
+    mentors.forEach(mentor => {
+      mentorMap[mentor._id.toString()] = mentor;
+    });
+    
+    // Prepare response data
+    const enhancedStudents = students.map(student => {
+      // Convert to plain object 
+      const studentObj = {
+        _id: student._id,
+        name: student.name,
+        email: student.email,
+        phone: student.phone,
+        roleName: student.roleName
+      };
+      
+      // Add profile fields if they exist
+      if (student.profile) {
+        studentObj.department = student.profile.department;
+        studentObj.sem = student.profile.sem;
+        studentObj.usn = student.profile.usn;
+      }
+      
+      // Add mentor data if exists
+      const mentorId = menteeToMentorMap[student._id.toString()];
+      if (mentorId) {
+        const mentor = mentorMap[mentorId.toString()];
+        if (mentor) {
+          studentObj.mentor = {
+            _id: mentor._id,
+            name: mentor.name,
+            email: mentor.email
+          };
+          console.log(`Added mentor ${mentor.name} to student ${student.name}`);
+        }
+      }
+      
+      return studentObj;
+    });
+    
+    // Log a sample student to verify data structure
+    if (enhancedStudents.length > 0) {
+      console.log("Sample enhanced student:", JSON.stringify(enhancedStudents[0], null, 2));
+    }
 
-    res.status(200).json({ data: students });
+    res.status(200).json({ data: enhancedStudents });
   } catch (error) {
     console.error("Error fetching students:", error);
-    res
-      .status(500)
-      .json({ message: "Error fetching students", error: error.message });
+    res.status(500).json({ message: "Error fetching students", error: error.message });
   }
 });
 
@@ -141,6 +199,140 @@ router.get("/", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Debug endpoint to check mentorship structure
+router.get("/debug-mentorships", async (req, res) => {
+  try {
+    // Get a few mentorships
+    const mentorships = await Mentorship.find().limit(5);
+    
+    // For each mentorship, try to find the corresponding mentor and mentee
+    const debugData = await Promise.all(mentorships.map(async (mentorship) => {
+      const mentor = await User.findById(mentorship.mentorId);
+      const mentee = await User.findById(mentorship.menteeId);
+      
+      return {
+        mentorship: mentorship.toObject(),
+        mentorExists: !!mentor,
+        mentorData: mentor ? {
+          _id: mentor._id,
+          name: mentor.name,
+          roleName: mentor.roleName
+        } : null,
+        menteeExists: !!mentee,
+        menteeData: mentee ? {
+          _id: mentee._id,
+          name: mentee.name,
+          roleName: mentee.roleName
+        } : null
+      };
+    }));
+    
+    res.status(200).json({ 
+      count: mentorships.length,
+      debugData
+    });
+  } catch (error) {
+    console.error("Debug mentorships error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Special endpoint for MentorAllocation page
+router.get("/allocation-students", async (req, res) => {
+  try {
+    // First get all students
+    const students = await User.find({ roleName: "student" }).lean();
+    console.log(`Fetched ${students.length} students`);
+    
+    // Get all student IDs
+    const studentIds = students.map(student => student._id);
+    
+    // Fetch student profiles directly
+    const StudentProfile = mongoose.model("StudentProfile");
+    const studentProfiles = await StudentProfile.find({ 
+      userId: { $in: studentIds } 
+    }).lean();
+    console.log(`Found ${studentProfiles.length} student profiles`);
+    
+    // Create map of userId to profile for quick lookup
+    const profileMap = {};
+    studentProfiles.forEach(profile => {
+      profileMap[profile.userId.toString()] = profile;
+    });
+    
+    // Get all mentorships
+    const mentorships = await Mentorship.find().lean();
+    console.log(`Found ${mentorships.length} mentorships`);
+    
+    // Get all mentor IDs from mentorships
+    const mentorIds = [...new Set(mentorships.map(m => m.mentorId.toString()))];
+    console.log(`Found ${mentorIds.length} unique mentor IDs`);
+    
+    // Fetch all mentors
+    const mentors = await User.find({ 
+      _id: { $in: mentorIds.map(id => new mongoose.Types.ObjectId(id)) } 
+    }).lean();
+    console.log(`Found ${mentors.length} mentors`);
+    
+    // Create maps for quick lookups
+    const mentorMap = {};
+    mentors.forEach(mentor => {
+      mentorMap[mentor._id.toString()] = mentor;
+    });
+    
+    const menteeToMentorIdMap = {};
+    mentorships.forEach(mentorship => {
+      menteeToMentorIdMap[mentorship.menteeId.toString()] = mentorship.mentorId.toString();
+    });
+    
+    // Create the final student objects with mentor info
+    const enhancedStudents = [];
+    
+    for (const student of students) {
+      const studentObj = { ...student };
+      
+      // Get profile data from our map
+      const profile = profileMap[student._id.toString()];
+      
+      // Directly add profile fields to the student object if available
+      if (profile) {
+        studentObj.usn = profile.usn;
+        studentObj.department = profile.department;
+        studentObj.sem = profile.sem;
+        console.log(`Added profile data for student ${student.name}: USN=${profile.usn}, Dept=${profile.department}, Sem=${profile.sem}`);
+      } else {
+        console.log(`No profile found for student ${student.name} (${student._id})`);
+      }
+      
+      // Add mentor data if exists
+      const mentorId = menteeToMentorIdMap[student._id.toString()];
+      if (mentorId) {
+        const mentor = mentorMap[mentorId];
+        if (mentor) {
+          studentObj.mentor = {
+            name: mentor.name,
+            _id: mentor._id
+          };
+          console.log(`Added mentor ${mentor.name} to student ${student.name}`);
+        }
+      }
+      
+      enhancedStudents.push(studentObj);
+    }
+    
+    // Log a sample for debugging
+    if (enhancedStudents.length > 0) {
+      const sample = enhancedStudents[0];
+      console.log("Sample student:", JSON.stringify(sample, null, 2));
+    }
+    
+    return res.status(200).json({ data: enhancedStudents });
+  } catch (error) {
+    console.error("Error in allocation-students:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 

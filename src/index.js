@@ -45,6 +45,7 @@ import placementRoutes from "./routes/Placements/PlacementRoutes.js";
 import poAttainmentRoutes from "./routes/Student/poAttainmentRoutes.js";
 import academicRoutes from "./routes/Student/academicCRUD.js";
 import internshipRoutes from "./routes/Placements/InternshipRoutes.js";
+import tylScoresRoutes from "./routes/tylScores.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -129,6 +130,7 @@ app.use("/api/hobbies-data", HobbiesRoutes);
 app.use("/api", roleRoutes);
 app.use("/api/placement", placementRoutes);
 app.use("/api/po-attainment", poAttainmentRoutes);
+app.use("/api/tyl-scores", tylScoresRoutes);
 
 app.use("/api/v1/academics", academicRoutes);
 app.use("/api/internship", internshipRoutes);

@@ -25,8 +25,10 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
     filter.role = roleDoc._id;
   }
 
-  // Get all users based on the filter (if any)
-  const users = await User.find(filter).populate("role");
+  // Get all users with profile data
+  const users = await User.find(filter)
+    .populate("role")
+    .lean();
 
   if (users.length === 0) {
     return res.status(200).json({
@@ -38,11 +40,54 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
     });
   }
 
+  // Get all user IDs
+  const userIds = users.map(user => user._id);
+  
+  // Fetch student profiles
+  const studentProfiles = await mongoose.model('StudentProfile').find({ 
+    userId: { $in: userIds } 
+  }).lean();
+  
+  // Fetch faculty profiles
+  const facultyProfiles = await mongoose.model('FacultyProfile').find({ 
+    userId: { $in: userIds } 
+  }).lean();
+  
+  // Create maps for quick lookup
+  const studentProfileMap = {};
+  studentProfiles.forEach(profile => {
+    studentProfileMap[profile.userId.toString()] = profile;
+  });
+  
+  const facultyProfileMap = {};
+  facultyProfiles.forEach(profile => {
+    facultyProfileMap[profile.userId.toString()] = profile;
+  });
+  
+  // Enhance user objects with profile data
+  const enhancedUsers = users.map(user => {
+    const enhancedUser = { ...user };
+    const studentProfile = studentProfileMap[user._id.toString()];
+    const facultyProfile = facultyProfileMap[user._id.toString()];
+    
+    // Add profile data based on role
+    if (user.roleName === 'student' && studentProfile) {
+      enhancedUser.department = studentProfile.department;
+      enhancedUser.sem = studentProfile.sem;
+      enhancedUser.usn = studentProfile.usn;
+    } else if (user.roleName === 'faculty' && facultyProfile) {
+      enhancedUser.department = facultyProfile.department;
+      enhancedUser.cabin = facultyProfile.cabin;
+    }
+    
+    return enhancedUser;
+  });
+
   return res.status(200).json({
     status: "success",
-    results: users.length,
+    results: enhancedUsers.length,
     data: {
-      users,
+      users: enhancedUsers,
     },
   });
 });
@@ -171,14 +216,14 @@ export const getUserByUSN = async (req, res) => {
     const studentProfile = await StudentProfile.findOne({ usn });
     
     if (!studentProfile) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: "Student profile with this USN not found" });
     }
     
-    // Find the user associated with this profile
-    const user = await User.findOne({ profile: studentProfile._id }).select("_id");
+    // Find the user associated with this profile - using the userId field in the StudentProfile
+    const user = await User.findById(studentProfile.userId);
     
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: "User associated with this USN not found" });
     }
     
     res.json({ userId: user._id });

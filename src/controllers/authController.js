@@ -2,6 +2,7 @@ import { promisify } from "util";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Role from "../models/Role.js";
+import StudentProfile from "../models/Student/Profile.js";
 import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 import sendEmail from "../utils/email.js";
@@ -44,15 +45,17 @@ const createSendToken = (user, statusCode, res) => {
 
 // Signup
 export const signup = catchAsync(async (req, res, next) => {
-  const { name, email, password, passwordConfirm, role: roleName } = req.body;
+  const { name, email, password, passwordConfirm, roleName, phone, semester, firstName, lastName, ...studentData } = req.body;
 
-  let role;
-  if (roleName) {
-    // Fetch the role based on its name
-    role = await Role.findOne({ name: roleName });
-    if (!role) {
-      return next(new AppError("Invalid role", 400));
-    }
+  // Validate roleName is provided
+  if (!roleName) {
+    return next(new AppError("Role name is required", 400));
+  }
+
+  // Find the role based on its name (case insensitive)
+  const role = await Role.findOne({ name: roleName.toLowerCase() });
+  if (!role) {
+    return next(new AppError("Invalid role", 400));
   }
 
   const newUser = await User.create({
@@ -60,11 +63,46 @@ export const signup = catchAsync(async (req, res, next) => {
     email,
     password,
     passwordConfirm,
-    role: role ? role._id : undefined, // Set role if provided
+    role: role._id,
+    roleName: role.name, // Use the exact role name from the database
+    phone // Add phone number to User model
   });
+
+  // If the user is a student, create a student profile
+  if (roleName.toLowerCase() === "student") {
+    // Validate required student fields
+    if (!semester) {
+      return next(new AppError("Semester is required for student registration", 400));
+    }
+
+    // Get first and last name - use provided or extract from full name
+    let firstNameToUse = firstName;
+    let lastNameToUse = lastName;
+    
+    if (!firstName || !lastName) {
+      const nameParts = name.split(" ");
+      firstNameToUse = nameParts[0];
+      lastNameToUse = nameParts.length > 1 ? nameParts.slice(1).join(" ") : firstNameToUse;
+    }
+
+    const studentProfileData = {
+      userId: newUser._id,
+      fullName: {
+        firstName: firstNameToUse,
+        lastName: lastNameToUse,
+      },
+      email: email,
+      sem: semester,
+      mobileNumber: phone, // Add phone number to StudentProfile model
+      ...studentData
+    };
+
+    await StudentProfile.create(studentProfileData);
+  }
 
   createSendToken(newUser, 201, res);
 });
+
 //create user
 export const createUser = catchAsync(async (req, res, next) => {
   try {

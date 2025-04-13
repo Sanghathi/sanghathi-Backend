@@ -198,51 +198,36 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
       }
     },
     {
-      $lookup: {
-        from: "mentorships",
-        localField: "_id",
-        foreignField: "menteeId",
-        as: "mentorship"
-      }
-    },
-    {
-      $unwind: {
-        path: "$mentorship",
-        preserveNullAndEmptyArrays: true
-      }
-    },
-    {
-      $lookup: {
-        from: "users",
-        localField: "mentorship.mentorId",
-        foreignField: "_id",
-        as: "mentor"
-      }
-    },
-    {
-      $unwind: {
-        path: "$mentor",
-        preserveNullAndEmptyArrays: true
-      }
-    },
-    {
       $project: {
         _id: 1,
         name: 1,
         email: 1,
         phone: 1,
-        avatar: 1,
-        status: 1,
-        role: 1,
-        profile: 1,
-        mentor: 1
+        roleName: 1,
+        "profile.department": 1,
+        "profile.sem": 1,
+        "profile.usn": 1,
+        "profile.mobileNumber": 1,
+        "profile.alternatePhoneNumber": 1
       }
     }
   ]);
 
+  // Transform the data to match the expected format
+  const transformedStudents = students.map(student => ({
+    _id: student._id,
+    name: student.name,
+    email: student.email,
+    phone: student.phone || student.profile?.mobileNumber || student.profile?.alternatePhoneNumber,
+    roleName: student.roleName,
+    department: student.profile?.department,
+    sem: student.profile?.sem,
+    usn: student.profile?.usn
+  }));
+
   res.status(200).json({
     status: "success",
-    data: students
+    data: transformedStudents
   });
 });
 
