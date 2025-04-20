@@ -40,12 +40,13 @@ import MiniProjectRoutes from "./routes/CareerReview/MiniProjectRoutes.js";
 import ActivityRoutes from "./routes/CareerReview/ActivityRoutes.js";
 import HobbiesRoutes from "./routes/CareerReview/HobbiesRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
-import swaggerDocs from "./swagger.js"; 
+import swaggerDocs from "./swagger.js";
 import placementRoutes from "./routes/Placements/PlacementRoutes.js";
 import poAttainmentRoutes from "./routes/Student/poAttainmentRoutes.js";
 import academicRoutes from "./routes/Student/academicCRUD.js";
 import internshipRoutes from "./routes/Placements/InternshipRoutes.js";
 import tylScoresRoutes from "./routes/tylScores.js";
+import projectRoutes from "./routes/Placements/ProjectRoutes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -124,11 +125,12 @@ app.use("/api/faculty", facultyRouter);
 app.use("/api/career-counselling", CareerCounsellingRoutes);
 app.use("/api/proffessional-body", ProffessionalBodyRoutes);
 app.use("/api/mooc-data", MoocRoutes);
-app.use("/api/project", MiniProjectRoutes);
+app.use("/api/mini-project", MiniProjectRoutes);
 app.use("/api/activity-data", ActivityRoutes);
 app.use("/api/hobbies-data", HobbiesRoutes);
 app.use("/api", roleRoutes);
 app.use("/api/placement", placementRoutes);
+app.use("/api/placement/project", projectRoutes);
 app.use("/api/po-attainment", poAttainmentRoutes);
 app.use("/api/tyl-scores", tylScoresRoutes);
 
