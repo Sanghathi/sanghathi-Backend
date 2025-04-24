@@ -3,7 +3,7 @@ import Thread from "../models/Thread.js";
 import Message from "../models/Conversation/Message.js";
 import AppError from "../utils/appError.js";
 import ThreadService from "../services/threadService.js";
-
+import redisClient from "../utils/redisClient.js";
 const threadService = new ThreadService();
 
 export const closeThread = catchAsync(async (req, res, next) => {
@@ -84,12 +84,33 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
 
 export const getThreadById = catchAsync(async (req, res, next) => {
   const { threadId } = req.params;
+
+  const cacheKey = `thread:${threadId}`;
+  const cachedThread = await redisClient.get(cacheKey);
+
+  if (cachedThread) {
+    console.log("used cache for threadbyuser")
+    return res.status(200).json({
+      status: "success (from cache)",
+      data: {
+        thread: JSON.parse(cachedThread),
+      },
+    });
+  }
+
   const thread = await Thread.findById(threadId)
     .populate({
       path: "participants",
       select: "name avatar",
     })
     .populate("messages");
+
+  if (!thread) return next(new AppError("Thread not found", 404));
+
+  await redisClient.set(cacheKey, JSON.stringify(thread), {
+    EX: 3600, // expires in 1 hour
+  });
+
   res.status(200).json({
     status: "success",
     data: {
@@ -128,16 +149,66 @@ export const sendMessageToThread = catchAsync(async (req, res, next) => {
 
 export const getAllThreadsOfUser = catchAsync(async (req, res, next) => {
   const { id: userId } = req.params;
+  const cacheKey = `threads:user:${userId}`;
 
-  const threads = await Thread.find({ participants: userId }).populate({
-    path: "participants",
-    select: "name avatar",
-  });
+  try {
+    // Check if threads are already cached in Redis
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      console.log(`Cache hit for user ${userId}`);
+      return res.status(200).json({
+        status: "success (from cache)",
+        data: {
+          threads: JSON.parse(cached),
+        },
+      });
+    }
 
-  res.status(200).json({
-    status: "success",
-    data: {
-      threads,
-    },
-  });
+    // Fetch threads from database
+    const threads = await Thread.find({ participants: userId }).populate({
+      path: "participants",
+      select: "name avatar",
+    });
+    
+    // Log the threads fetched from the database
+    console.log("Threads fetched from DB:", threads);
+
+    // Clean up the threads before caching
+    const cleanedThreads = threads.map(thread => {
+      const obj = thread.toObject({ virtuals: true });
+
+      obj._id = obj._id.toString();
+      obj.author = obj.author?._id?.toString?.() || obj.author?.toString?.();
+      obj.participants = obj.participants.map(p => ({
+        _id: p._id.toString(),
+        name: p.name,
+        avatar: p.avatar,
+      }));
+      obj.messages = obj.messages.map(id => id.toString?.() || id);
+
+      return obj;
+    });
+
+    // Log the cleaned threads before saving to Redis
+    console.log("Cleaned threads:", cleanedThreads);
+
+    // Save cleaned threads to Redis
+    await redisClient.set(cacheKey, JSON.stringify(cleanedThreads), {
+      EX: 3600, // Cache expiry time of 1 hour
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        threads: cleanedThreads,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching threads:", error);
+    res.status(500).json({
+      status: "fail",
+      message: "Error fetching threads",
+    });
+  }
 });
+
