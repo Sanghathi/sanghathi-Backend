@@ -49,8 +49,6 @@ import poAttainmentRoutes from "./routes/Student/poAttainmentRoutes.js";
 import academicRoutes from "./routes/Student/academicCRUD.js";
 import internshipRoutes from "./routes/Placements/InternshipRoutes.js";
 import tylScoresRoutes from "./routes/tylScores.js";
-import path from "path";
-import { fileURLToPath } from "url";
 import uploadRouter from "./routes/uploadRoutes.js";
 import testUploadRouter from "./routes/testUploadRoute.js";
 import projectRoutes from "./routes/Placements/ProjectRoutes.js";
@@ -96,8 +94,9 @@ const limiter = rateLimit({
 app.use("/api", limiter);
 
 //Body parser, reading data from body into req.body
-app.use(express.json());
-app.use(json({ limit: "10kb" }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(json({ limit: '50mb' }));
 
 // Data sanitization against NoSQL query injection
 app.use(mongoSanitize());

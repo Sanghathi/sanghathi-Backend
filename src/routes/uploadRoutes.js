@@ -1,17 +1,13 @@
-import { Router } from 'express';
-import multer from 'multer';
-import { uploadImage } from '../controllers/uploadController.js';
+import express from 'express';
+import { uploadProfileImage, deleteProfileImage } from '../controllers/uploadController.js';
+import { protect } from '../controllers/authController.js';
 
-const router = Router();
+const router = express.Router();
 
-// Configure multer for memory storage
-const storage = multer.memoryStorage();
-const upload = multer({ 
-  storage,
-  limits: { fileSize: 3 * 1024 * 1024 } // 3MB limit
-});
+// Protect all routes after this middleware
+router.use(protect);
 
-// Route for handling image uploads
-router.post('/', upload.single('image'), uploadImage);
+router.post('/profile-image', uploadProfileImage);
+router.delete('/profile-image/:publicId', deleteProfileImage);
 
 export default router; 

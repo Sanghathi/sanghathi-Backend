@@ -1,0 +1,96 @@
+[33m5c59ad9[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Merge branch 'main' of https://github.com/Emithru/e-Mithru-Backend
+[33m8460e0b[m - Added upload and test upload routes for handling image uploads to Cloudinary. - Created controllers for image upload and project management. - Implemented Cloudinary configuration and utility functions for image processing. - Updated index.js and server.js to include new routes and CORS settings. - Added deployment script for Cloudinary integration. - Created test HTML file for testing Cloudinary uploads. - Updated CampusBuddy and Gemini API services with new platform information. - Enhanced project model and controller for better project management.
+[33md026ec0[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #5 from SUJAY-HK/Project
+[33m1a60d97[m Models for Project
+[33mda3a5a9[m Merge branch 'main' of https://github.com/Emithru/e-Mithru-Backend
+[33ma3b3891[m Update dependencies, enhance user and student profile handling, and integrate Google Gemini API for AI responses
+[33m543a897[m Update LocalGuardian.js
+[33mab4e16a[m Local Guardian Controller edit
+[33mb7d32b8[m Merge branch 'main' of https://github.com/Emithru/e-Mithru-Backend
+[33mee5e711[m Add external marks route and enhance user retrieval by USN
+[33mffb4a31[m Merge pull request #1 from Emithru/monu564100-patch-1
+[33m85b2b1c[m Merge pull request #2 from Emithru/monu564100-patch-2
+[33m960aec6[m Merge pull request #3 from Emithru/monu564100-patch-3
+[33m728e3dd[m Merge pull request #4 from Emithru/monu564100-patch-4
+[33m49a23b2[m[33m ([m[1;31morigin/monu564100-patch-4[m[33m)[m Update Admissions.js
+[33maad3ded[m[33m ([m[1;31morigin/monu564100-patch-3[m[33m)[m Update LocalGuardian.js
+[33m6df0249[m[33m ([m[1;31morigin/monu564100-patch-2[m[33m)[m Update localGuardianRoutes.js
+[33m82aa95f[m[33m ([m[1;31morigin/monu564100-patch-1[m[33m)[m Update localGuardianController.js
+[33m4f5b689[m Refactor LocalGuardian model to make fields optional
+[33m0548ea1[m Update index.js
+[33mcb157bf[m Update localGuardianRoutes.js
+[33m2543c4f[m Update contactDetailsRoutes.js
+[33m6741a27[m Update AdmissionRoutes.js
+[33mbda01ce[m Update academicCRUD.js
+[33m7a425f4[m Update localGuardianController.js
+[33m4f97036[m Update contactDetailsController.js
+[33mf4a10dc[m Update admissionController.js
+[33mfec700b[m Create academicsController.js
+[33maa3b184[m Update contactDetails.js
+[33m5cdae82[m Update LocalGuardian.js
+[33ma176682[m Update Admissions.js
+[33meb799cf[m Update Academic.js
+[33mcfd2460[m Merge pull request #17 from SUJAY-HK/main
+[33mad0367f[m Internship Model
+[33m6d88b61[m Update index.js token error resolved
+[33m69f411d[m Merge pull request #16 from SUJAY-HK/Placement
+[33m30b4151[m Merge branch 'main' into Placement
+[33mf49428e[m Backend Model for Placements
+[33m2ca99dd[m Implement parent details management with create, update, retrieve, and delete functionalities; refactor ParentDetails schema and routes for improved structure and error handling.
+[33m83693fa[m Merge pull request #15 from SUJAY-HK/main
+[33m7e955ae[m Merge branch 'main' into main
+[33md54d368[m Dependency files Updation
+[33m1c1f0e6[m Remove Fly.io GitHub Actions workflow
+[33me194953[m Remove Fly.io files from Git tracking
+[33m31a4605[m Updated gitignore
+[33ma4c8b77[m[33m ([m[1;33mtag: [m[1;33mv1.0.2[m[33m)[m Add bcrypt for password hashing, implement reset password functionality, and update user routes for password management
+[33m78e5875[m Refactor CORS configuration, update ParentDetails schema, and remove unused Hugging Face API files
+[33mae07daf[m[33m ([m[1;33mtag: [m[1;33mv1.0.1[m[33m)[m Add Fly.io deployment workflow and Docker configuration
+[33m8142e73[m[33m ([m[1;33mtag: [m[1;33mv1.0.0[m[33m)[m Merge pull request #14 from monu564100/Admin_updates
+[33m7a9084a[m[33m ([m[1;31morigin/Admin_updates[m[33m)[m Add image upload functionality for faculty and student profiles
+[33m4b2638c[m CORS Reset
+[33mc5d201c[m Merge branch 'main' of https://github.com/monu564100/e-Mithru-Backend
+[33mcb45a8b[m Resetting CORS config
+[33m8b183eb[m Update index.js
+[33m58944d5[m index cors
+[33m92a8400[m Configure CORS middleware to allow requests from specific origin with credentials
+[33m02ab7b9[m Update backend server URL in swagger configuration
+[33m8b44f2f[m Merge pull request #13 from vsuryacharan/API_documentation_for_userRoutes
+[33m67f9374[m APi documentation for userroutes
+[33mc2b1f12[m Merge pull request #12 from monu564100/Admin_updates
+[33md684110[m Add IAT marks management functionality with submission, retrieval, and deletion endpoints
+[33m200009b[m Merge pull request #11 from monu564100/Admin_updates
+[33mdb95abd[m Refactor attendance handling to support nested semester and month structures
+[33m787acae[m Merge branch 'Admin_updates' of https://github.com/monu564100/e-Mithru-Backend into Admin_updates
+[33mf333950[m Attendance Data handling in bulk
+[33m3d3ba25[m Merge branch 'Admin_updates' of https://github.com/monu564100/e-Mithru-Backend into Admin_updates
+[33mab396b3[m Update summaryService.js
+[33mbad5393[m Merge pull request #10 from SUJAY-HK/MentorRoutes
+[33mf991d72[m Added API for fetching Mentee Profile Details
+[33mf7b6897[m Attendance Data handling in bulk
+[33m30921ab[m Merge pull request #9 from SUJAY-HK/MentorRoutes
+[33m744fb13[m Updated the mentorRoutes
+[33m8fd5105[m Attendance Data handling in bulk
+[33mba65330[m Merge pull request #7 from monu564100/Admin_updates
+[33mc78c59c[m user now creates faculty and student profiles separately
+[33mbc61400[m Fixed the error creating User
+[33m7b1df67[m Merge pull request #6 from monu564100/Admin_updates
+[33m586e821[m Create Faculty Profile
+[33m0094dc9[m Merge pull request #5 from monu564100/Admin_updates
+[33m563fe4b[m Refactor user model to make profile field optional and clean up unused code in user and auth controllers
+[33md033802[m Updating Mentor Assignment page
+[33mf3f4748[m Merge pull request #4 from shovan-mondal/main
+[33mb8bc12e[m Update README.md
+[33m6e5d24e[m Updating user List, Create user and mentor assignment
+[33mf0a5a6b[m Merge pull request #3 from shovan-mondal/main
+[33m5a7ee54[m Remove unused request file, add role routes and controller, update parent details route, and modify package dependencies
+[33m827ffa8[m Merge pull request #2 from monu564100/Database-update
+[33ma586508[m[33m ([m[1;31morigin/Database-update[m[33m)[m Add routes, models and controllers for Mooc, MiniProject, Activity, and Hobbies in CareerReview
+[33mc9539d7[m Merge pull request #1 from monu564100/Database-update
+[33m96a6ffa[m Add Professional Body and Event controllers, models, and routes
+[33mac16e5a[m Add career review models and routes; update student routes
+[33m050a733[m routes
+[33mbb2c4da[m Login fixed
+[33m71b8993[m updating signup
+[33md7197cd[m -mk
+[33m8e85697[m Initial commit

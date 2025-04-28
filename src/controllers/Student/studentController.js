@@ -13,6 +13,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) => {
+  console.log('Received profile update request:', {
+    userId: req.body.userId,
+    hasPhoto: !!req.body.photo
+  });
+
   const {
     userId,
     fullName,
@@ -40,21 +45,29 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
     photo,
   } = req.body;
 
+  // Initialize photoUrl
   let photoUrl = photo;
-  if (typeof photo === 'string' && photo.includes('data:image')) {
+  console.log('Initial photo value:', { type: typeof photo, isBase64: photo?.includes('data:image'), isCloudinary: photo?.includes('cloudinary.com') });
+
+  // Only upload if it's a base64 image and not already a Cloudinary URL
+  if (typeof photo === 'string' && photo.includes('data:image') && !photo.includes('cloudinary.com')) {
     try {
+      console.log('Attempting to upload image to Cloudinary...');
       photoUrl = await uploadToCloudinary(photo, 'mentor-connect/students');
-      console.log('Image uploaded to Cloudinary:', photoUrl);
+      console.log('Successfully uploaded image to Cloudinary:', photoUrl);
     } catch (error) {
       console.error('Error uploading image to Cloudinary:', error);
       return next(new AppError('Failed to upload image', 500));
     }
+  } else {
+    console.log('Using existing photo URL:', photoUrl);
   }
 
   const profileData = {
     userId,
     fullName: {
       firstName: fullName?.firstName,
+      middleName: fullName?.middleName,
       lastName: fullName?.lastName,
     },
     department,
@@ -78,15 +91,42 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
     admissionDate,
     sportsLevel,
     defenceOrExServiceman,
-    photo: photoUrl,
+    photo: photoUrl, // Store the Cloudinary URL
   };
 
   try {
-    const updatedProfile = await StudentProfile.findOneAndUpdate(
-      { userId }, 
-      { $set: profileData },
-      { upsert: true, new: true }
-    );
+    console.log('Attempting to update profile with data:', {
+      userId,
+      photoUrl,
+      department,
+      sem
+    });
+    
+    // First, check if a profile exists
+    let existingProfile = await StudentProfile.findOne({ userId });
+    console.log('Existing profile:', existingProfile ? 'Found' : 'Not found');
+
+    let updatedProfile;
+    if (existingProfile) {
+      // Update existing profile
+      updatedProfile = await StudentProfile.findOneAndUpdate(
+        { userId },
+        { $set: profileData },
+        { new: true }
+      );
+      console.log('Updated existing profile');
+    } else {
+      // Create new profile
+      updatedProfile = await StudentProfile.create(profileData);
+      console.log('Created new profile');
+    }
+
+    console.log('Profile update result:', {
+      userId: updatedProfile.userId,
+      photo: updatedProfile.photo,
+      department: updatedProfile.department,
+      sem: updatedProfile.sem
+    });
 
     res.status(200).json({
       status: "success",
@@ -95,6 +135,10 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
       },
     });
   } catch (err) {
+    console.error('Error updating profile:', {
+      message: err.message,
+      stack: err.stack
+    });
     next(new AppError(err.message, 400));
   }
 });

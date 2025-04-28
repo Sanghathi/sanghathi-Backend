@@ -1,26 +1,49 @@
 import cloudinary from '../config/cloudinary.js';
+import AppError from './appError.js';
 
-export const uploadToCloudinary = async (base64Image, folder = 'mentor-connect') => {
+/**
+ * Uploads an image to Cloudinary
+ * @param {string} file - Base64 encoded image or file path
+ * @param {string} folder - Cloudinary folder to upload to
+ * @returns {Promise<string>} - URL of the uploaded image
+ */
+export const uploadToCloudinary = async (file, folder = 'profile-images') => {
   try {
-    // Remove the data:image/...;base64, prefix
-    const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, '');
+    // Check if file is base64
+    const isBase64 = file.includes('base64');
     
-    // Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(
-      `data:image/jpeg;base64,${base64Data}`,
-      {
-        folder: folder,
-        resource_type: 'image',
-        transformation: [
-          { width: 800, height: 800, crop: 'limit' },
-          { quality: 'auto' }
-        ]
-      }
-    );
-    
+    // Upload the image
+    const result = await cloudinary.uploader.upload(file, {
+      folder,
+      resource_type: 'auto',
+      allowed_formats: ['jpg', 'png', 'jpeg', 'gif'],
+      transformation: [
+        { width: 500, height: 500, crop: 'fill', gravity: 'face' },
+        { quality: 'auto', fetch_format: 'auto' }
+      ]
+    });
+
+    console.log('Cloudinary upload result:', {
+      public_id: result.public_id,
+      secure_url: result.secure_url,
+      format: result.format
+    });
+
     return result.secure_url;
   } catch (error) {
-    console.error('Error uploading to Cloudinary:', error);
-    throw new Error('Failed to upload image to Cloudinary');
+    console.error('Cloudinary upload error:', error);
+    throw new AppError(`Error uploading image to Cloudinary: ${error.message}`, 400);
+  }
+};
+
+/**
+ * Deletes an image from Cloudinary
+ * @param {string} publicId - Public ID of the image to delete
+ */
+export const deleteFromCloudinary = async (publicId) => {
+  try {
+    await cloudinary.uploader.destroy(publicId);
+  } catch (error) {
+    throw new AppError(`Error deleting image from Cloudinary: ${error.message}`, 400);
   }
 }; 
