@@ -33,7 +33,7 @@ const server = app.listen(port, '0.0.0.0', () => {
 
 const io = SocketManager.createServer(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:3000", "https://e-mithru.netlify.app"],
+    origin: ["http://localhost:5173", "http://localhost:3000", "https://Sanghathi.netlify.app"],
     methods: ["GET", "POST"],
     credentials: true
   },

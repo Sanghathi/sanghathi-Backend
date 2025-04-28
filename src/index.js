@@ -6,6 +6,9 @@ import mongoSanitize from "express-mongo-sanitize";
 import cors from "cors";
 import AppError from "./utils/appError.js";
 import globalErrorHandler from "./controllers/errorController.js";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from 'fs';
 
 //routes
 import admissionRouter from "./routes/Student/AdmissionRoutes.js";
@@ -46,9 +49,11 @@ import poAttainmentRoutes from "./routes/Student/poAttainmentRoutes.js";
 import academicRoutes from "./routes/Student/academicCRUD.js";
 import internshipRoutes from "./routes/Placements/InternshipRoutes.js";
 import tylScoresRoutes from "./routes/tylScores.js";
-import projectRoutes from "./routes/Placements/ProjectRoutes.js";
 import path from "path";
 import { fileURLToPath } from "url";
+import uploadRouter from "./routes/uploadRoutes.js";
+import testUploadRouter from "./routes/testUploadRoute.js";
+import projectRoutes from "./routes/Placements/ProjectRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,13 +61,16 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 //1) GLOBAL MIDDLEWARE
-// Configure CORS to allow requests from Netlify
+// Configure CORS to allow requests from any origin during development
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
       "http://localhost:3000",
-      "https://e-mithru.netlify.app",
+      "http://localhost:5500",
+      "https://Sanghathi.netlify.app",
+      "https://sanghathi.com",
+      "file://" // For local HTML file testing
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -136,6 +144,21 @@ app.use("/api/tyl-scores", tylScoresRoutes);
 
 app.use("/api/v1/academics", academicRoutes);
 app.use("/api/internship", internshipRoutes);
+
+// Register routes
+app.use("/api/v1/upload", uploadRouter);
+app.use("/api/test", testUploadRouter);
+
+// Serve the test HTML file
+app.get('/test-upload', (req, res) => {
+  const testHtmlPath = path.join(__dirname, '..', 'test-upload.html');
+  
+  if (fs.existsSync(testHtmlPath)) {
+    res.sendFile(testHtmlPath);
+  } else {
+    res.status(404).send('Test file not found');
+  }
+});
 
 // Handle non-existing routes
 app.all("*", (req, res, next) => {

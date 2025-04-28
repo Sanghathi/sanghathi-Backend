@@ -9,8 +9,8 @@ class GeminiService {
     // Initialize the Google Generative AI client
     this.genAI = new GoogleGenerativeAI(this.apiKey);
     
-    // Configure the model (Gemini-1.5-flash is the recommended model for most use cases)
-    this.modelName = "gemini-1.5-flash";
+    // Configure the model (Gemini-2.0-flash is the recommended model for most use cases)
+    this.modelName = "gemini-2.0-flash";
     this.model = this.genAI.getGenerativeModel({ model: this.modelName });
     
     console.log(`Initialized Google Gemini API with model: ${this.modelName}`);
@@ -53,8 +53,8 @@ CMRIT: Est. 2000, VTU affiliated, NAAC A+ grade, located in Bangalore.
 Courses: Computer Science, Information Science, AIML, AI and DS, CSE(AIML), CS(DS), MBA, MCA.
 Vision: Premier institution nurturing competent professionals with integrity and social commitment.
 
-E-Mithru/Sanghathi Information:
-E-Mithru (also known as Sanghathi) is CMRIT's digital mentoring platform designed to connect mentors and mentees. It enables personalized guidance, tracks student progress, facilitates communication between faculty and students, and provides career counseling tools.
+Sanghathi/Sanghathi Information:
+Sanghathi (also known as Sanghathi) is CMRIT's digital mentoring platform designed to connect mentors and mentees. It enables personalized guidance, tracks student progress, facilitates communication between faculty and students, and provides career counseling tools.
 
 REMEMBER: NEVER exceed 2 lines (60 words max) under ANY circumstances.`;
 

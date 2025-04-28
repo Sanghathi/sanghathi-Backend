@@ -6,12 +6,12 @@ class CampusBuddy {
   constructor() {
     // Define basic greetings and their responses
     this.greetings = {
-      hi: "A: How can I help you today?",
-      hello: "A: What can I do for you?",
-      hey: "A: How can I assist you?",
-      "good morning": "A: Good morning! How can I help?",
-      "good afternoon": "A: Good afternoon! How can I assist?",
-      "good evening": "A: Good evening! What do you need?",
+      hi: "How can I help you today?",
+      hello: "What can I do for you?",
+      hey: "How can I assist you?",
+      "good morning": "Good morning! How can I help?",
+      "good afternoon": "Good afternoon! How can I assist?",
+      "good evening": "Good evening! What do you need?",
     };
 
     // Set up CMRIT information for the AI assistant
@@ -38,7 +38,7 @@ class CampusBuddy {
         "MCA",
       ],
       accreditation: [
-        "Accredited by NAAC with A+ Grade",
+        "Accredited by NAAC with A++ Grade",
         "NBA Accredited for eligible programs",
         "Ranked among top engineering colleges in Karnataka",
       ],
@@ -53,10 +53,10 @@ class CampusBuddy {
       ],
     };
 
-    // E-Mithru Platform Information
+    // Sanghathi Platform Information
     this.emithruInfo = {
       description:
-        "E-Mithru is a digital mentoring platform at CMRIT designed to bridge the gap between students and mentors.",
+        "Sanghathi is a digital mentoring platform at CMRIT designed to bridge the gap between students and mentors.",
       features: [
         "Personalized mentor assignment system",
         "Track student's academic and overall progress",
@@ -163,14 +163,10 @@ ${conversationText}
 
 IMPORTANT: Your response must be in this exact format:
 Summary: [Your detailed summary here]
-Problem resolved: [Yes/No]
 
 Requirements:
 - Summary must be between 40-80 words
-- Include specific details about what was discussed
-- Mention if any information was requested but not provided
-- Must end with the problem resolution status
-- Do not add any other text or formatting`;
+- Include specific details about what was discussed`;
 
       console.log("Sending summary prompt to API:", summaryPrompt);
 
