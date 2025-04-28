@@ -19,32 +19,36 @@ export const uploadProfileImage = catchAsync(async (req, res, next) => {
 });
 
 export const deleteProfileImage = catchAsync(async (req, res, next) => {
-  const { publicId } = req.params;
-  
-  if (!publicId) {
-    return next(new AppError('No public ID provided', 400));
-  }
-
   try {
-    console.log('Attempting to delete image from Cloudinary:', publicId);
-    await deleteFromCloudinary(publicId);
-    console.log('Successfully deleted image from Cloudinary:', publicId);
+    const { publicId } = req.params;
+    console.log('[Backend Delete] Received delete request for:', publicId);
 
-    res.status(200).json({
-      status: 'success',
-      message: 'Image deleted successfully'
+    // Log Cloudinary config
+    console.log('[Backend Delete] Cloudinary config:', {
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+      hasApiKey: !!process.env.CLOUDINARY_API_KEY,
+      hasApiSecret: !!process.env.CLOUDINARY_API_SECRET
+    });
+
+    // Use the imported deleteFromCloudinary function instead of cloudinary directly
+    const result = await deleteFromCloudinary(publicId);
+    console.log('[Backend Delete] Cloudinary response:', result);
+
+    res.json({ 
+      status: 'success', 
+      message: 'Image deleted successfully',
+      result 
     });
   } catch (error) {
-    console.error('Error deleting image from Cloudinary:', error);
-    
-    // If the image doesn't exist, consider it a success
-    if (error.message.includes('not found')) {
-      return res.status(200).json({
-        status: 'success',
-        message: 'Image already deleted or not found'
-      });
-    }
-    
-    throw error;
+    console.error('[Backend Delete] Error:', {
+      message: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Failed to delete image',
+      error: error.message 
+    });
+    return next(new AppError('Failed to delete image', 500));
   }
-}); 
+});
