@@ -101,5 +101,9 @@
   "ts-node": {
     // Tell ts-node CLI to install the --loader automatically, explained below
     "esm": true
-  }
+  },
+  "exclude": [
+    "deploy-cloudinary.js",
+    "test-cloudinary.js"
+  ]
 }

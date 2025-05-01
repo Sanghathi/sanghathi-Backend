@@ -6,7 +6,10 @@ import mongoSanitize from "express-mongo-sanitize";
 import cors from "cors";
 import AppError from "./utils/appError.js";
 import globalErrorHandler from "./controllers/errorController.js";
-
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from 'fs';
+import campubuddyroute from "./routes/CampusBuddy/campusBuddy.js";
 //routes
 import admissionRouter from "./routes/Student/AdmissionRoutes.js";
 import userRouter from "./routes/userRoutes.js";
@@ -40,28 +43,28 @@ import MiniProjectRoutes from "./routes/CareerReview/MiniProjectRoutes.js";
 import ActivityRoutes from "./routes/CareerReview/ActivityRoutes.js";
 import HobbiesRoutes from "./routes/CareerReview/HobbiesRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
-import swaggerDocs from "./swagger.js"; 
+import swaggerDocs from "./swagger.js";
 import placementRoutes from "./routes/Placements/PlacementRoutes.js";
 import poAttainmentRoutes from "./routes/Student/poAttainmentRoutes.js";
 import academicRoutes from "./routes/Student/academicCRUD.js";
 import internshipRoutes from "./routes/Placements/InternshipRoutes.js";
 import tylScoresRoutes from "./routes/tylScores.js";
-import path from "path";
-import { fileURLToPath } from "url";
-import campubuddyroute from "./routes/CampusBuddy/campusBuddy.js";
+import uploadRouter from "./routes/uploadRoutes.js";
+import testUploadRouter from "./routes/testUploadRoute.js";
+import projectRoutes from "./routes/Placements/ProjectRoutes.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
 //1) GLOBAL MIDDLEWARE
-// Configure CORS to allow requests from Netlify
+// Configure CORS to allow requests from any origin during development
 app.use(
   cors({
     origin: [
-      "http://localhost:5173",
       "http://localhost:3000",
-      "https://e-mithru.netlify.app",
+      "https://sanghathi.com",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -87,8 +90,9 @@ const limiter = rateLimit({
 app.use("/api", limiter);
 
 //Body parser, reading data from body into req.body
-app.use(express.json());
-app.use(json({ limit: "10kb" }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(json({ limit: '50mb' }));
 
 // Data sanitization against NoSQL query injection
 app.use(mongoSanitize());
@@ -98,7 +102,7 @@ app.use(mongoSanitize());
 // app.use(xss());
 
 // Mount routes
-app.use("/api/ask", campubuddyroute); // Mount campus buddy route
+app.use("/api/ask", campubuddyroute);
 app.use("/api/users", userRouter); // Mount user routes first
 app.use("/api/messages", messageRouter);
 app.use("/api/meetings", meetingRouter);
@@ -125,16 +129,32 @@ app.use("/api/faculty", facultyRouter);
 app.use("/api/career-counselling", CareerCounsellingRoutes);
 app.use("/api/proffessional-body", ProffessionalBodyRoutes);
 app.use("/api/mooc-data", MoocRoutes);
-app.use("/api/project", MiniProjectRoutes);
+app.use("/api/mini-project", MiniProjectRoutes);
 app.use("/api/activity-data", ActivityRoutes);
 app.use("/api/hobbies-data", HobbiesRoutes);
 app.use("/api", roleRoutes);
 app.use("/api/placement", placementRoutes);
+app.use("/api/placement/project", projectRoutes);
 app.use("/api/po-attainment", poAttainmentRoutes);
 app.use("/api/tyl-scores", tylScoresRoutes);
 
 app.use("/api/v1/academics", academicRoutes);
 app.use("/api/internship", internshipRoutes);
+
+// Register routes
+app.use("/api/v1/upload", uploadRouter);
+app.use("/api/test", testUploadRouter);
+
+// Serve the test HTML file
+app.get('/test-upload', (req, res) => {
+  const testHtmlPath = path.join(__dirname, '..', 'test-upload.html');
+  
+  if (fs.existsSync(testHtmlPath)) {
+    res.sendFile(testHtmlPath);
+  } else {
+    res.status(404).send('Test file not found');
+  }
+});
 
 // Handle non-existing routes
 app.all("*", (req, res, next) => {
