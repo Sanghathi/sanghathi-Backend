@@ -52,6 +52,7 @@
     "node-cron": "^3.0.2",
     "nodemailer": "^6.9.1",
     "path": "^0.12.7",
+    "react-chatbotify": "^2.0.0-beta.33",
     "socket.io": "^4.5.4",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",

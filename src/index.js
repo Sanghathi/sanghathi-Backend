@@ -48,7 +48,7 @@ import internshipRoutes from "./routes/Placements/InternshipRoutes.js";
 import tylScoresRoutes from "./routes/tylScores.js";
 import path from "path";
 import { fileURLToPath } from "url";
-
+import campubuddyroute from "./routes/CampusBuddy/campusBuddy.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -98,6 +98,7 @@ app.use(mongoSanitize());
 // app.use(xss());
 
 // Mount routes
+app.use("/api/ask", campubuddyroute); // Mount campus buddy route
 app.use("/api/users", userRouter); // Mount user routes first
 app.use("/api/messages", messageRouter);
 app.use("/api/meetings", meetingRouter);
