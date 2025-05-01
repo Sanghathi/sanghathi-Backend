@@ -6,7 +6,12 @@ import SocketManager from "./utils/socketManager.js";
 import socketController from "./controllers/socketController.js";
 import morganMiddleware from "./utils/morganMiddleware.js";
 import swaggerDocs from "./swagger.js"; // Import Swagger
+import { ragAnswer } from './rag.js';
+import cors from 'cors';
 
+
+
+app.use(cors());
 app.use(morganMiddleware);
 console.log("✅ Swagger initialized");
 process.on("uncaughtException", (err) => {
@@ -20,6 +25,20 @@ process.on("uncaughtException", (err) => {
 connectDB();
 
 const port = process.env.PORT || 3000;
+app.post('/api/ask', async (req, res) => {
+  const question = req.body.question;
+  if (!question) {
+    return res.status(400).json({ error: 'Missing "question" in request body' });
+  }
+
+  try {
+    const answer = await ragAnswer(question);
+    res.json({ answer });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'RAG pipeline failed' });
+  }
+});
 
 
 const server = app.listen(port, '0.0.0.0', () => {

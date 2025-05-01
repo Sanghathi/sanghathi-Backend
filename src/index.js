@@ -9,7 +9,7 @@ import globalErrorHandler from "./controllers/errorController.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from 'fs';
-
+import campubuddyroute from "./routes/CampusBuddy/campusBuddy.js";
 //routes
 import admissionRouter from "./routes/Student/AdmissionRoutes.js";
 import userRouter from "./routes/userRoutes.js";
@@ -63,12 +63,8 @@ const app = express();
 app.use(
   cors({
     origin: [
-      "http://localhost:5173",
       "http://localhost:3000",
-      "http://localhost:5500",
-      "https://Sanghathi.netlify.app",
       "https://sanghathi.com",
-      "file://" // For local HTML file testing
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -106,6 +102,7 @@ app.use(mongoSanitize());
 // app.use(xss());
 
 // Mount routes
+app.use("/api/ask", campubuddyroute);
 app.use("/api/users", userRouter); // Mount user routes first
 app.use("/api/messages", messageRouter);
 app.use("/api/meetings", meetingRouter);
