@@ -7,11 +7,9 @@ import socketController from "./controllers/socketController.js";
 import morganMiddleware from "./utils/morganMiddleware.js";
 import swaggerDocs from "./swagger.js"; // Import Swagger
 import { ragAnswer } from './rag.js';
-import cors from 'cors';
 
 
 
-app.use(cors());
 app.use(morganMiddleware);
 console.log("✅ Swagger initialized");
 process.on("uncaughtException", (err) => {
@@ -52,7 +50,7 @@ const server = app.listen(port, '0.0.0.0', () => {
 
 const io = SocketManager.createServer(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:3000", "https://Sanghathi.netlify.app"],
+    origin: ["http://localhost:5173", "http://localhost:3000", "https://sanghathi.com"],
     methods: ["GET", "POST"],
     credentials: true
   },
