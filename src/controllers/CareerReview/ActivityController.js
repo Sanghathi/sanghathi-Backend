@@ -71,3 +71,18 @@ export const deleteActivityById = catchAsync(async (req, res, next) => {
         data: null,
     });
 });
+
+export const deleteActivityByUSN = catchAsync(async (req, res, next) => {
+    const { usn } = req.params;
+
+    const activity = await Activity.findOneAndDelete({ usn });
+
+    if (!activity) {
+        return next(new AppError('No activity found with that USN', 404));
+    }
+
+    res.status(204).json({
+        status: 'success',
+        data: null
+    });
+});

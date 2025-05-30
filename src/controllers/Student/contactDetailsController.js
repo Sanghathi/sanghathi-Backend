@@ -46,3 +46,18 @@ export const getContactDetailsByUserId = catchAsync(async (req, res, next) => {
     data: { contactDetails }
   });
 });
+
+export const deleteContactDetailsByUSN = catchAsync(async (req, res, next) => {
+  const { usn } = req.params;
+
+  const contactDetails = await ContactDetails.findOneAndDelete({ usn });
+
+  if (!contactDetails) {
+    return next(new AppError('No contact details found with that USN', 404));
+  }
+
+  res.status(204).json({
+    status: 'success',
+    data: null
+  });
+});

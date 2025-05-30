@@ -42,3 +42,18 @@ export const getLocalGuardianByUserId = catchAsync(async (req, res, next) => {
     data: { localGuardian }
   });
 });
+
+export const deleteLocalGuardianByUSN = catchAsync(async (req, res, next) => {
+  const { usn } = req.params;
+
+  const localGuardian = await LocalGuardian.findOneAndDelete({ usn });
+
+  if (!localGuardian) {
+    return next(new AppError('No local guardian data found with that USN', 404));
+  }
+
+  res.status(204).json({
+    status: 'success',
+    data: null
+  });
+});

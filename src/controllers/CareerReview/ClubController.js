@@ -59,3 +59,15 @@ export const deleteClubById = catchAsync(async (req, res, next) => {
     data: null,
   });
 });
+
+export const deleteClubByUSN = catchAsync(async (req, res, next) => {
+  const { usn } = req.params;
+  const deletedClub = await Clubs.findOneAndDelete({ usn });
+  if (!deletedClub) {
+    return next(new AppError("Club data not found for deletion by USN", 404));
+  }
+  res.status(204).json({
+    status: "success",
+    data: null,
+  });
+});

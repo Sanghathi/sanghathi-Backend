@@ -9,6 +9,15 @@ export const createOrUpdateAdmissionDetails = catchAsync(async (req, res, next) 
     return next(new AppError('User ID is required', 400));
   }
 
+  // Clean up empty enum fields
+  if (admissionData.admissionType === '') delete admissionData.admissionType;
+  if (admissionData.semester === '') delete admissionData.semester;
+
+  // Remove empty strings from documentsSubmitted array
+  if (Array.isArray(admissionData.documentsSubmitted)) {
+    admissionData.documentsSubmitted = admissionData.documentsSubmitted.filter(doc => doc && doc.trim());
+  }
+
   const admissionDetails = await AdmissionDetails.findOneAndUpdate(
     { userId },
     admissionData,

@@ -9,35 +9,19 @@ const admissionDetailsSchema = new mongoose.Schema({
   },
   admissionYear: {
     type: String,
-    required: true
   },
   branch: {
     type: String,
-    required: true
-  },
-  semester: {
-    type: String,
-    enum: ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"],
-    required: true
   },
   admissionType: {
     type: String,
     enum: ["COMEDK", "CET", "MANAGEMENT", "SNQ"],
-    required: true
   },
   category: {
     type: String,
-    required: true
-  },
-  usn: {
-    type: String,
-    required: true,
-    unique: true
   },
   collegeId: {
     type: String,
-    required: true,
-    unique: true
   },
   branchChange: {
     year: String,
