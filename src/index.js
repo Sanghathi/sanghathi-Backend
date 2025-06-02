@@ -58,6 +58,9 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Trust proxy - Add this before other middleware
+app.set('trust proxy', 1);
+
 //1) GLOBAL MIDDLEWARE
 // Configure CORS to allow requests from any origin during development
 app.use(
