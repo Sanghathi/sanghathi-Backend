@@ -83,9 +83,11 @@ app.use(
 app.use(morgan("dev"));
 
 const limiter = rateLimit({
-  max: 3000, // Limit each IP to 2000 requests per hour
-  windowMs: 60 * 60 * 1000,
+  max: 3000, // Example: 5000 requests per hour per IP
+  windowMs: 60 * 60 * 1000, // 1 hour
   message: "Too many requests from this IP, please try again in an hour!",
+  standardHeaders: true, // Optional: Adds RateLimit-* headers for clients
+  legacyHeaders: false, // Optional: Removes X-RateLimit-* headers
 });
 app.use("/api", limiter);
 
