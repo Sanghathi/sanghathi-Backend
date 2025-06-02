@@ -83,7 +83,7 @@ app.use(
 app.use(morgan("dev"));
 
 const limiter = rateLimit({
-  max: 100,
+  max: 3000, // Limit each IP to 2000 requests per hour
   windowMs: 60 * 60 * 1000,
   message: "Too many requests from this IP, please try again in an hour!",
 });
