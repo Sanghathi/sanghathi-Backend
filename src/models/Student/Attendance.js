@@ -10,6 +10,7 @@ const attendanceSchema = new mongoose.Schema({
           month: { type: Number, required: true },
           subjects: [
             {
+              subjectCode: { type: String, required: true },
               subjectName: String,
               attendedClasses: Number,
               totalClasses: Number,

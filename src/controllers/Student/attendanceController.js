@@ -8,7 +8,7 @@ const threadService = new ThreadService();
 
 const MINIMUM_ATTENDANCE_CRITERIA = 75;
 const BASE_URL = process.env.PYTHON_API;
-const BACKEND_URL = process.env.BACKEND_HOST;
+const BACKEND_URL = process.env.BACKEND_HOST || 'http://localhost:8000';
 
 const sendAttendanceReport = async (attendanceData) => {
   try {
@@ -50,10 +50,15 @@ export const checkMinimumAttendance = async (userId, semester, month, subjects) 
     if (overallAttendance < MINIMUM_ATTENDANCE_CRITERIA) {
         try {
           // Get the mentor of the student
-          const mentordetails = await axios.get(`${BACKEND_URL}/api/mentorship/mentor/${userId}`);
-          console.log("Mentor Details: ",mentordetails);
-          const mentorId=mentordetails.data.mentor._id;
-          console.log("Mentor: ", mentorId);
+          const mentorUrl = `${BACKEND_URL}/api/mentorship/mentor/${userId}`;
+          console.log("Fetching mentor details from:", mentorUrl);
+          
+          const mentordetails = await axios.get(mentorUrl);
+          console.log("Mentor Details: ", mentordetails);
+          
+          if (mentordetails.data?.mentor?._id) {
+            const mentorId = mentordetails.data.mentor._id;
+            console.log("Mentor: ", mentorId);
             await threadService.createThread(
                 mentorId,
                 [userId, mentorId],
@@ -61,9 +66,18 @@ export const checkMinimumAttendance = async (userId, semester, month, subjects) 
                 "attendance"
             );
             logger.info("SENDING REPORT");
+          } else {
+            logger.warn("No mentor found for student:", userId);
+          }
         } catch (error) {
             console.error("Error in checkMinimumAttendance:", error);
-            throw error; 
+            // Don't throw the error, just log it and continue
+            logger.error("Error fetching mentor details", {
+              error: error.message,
+              userId,
+              semester,
+              month
+            });
         }
     }
     return overallAttendance;
@@ -80,6 +94,11 @@ export const submitAttendanceData = async (req, res) => {
         return res.status(400).json({ message: "Missing required fields (semester, month, subjects)" });
     }
 
+    // Validate that each subject has a subjectCode
+    if (!subjects.every(subject => subject.subjectCode)) {
+        return res.status(400).json({ message: "Each subject must have a subject code" });
+    }
+
     let overallAttendance;
     try {
       overallAttendance = await checkMinimumAttendance(userId, semester, month, subjects);
@@ -87,58 +106,138 @@ export const submitAttendanceData = async (req, res) => {
     catch (error) {
       console.error("Error in checkMinimumAttendance:", error);
       return res.status(400).json({ message: "Error checking attendance: " + error.message });
-  }
-    const attendance = await Attendance.findOne({ userId });
+    }
+
+    // Prepare the subjects data with required fields
+    const formattedSubjects = subjects.map(subject => ({
+      subjectCode: subject.subjectCode,
+      subjectName: subject.subjectName,
+      attendedClasses: subject.attendedClasses,
+      totalClasses: subject.totalClasses
+    }));
+
+    // Try to find existing attendance record
+    let attendance = await Attendance.findOne({ userId });
 
     if (!attendance) {
-      // If no attendance record exists for the user, create a new one
-      const newAttendance = new Attendance({
+      // Create new attendance record
+      attendance = new Attendance({
         userId,
         semesters: [{
           semester,
           months: [{
             month,
-            subjects,
+            subjects: formattedSubjects,
             overallAttendance
           }]
         }]
       });
-      await newAttendance.save();
-
-      return res.status(201).json({
-        status: "success",
-        data: { attendance: newAttendance },
-      });
-    }
-
-    // Find the semester
-    let semesterObj = attendance.semesters.find(s => s.semester === semester);
-
-    if (!semesterObj) {
-      // If the semester doesn't exist, create it
-      semesterObj = { semester, months: [] };
-      attendance.semesters.push(semesterObj);
-    }
-
-    // Find the month
-    let monthObj = semesterObj.months.find(m => m.month === month);
-
-    if (!monthObj) {
-      // If the month doesn't exist, create it
-      monthObj = { month, subjects, overallAttendance };
-      semesterObj.months.push(monthObj);
     } else {
-      // If the month exists, update the subjects and overallAttendance
-      monthObj.subjects = subjects;
-      monthObj.overallAttendance = overallAttendance;
+      // Find or create semester
+      let semesterObj = attendance.semesters.find(s => s.semester === semester);
+      
+      if (!semesterObj) {
+        // Create new semester
+        semesterObj = {
+          semester,
+          months: [{
+            month,
+            subjects: formattedSubjects,
+            overallAttendance
+          }]
+        };
+        attendance.semesters.push(semesterObj);
+      } else {
+        // Find or create month
+        let monthObj = semesterObj.months.find(m => m.month === month);
+        
+        if (!monthObj) {
+          // Create new month
+          monthObj = {
+            month,
+            subjects: formattedSubjects,
+            overallAttendance
+          };
+          semesterObj.months.push(monthObj);
+        } else {
+          // Update existing month
+          // Ensure all existing subjects have subject codes
+          const updatedSubjects = monthObj.subjects.map(subject => {
+            if (!subject.subjectCode) {
+              // Find matching subject from new data
+              const matchingSubject = formattedSubjects.find(
+                s => s.subjectName === subject.subjectName
+              );
+              return {
+                ...subject,
+                subjectCode: matchingSubject?.subjectCode || 'UNKNOWN'
+              };
+            }
+            return subject;
+          });
+
+          // Add any new subjects
+          formattedSubjects.forEach(newSubject => {
+            const existingSubject = updatedSubjects.find(
+              s => s.subjectCode === newSubject.subjectCode
+            );
+            if (!existingSubject) {
+              updatedSubjects.push(newSubject);
+            }
+          });
+
+          monthObj.subjects = updatedSubjects;
+          monthObj.overallAttendance = overallAttendance;
+        }
+      }
     }
 
-    await attendance.save();
-
-    res.status(200).json({
-      status: "success",
-      data: { attendance },
-    });
+    // Save the attendance record
+    try {
+      const savedAttendance = await attendance.save();
+      res.status(200).json({
+        status: "success",
+        data: { attendance: savedAttendance },
+      });
+    } catch (saveError) {
+      console.error("Error saving attendance:", saveError);
+      // If there's a validation error, try to fix the data and save again
+      if (saveError.name === 'ValidationError') {
+        try {
+          // Ensure all subjects in all semesters and months have subject codes
+          attendance.semesters.forEach(semester => {
+            semester.months.forEach(month => {
+              month.subjects = month.subjects.map(subject => {
+                if (!subject.subjectCode) {
+                  return {
+                    ...subject,
+                    subjectCode: 'UNKNOWN'
+                  };
+                }
+                return subject;
+              });
+            });
+          });
+          
+          const savedAttendance = await attendance.save();
+          res.status(200).json({
+            status: "success",
+            data: { attendance: savedAttendance },
+          });
+        } catch (retryError) {
+          console.error("Error in retry save:", retryError);
+          return res.status(400).json({ 
+            message: "Error saving attendance data after retry",
+            error: retryError.message 
+          });
+        }
+      } else {
+        return res.status(400).json({ 
+          message: "Error saving attendance data",
+          error: saveError.message 
+        });
+      }
+    }
 
   } catch (error) {
     console.error("Error in submitAttendanceData:", error.message);
