@@ -11,7 +11,6 @@ const iatSchema = new mongoose.Schema({
           subjectCode: { type: String, required: true },
           iat1: { type: Number },
           iat2: { type: Number },
-          iat3: { type: Number },
         },
       ],
     },
