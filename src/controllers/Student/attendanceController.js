@@ -95,9 +95,10 @@ export const submitAttendanceData = async (req, res) => {
     }
 
     // Validate that each subject has a subjectCode
-    if (!subjects.every(subject => subject.subjectCode)) {
-        return res.status(400).json({ message: "Each subject must have a subject code" });
-    }
+    // REMOVE or COMMENT OUT this block to make subjectCode optional
+    // if (!subjects.every(subject => subject.subjectCode)) {
+    //     return res.status(400).json({ message: "Each subject must have a subject code" });
+    // }
 
     let overallAttendance;
     try {
@@ -110,7 +111,7 @@ export const submitAttendanceData = async (req, res) => {
 
     // Prepare the subjects data with required fields
     const formattedSubjects = subjects.map(subject => ({
-      subjectCode: subject.subjectCode,
+      subjectCode: subject.subjectCode || undefined, // allow undefined
       subjectName: subject.subjectName,
       attendedClasses: subject.attendedClasses,
       totalClasses: subject.totalClasses
@@ -178,8 +179,11 @@ export const submitAttendanceData = async (req, res) => {
 
           // Add any new subjects
           formattedSubjects.forEach(newSubject => {
+            // Match by subjectCode if present, else by subjectName
             const existingSubject = updatedSubjects.find(
-              s => s.subjectCode === newSubject.subjectCode
+              s =>
+                (newSubject.subjectCode && s.subjectCode === newSubject.subjectCode) ||
+                (!newSubject.subjectCode && s.subjectName === newSubject.subjectName)
             );
             if (!existingSubject) {
               updatedSubjects.push(newSubject);
