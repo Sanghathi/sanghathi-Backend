@@ -4,7 +4,7 @@ import AppError from "../../utils/appError.js";
 
 export const submitExternalData = async (req, res) => {
   try {
-    const { semester, subjects } = req.body;
+    const { semester, subjects, passingDate, sgpa } = req.body;
     const userId = req.params.userId;
 
     if (!semester || !subjects || !Array.isArray(subjects)) {
@@ -12,36 +12,53 @@ export const submitExternalData = async (req, res) => {
     }
 
     for (const subject of subjects) {
-      if (!subject.subjectCode || !subject.subjectName) {
-        return res.status(400).json({ message: "Each subject must have subjectCode and subjectName" });
+      if (
+        !subject.subjectCode ||
+        !subject.subjectName ||
+        subject.internalMarks == null ||
+        subject.externalMarks == null ||
+        subject.total == null
+      ) {
+        return res.status(400).json({
+          message: "Each subject must have subjectCode, subjectName, internalMarks, externalMarks, and total.",
+        });
       }
     }
 
     let external = await External.findOne({ userId });
 
     if (!external) {
-      // Create a new External record if one doesn't exist
+      // No record exists, create new with semester, passingDate, sgpa
       const newExternal = new External({
         userId,
         semesters: [{
           semester,
           subjects,
-        }],
+          passingDate,
+          sgpa
+        }]
       });
+
       await newExternal.save();
       return res.status(201).json({ status: "success", data: { external: newExternal } });
     }
 
-    // Find the existing semester
-    let semesterObj = external.semesters.find((s) => s.semester === semester);
+    // Record exists — find semester
+    const semesterIndex = external.semesters.findIndex((s) => s.semester === semester);
 
-    if (!semesterObj) {
-      // Add a new semester if it doesn't exist
-      semesterObj = { semester, subjects };
-      external.semesters.push(semesterObj);
+    if (semesterIndex !== -1) {
+      // Update existing semester
+      external.semesters[semesterIndex].subjects = subjects;
+      external.semesters[semesterIndex].passingDate = passingDate;
+      external.semesters[semesterIndex].sgpa = sgpa;
     } else {
-      // Update the subjects for the existing semester
-      semesterObj.subjects = subjects;
+      // Add new semester
+      external.semesters.push({
+        semester,
+        subjects,
+        passingDate,
+        sgpa
+      });
     }
 
     await external.save();
@@ -52,6 +69,7 @@ export const submitExternalData = async (req, res) => {
     res.status(500).json({ message: "Internal server error: " + error.message });
   }
 };
+
 
 export const getExternalById = async (req, res, next) => {
   const { userId } = req.params;

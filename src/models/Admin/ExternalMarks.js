@@ -23,21 +23,21 @@ const externalSchema = new mongoose.Schema(
               type: String,
               required: true,
             },
+            internalMarks: {
+              type: Number,
+              default: null,
+            },
             externalMarks: {
+              type: Number,
+              default: null,
+            },
+            total: {
               type: Number,
               default: null,
             },
             attempt: {
               type: Number,
               default: 1,
-            },
-            passingDate: {
-              type: String,
-              default: null,
-            },
-            cgpa: {
-              type: Number,
-              default: null,
             },
             result: {
               type: String,
@@ -46,6 +46,14 @@ const externalSchema = new mongoose.Schema(
             },
           },
         ],
+        passingDate: {
+          type: String,
+          default: null,
+        },
+        sgpa: {
+          type: Number,
+          default: null,
+        },
       },
     ],
   },
