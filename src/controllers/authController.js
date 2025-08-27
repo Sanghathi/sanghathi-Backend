@@ -190,6 +190,7 @@ export const restrictTo = (...roles) => {
 };
 
 // Forgot Password
+// controllers/authController.js - Update forgotPassword function
 export const forgotPassword = catchAsync(async (req, res, next) => {
   const user = await User.findOne({ email: req.body.email });
 
@@ -200,17 +201,33 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
   const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
 
-  const resetURL = `${req.protocol}://${req.get(
-    "host"
-  )}/api/v1/users/resetPassword/${resetToken}`;
+  // CHANGE THIS: Point to your React frontend, not the API
+const resetURL = `${process.env.CLIENT_HOST}/resetPassword/${resetToken}`;
+  
+  // For production, use environment variables
+  // const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-  const message = `Forgot your password? Submit a PATCH request with your new password and passwordConfirm to: ${resetURL}.\nIf you didn't forget your password, please ignore this email.`;
+  const message = `Forgot your password? Click the link below to reset it:\n\n${resetURL}\n\nIf you didn't forget your password, please ignore this email.`;
+
+  const htmlMessage = `
+    <h2>Password Reset Request</h2>
+    <p>Hi ${user.name},</p>
+    <p>You requested a password reset. Click the link below to reset your password:</p>
+    <a href="${resetURL}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
+    <p>Or copy and paste this link in your browser:</p>
+    <p>${resetURL}</p>
+    <p>This link will expire in 10 minutes.</p>
+    <p>If you didn't request this, please ignore this email.</p>
+    <br>
+    <p>Best regards,<br>Sanghathi Team</p>
+  `;
 
   try {
     await sendEmail({
       email: user.email,
       subject: "Your password reset token (valid for 10 minutes)",
-      message,
+      message: message,
+      html: htmlMessage
     });
 
     res.status(200).json({

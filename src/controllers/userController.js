@@ -6,6 +6,8 @@ import logger from "../utils/logger.js";
 import bcrypt from "bcrypt";
 import { encrypt, compare } from "../utils/passwordHelper.js";
 import mongoose from "mongoose";
+import { createHash } from "crypto";
+
 
 // Get all users with optional role filtering
 export const getAllUsers = catchAsync(async (req, res, next) => {
@@ -144,8 +146,6 @@ export async function createUser(req, res, next) {
   }
 }
 
-
-// Update user details
 // Update user details
 export const updateUser = catchAsync(async (req, res, next) => {
   const { id: userId } = req.params;
@@ -266,4 +266,32 @@ export const resetPassword = catchAsync(async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+export const resetPasswordWithToken = catchAsync(async (req, res, next) => {
+  const { password, passwordConfirm } = req.body;
+
+  const user = await User.findOne({
+    passwordResetToken: createHash("sha256").update(req.params.token).digest("hex"),
+    passwordResetExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    return next(new AppError("Token is invalid or expired", 400));
+  }
+
+  if (password !== passwordConfirm) {
+    return next(new AppError("Passwords do not match", 400));
+  }
+
+  user.password = password;
+  user.passwordConfirm = passwordConfirm;
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+  await user.save();
+
+  res.status(200).json({
+    status: "success",
+    message: "Password reset successful",
+  });
 });

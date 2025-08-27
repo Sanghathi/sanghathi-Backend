@@ -17,7 +17,6 @@ import {
   protect,
 } from "../controllers/authController.js";
 import { getAllThreadsOfUser } from "../controllers/threadController.js";
-import { authorizePermissions } from "../middlewares/authMiddleware.js";
 
 const router = Router();
 

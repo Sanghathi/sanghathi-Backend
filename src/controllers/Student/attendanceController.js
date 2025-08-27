@@ -8,7 +8,7 @@ const threadService = new ThreadService();
 
 const MINIMUM_ATTENDANCE_CRITERIA = 75;
 const BASE_URL = process.env.PYTHON_API;
-const BACKEND_URL = process.env.BACKEND_HOST || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_HOST;
 
 const sendAttendanceReport = async (attendanceData) => {
   try {

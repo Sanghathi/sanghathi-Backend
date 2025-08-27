@@ -13,6 +13,7 @@ import campubuddyroute from "./routes/CampusBuddy/campusBuddy.js";
 //routes
 import admissionRouter from "./routes/Student/AdmissionRoutes.js";
 import userRouter from "./routes/userRoutes.js";
+import authRouter from "./routes/authRoutes.js";
 // import conversationRouter from "./routes/conversationRoutes.js";
 import meetingRouter from "./routes/meetingRoutes.js";
 import studentRouter from "./routes/Student/studentRoutes.js";
@@ -109,6 +110,7 @@ app.use(mongoSanitize());
 // Mount routes
 app.use("/api/ask", campubuddyroute);
 app.use("/api/users", userRouter); // Mount user routes first
+app.use("/api/v1/auth", authRouter)
 app.use("/api/messages", messageRouter);
 app.use("/api/meetings", meetingRouter);
 app.use("/api/mentors", mentorRouter);
