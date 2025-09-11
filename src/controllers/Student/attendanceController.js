@@ -47,39 +47,39 @@ export const checkMinimumAttendance = async (userId, semester, month, subjects) 
     const overallAttendance = (attendedClasses / totalClasses) * 100;
     console.log("Overall Attendance:", overallAttendance);
 
-    if (overallAttendance < MINIMUM_ATTENDANCE_CRITERIA) {
-        try {
-          // Get the mentor of the student
-          const mentorUrl = `${BACKEND_URL}/api/mentorship/mentor/${userId}`;
-          console.log("Fetching mentor details from:", mentorUrl);
+    // if (overallAttendance < MINIMUM_ATTENDANCE_CRITERIA) {
+    //     try {
+    //       // Get the mentor of the student
+    //       const mentorUrl = `${BACKEND_URL}/api/mentorship/mentor/${userId}`;
+    //       console.log("Fetching mentor details from:", mentorUrl);
           
-          const mentordetails = await axios.get(mentorUrl);
-          console.log("Mentor Details: ", mentordetails);
+    //       const mentordetails = await axios.get(mentorUrl);
+    //       console.log("Mentor Details: ", mentordetails);
           
-          if (mentordetails.data?.mentor?._id) {
-            const mentorId = mentordetails.data.mentor._id;
-            console.log("Mentor: ", mentorId);
-            await threadService.createThread(
-                mentorId,
-                [userId, mentorId],
-                `Attendance issue for month ${month} in semester ${semester}`,
-                "attendance"
-            );
-            logger.info("SENDING REPORT");
-          } else {
-            logger.warn("No mentor found for student:", userId);
-          }
-        } catch (error) {
-            console.error("Error in checkMinimumAttendance:", error);
-            // Don't throw the error, just log it and continue
-            logger.error("Error fetching mentor details", {
-              error: error.message,
-              userId,
-              semester,
-              month
-            });
-        }
-    }
+    //       if (mentordetails.data?.mentor?._id) {
+    //         const mentorId = mentordetails.data.mentor._id;
+    //         console.log("Mentor: ", mentorId);
+    //         await threadService.createThread(
+    //             mentorId,
+    //             [userId, mentorId],
+    //             `Attendance issue for month ${month} in semester ${semester}`,
+    //             "attendance"
+    //         );
+    //         logger.info("SENDING REPORT");
+    //       } else {
+    //         logger.warn("No mentor found for student:", userId);
+    //       }
+    //     } catch (error) {
+    //         console.error("Error in checkMinimumAttendance:", error);
+    //         // Don't throw the error, just log it and continue
+    //         logger.error("Error fetching mentor details", {
+    //           error: error.message,
+    //           userId,
+    //           semester,
+    //           month
+    //         });
+    //     }
+    // }
     return overallAttendance;
 };
 
