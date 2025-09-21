@@ -9,8 +9,8 @@ class GeminiService {
     // Initialize the Google Generative AI client
     this.genAI = new GoogleGenerativeAI(this.apiKey);
     
-    // Configure the model (Gemini-2.0-flash is the recommended model for most use cases)
-    this.modelName = "gemini-2.0-flash";
+    // Configure the model
+    this.modelName = "gemini-2.5-pro";
     this.model = this.genAI.getGenerativeModel({ model: this.modelName });
     
     console.log(`Initialized Google Gemini API with model: ${this.modelName}`);

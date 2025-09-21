@@ -136,7 +136,7 @@ app.use("/api/faculty", facultyRouter);
 app.use("/api/career-counselling", CareerCounsellingRoutes);
 app.use("/api/proffessional-body", ProffessionalBodyRoutes);
 app.use("/api/mooc-data", MoocRoutes);
-app.use("/api/mini-project", MiniProjectRoutes);
+app.use("/api/project", MiniProjectRoutes);
 app.use("/api/activity-data", ActivityRoutes);
 app.use("/api/hobbies-data", HobbiesRoutes);
 app.use("/api", roleRoutes);
