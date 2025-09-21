@@ -1,7 +1,7 @@
 import geminiService from "./geminiApi.js";
 
 const conversationSummaryPrompt = (thread) => {
-  if (thread.messages.length < 3) {
+  if (thread.messages.length < 1) {
     return "Not enough messages to generate a summary.";
   }
 
