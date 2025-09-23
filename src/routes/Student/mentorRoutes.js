@@ -336,4 +336,37 @@ router.get("/allocation-students", async (req, res) => {
   }
 });
 
+// Unassign mentor from students
+router.delete("/unassign", async (req, res) => {
+  try {
+    const { menteeIds } = req.body;
+    
+    if (!menteeIds || !Array.isArray(menteeIds)) {
+      return res.status(400).json({ message: "menteeIds array is required" });
+    }
+
+    // Validate mentee IDs
+    const validMenteeIds = menteeIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+    
+    if (validMenteeIds.length === 0) {
+      return res.status(400).json({ message: "No valid mentee IDs provided" });
+    }
+
+    // Delete mentorships for these mentees
+    const result = await Mentorship.deleteMany({
+      menteeId: { $in: validMenteeIds.map(id => new mongoose.Types.ObjectId(id)) }
+    });
+
+    console.log(`Unassigned ${result.deletedCount} mentorships`);
+
+    res.status(200).json({
+      message: "Mentors unassigned successfully",
+      unassignedCount: result.deletedCount
+    });
+  } catch (error) {
+    console.error("Error unassigning mentors:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
 export default router;
