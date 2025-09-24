@@ -22,6 +22,6 @@ const specs = swaggerJsdoc(options);
 console.log("Swagger Docs:", specs);
 
 export default (app) => {
-  console.log("✅ Applying Swagger middleware...");
+  console.log(" Applying Swagger middleware...");
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 };

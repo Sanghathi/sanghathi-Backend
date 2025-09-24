@@ -19,14 +19,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Emithru/e-Mithru-Backend.git"
+    "url": "git+https://github.com/Sanghathi/sanghathi-Backend.git"
   },
   "author": "Shovan Mondal",
   "license": "ISC",
   "bugs": {
-    "url": "https://https://github.com/Emithru/e-Mithru-Backend/issues"
+    "url": "https://github.com/Sanghathi/sanghathi-Backend/issues"
   },
-  "homepage": "https://github.com/Emithru/e-Mithru-Backend/e-Mithru-Backend#readme",
+  "homepage": "https://github.com/Sanghathi/sanghathi-Backend#readme",
   "dependencies": {
     "@google/generative-ai": "^0.2.1",
     "@langchain/community": "^0.3.27",
