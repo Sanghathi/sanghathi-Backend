@@ -13,7 +13,6 @@ import campubuddyroute from "./routes/CampusBuddy/campusBuddy.js";
 //routes
 import admissionRouter from "./routes/Student/AdmissionRoutes.js";
 import userRouter from "./routes/userRoutes.js";
-import authRouter from "./routes/authRoutes.js";
 // import conversationRouter from "./routes/conversationRoutes.js";
 import meetingRouter from "./routes/meetingRoutes.js";
 import studentRouter from "./routes/Student/studentRoutes.js";
@@ -53,6 +52,7 @@ import tylScoresRoutes from "./routes/tylScores.js";
 import uploadRouter from "./routes/uploadRoutes.js";
 import testUploadRouter from "./routes/testUploadRoute.js";
 import projectRoutes from "./routes/Placements/ProjectRoutes.js";
+import feedbackRoutes from "./routes/Feedback/feedbackRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,7 +87,7 @@ app.use(
 app.use(morgan("dev"));
 
 const limiter = rateLimit({
-  max: 80000, // Example: 5000 requests per hour per IP
+  max: 3000, // Example: 5000 requests per hour per IP
   windowMs: 60 * 60 * 1000, // 1 hour
   message: "Too many requests from this IP, please try again in an hour!",
   standardHeaders: true, // Optional: Adds RateLimit-* headers for clients
@@ -110,7 +110,6 @@ app.use(mongoSanitize());
 // Mount routes
 app.use("/api/ask", campubuddyroute);
 app.use("/api/users", userRouter); // Mount user routes first
-app.use("/api/v1/auth", authRouter)
 app.use("/api/messages", messageRouter);
 app.use("/api/meetings", meetingRouter);
 app.use("/api/mentors", mentorRouter);
@@ -151,6 +150,8 @@ app.use("/api/internship", internshipRoutes);
 // Register routes
 app.use("/api/v1/upload", uploadRouter);
 app.use("/api/test", testUploadRouter);
+
+app.use("/api/feedback",feedbackRoutes);
 
 // Serve the test HTML file
 app.get('/test-upload', (req, res) => {
