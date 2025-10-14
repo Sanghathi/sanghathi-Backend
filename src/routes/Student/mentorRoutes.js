@@ -369,4 +369,70 @@ router.delete("/unassign", async (req, res) => {
   }
 });
 
+// Get all mentors who have assigned mentees with their details
+router.get("/mentors-with-mentees", async (req, res) => {
+  try {
+    const { department } = req.query; // Optional department filter
+    console.log("=== Fetching mentors-with-mentees ===");
+    console.log("Requested department:", department);
+    
+    // Get all mentorships
+    const mentorships = await Mentorship.find();
+    console.log(`Found ${mentorships.length} total mentorships`);
+    
+    // Get unique mentor IDs
+    const mentorIds = [...new Set(mentorships.map(m => m.mentorId.toString()))];
+    console.log(`Found ${mentorIds.length} unique mentor IDs`);
+    
+    if (mentorIds.length === 0) {
+      console.log("No mentorships found, returning empty array");
+      return res.status(200).json({ mentors: [] });
+    }
+    
+    // Build query for mentors
+    const mentorQuery = {
+      _id: { $in: mentorIds.map(id => new mongoose.Types.ObjectId(id)) },
+      roleName: "faculty"
+    };
+    
+    // Add department filter if provided
+    if (department && department !== 'all') {
+      mentorQuery.department = department;
+      console.log("Filtering by department:", department);
+    }
+    
+    console.log("Mentor query:", JSON.stringify(mentorQuery));
+    
+    // Fetch mentors
+    const mentors = await User.find(mentorQuery);
+    console.log(`Found ${mentors.length} mentors matching criteria`);
+    
+    // Count mentees for each mentor
+    const mentorsWithCounts = mentors.map(mentor => {
+      const menteeCount = mentorships.filter(
+        m => m.mentorId.toString() === mentor._id.toString()
+      ).length;
+      
+      return {
+        _id: mentor._id,
+        name: mentor.name,
+        email: mentor.email,
+        phone: mentor.phone,
+        department: mentor.department,
+        roleName: mentor.roleName,
+        menteeCount
+      };
+    });
+    
+    // Sort by mentee count (descending)
+    mentorsWithCounts.sort((a, b) => b.menteeCount - a.menteeCount);
+    
+    console.log(`Returning ${mentorsWithCounts.length} mentors with counts`);
+    res.status(200).json({ mentors: mentorsWithCounts });
+  } catch (error) {
+    console.error("Error fetching mentors with mentees:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
 export default router;
