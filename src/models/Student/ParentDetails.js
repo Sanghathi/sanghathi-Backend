@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 const { model, Schema } = mongoose;
+
 const ParentDetailsSchema = new mongoose.Schema(
   {
     userId: {
@@ -16,16 +17,20 @@ const ParentDetailsSchema = new mongoose.Schema(
     fatherOccupation: { type: String },
     fatherOrganization: { type: String },
     fatherDesignation: { type: String },
+    fatherPhoneNumber: { type: String },
     fatherOfficePhone: { type: String },
     fatherOfficeAddress: { type: String },
     fatherAnnualIncome: { type: Number },
     motherOccupation: { type: String },
     motherOrganization: { type: String },
     motherDesignation: { type: String },
+    motherPhoneNumber: { type: String },
     motherOfficePhone: { type: String },
     motherOfficeAddress: { type: String },
     motherAnnualIncome: { type: Number },
-
+    address: { type: String },
+    state: { type: String },
+    pincode: { type: String },
   },
   { timestamps: true }
 );

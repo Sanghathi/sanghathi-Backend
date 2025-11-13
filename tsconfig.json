@@ -104,6 +104,9 @@
   },
   "exclude": [
     "deploy-cloudinary.js",
-    "test-cloudinary.js"
+    "test-cloudinary.js",
+    "server.js",
+    "dist",
+    "node_modules"
   ]
 }

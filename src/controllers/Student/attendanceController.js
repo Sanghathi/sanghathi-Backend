@@ -90,15 +90,91 @@ export const submitAttendanceData = async (req, res) => {
     const { semester, month, subjects } = req.body;
     const userId = req.params.userId;
 
-    if (!semester || !month || !subjects) {
-        return res.status(400).json({ message: "Missing required fields (semester, month, subjects)" });
+    // Detailed validation with specific error messages
+    if (!userId) {
+      return res.status(400).json({ 
+        message: "User ID is missing",
+        details: "The userId parameter is required in the URL"
+      });
     }
 
-    // Validate that each subject has a subjectCode
-    // REMOVE or COMMENT OUT this block to make subjectCode optional
-    // if (!subjects.every(subject => subject.subjectCode)) {
-    //     return res.status(400).json({ message: "Each subject must have a subject code" });
-    // }
+    if (!semester) {
+      return res.status(400).json({ 
+        message: "Semester field is missing",
+        details: "Request body must include 'semester' field with a valid semester number"
+      });
+    }
+
+    if (!month) {
+      return res.status(400).json({ 
+        message: "Month field is missing",
+        details: "Request body must include 'month' field with a valid month number (1-12)"
+      });
+    }
+
+    if (!subjects) {
+      return res.status(400).json({ 
+        message: "Subjects field is missing",
+        details: "Request body must include 'subjects' array with attendance data"
+      });
+    }
+
+    if (!Array.isArray(subjects)) {
+      return res.status(400).json({ 
+        message: "Invalid subjects data",
+        details: "The 'subjects' field must be an array of subject objects"
+      });
+    }
+
+    if (subjects.length === 0) {
+      return res.status(400).json({ 
+        message: "Empty subjects array",
+        details: "At least one subject is required in the subjects array"
+      });
+    }
+
+    // Validate each subject has required fields
+    const invalidSubjects = [];
+    subjects.forEach((subject, index) => {
+      const errors = [];
+      
+      if (!subject.subjectName) {
+        errors.push("missing subjectName");
+      }
+      if (subject.attendedClasses === undefined || subject.attendedClasses === null) {
+        errors.push("missing attendedClasses");
+      }
+      if (subject.totalClasses === undefined || subject.totalClasses === null) {
+        errors.push("missing totalClasses");
+      }
+      if (typeof subject.attendedClasses === 'number' && subject.attendedClasses < 0) {
+        errors.push("attendedClasses cannot be negative");
+      }
+      if (typeof subject.totalClasses === 'number' && subject.totalClasses < 0) {
+        errors.push("totalClasses cannot be negative");
+      }
+      if (typeof subject.attendedClasses === 'number' && typeof subject.totalClasses === 'number' 
+          && subject.attendedClasses > subject.totalClasses) {
+        errors.push("attendedClasses cannot be greater than totalClasses");
+      }
+
+      if (errors.length > 0) {
+        invalidSubjects.push({
+          index: index + 1,
+          subjectName: subject.subjectName || 'Unknown',
+          subjectCode: subject.subjectCode || 'Not provided',
+          errors: errors
+        });
+      }
+    });
+
+    if (invalidSubjects.length > 0) {
+      return res.status(400).json({ 
+        message: "Invalid subject data found",
+        details: `${invalidSubjects.length} subject(s) have validation errors`,
+        invalidSubjects: invalidSubjects
+      });
+    }
 
     let overallAttendance;
     try {
@@ -106,16 +182,54 @@ export const submitAttendanceData = async (req, res) => {
     }
     catch (error) {
       console.error("Error in checkMinimumAttendance:", error);
-      return res.status(400).json({ message: "Error checking attendance: " + error.message });
+      return res.status(400).json({ 
+        message: "Error calculating attendance percentage",
+        details: error.message,
+        context: {
+          userId,
+          semester,
+          month,
+          subjectsCount: subjects.length
+        }
+      });
     }
 
-    // Prepare the subjects data with required fields
-    const formattedSubjects = subjects.map(subject => ({
-      subjectCode: subject.subjectCode || undefined, // allow undefined
-      subjectName: subject.subjectName,
-      attendedClasses: subject.attendedClasses,
-      totalClasses: subject.totalClasses
-    }));
+    // Helper function to check if subject is invalid
+    const isInvalidSubject = (subject) => {
+      // Check for null or undefined values
+      if (!subject || !subject.subjectName) return true;
+      
+      // Check for "No Data" entries
+      if (subject.subjectName.toLowerCase().includes('no data')) return true;
+      
+      // Check for numeric-only names (e.g., "2", "4", "10", "172")
+      if (/^\d+$/.test(subject.subjectName.trim())) return true;
+      
+      // Check for zero or null values in critical fields
+      if (!subject.attendedClasses && subject.attendedClasses !== 0) return true;
+      if (!subject.totalClasses || subject.totalClasses === 0) return true;
+      
+      return false;
+    };
+
+    // Prepare the subjects data with required fields and filter invalid ones
+    const formattedSubjects = subjects
+      .map(subject => ({
+        subjectCode: subject.subjectCode || undefined, // allow undefined
+        subjectName: subject.subjectName,
+        attendedClasses: subject.attendedClasses,
+        totalClasses: subject.totalClasses
+      }))
+      .filter(subject => !isInvalidSubject(subject));
+
+    // If no valid subjects remain, return error
+    if (formattedSubjects.length === 0) {
+      return res.status(400).json({
+        status: "fail",
+        message: "No valid subjects found in the provided data",
+        details: "All subjects were filtered out due to invalid data (missing values, 'No Data' entries, numeric-only names, or zero totals)"
+      });
+    }
 
     // Try to find existing attendance record
     let attendance = await Attendance.findOne({ userId });
@@ -134,63 +248,63 @@ export const submitAttendanceData = async (req, res) => {
         }]
       });
     } else {
-      // Find or create semester
-      let semesterObj = attendance.semesters.find(s => s.semester === semester);
+      // Find or create semester using findIndex to avoid duplicates
+      const semesterIndex = attendance.semesters.findIndex(s => s.semester === semester);
       
-      if (!semesterObj) {
+      if (semesterIndex === -1) {
         // Create new semester
-        semesterObj = {
+        attendance.semesters.push({
           semester,
           months: [{
             month,
             subjects: formattedSubjects,
             overallAttendance
           }]
-        };
-        attendance.semesters.push(semesterObj);
+        });
       } else {
-        // Find or create month
-        let monthObj = semesterObj.months.find(m => m.month === month);
+        // Use the semester at the found index
+        const semesterObj = attendance.semesters[semesterIndex];
         
-        if (!monthObj) {
+        // Find or create month using findIndex to avoid duplicates
+        const monthIndex = semesterObj.months.findIndex(m => m.month === month);
+        
+        if (monthIndex === -1) {
           // Create new month
-          monthObj = {
+          semesterObj.months.push({
             month,
             subjects: formattedSubjects,
             overallAttendance
-          };
-          semesterObj.months.push(monthObj);
+          });
         } else {
-          // Update existing month
-          // Ensure all existing subjects have subject codes
-          const updatedSubjects = monthObj.subjects.map(subject => {
-            if (!subject.subjectCode) {
-              // Find matching subject from new data
-              const matchingSubject = formattedSubjects.find(
-                s => s.subjectName === subject.subjectName
-              );
-              return {
-                ...subject,
-                subjectCode: matchingSubject?.subjectCode || 'UNKNOWN'
-              };
-            }
-            return subject;
+          // Use the month at the found index
+          const monthObj = semesterObj.months[monthIndex];
+          
+          // Update existing month - merge subjects without duplicates
+          const existingSubjects = monthObj.subjects.filter(subject => !isInvalidSubject(subject));
+          
+          // Create a map of existing subjects by code and name for quick lookup
+          const subjectMap = new Map();
+          existingSubjects.forEach((subject, index) => {
+            const key = subject.subjectCode || subject.subjectName;
+            subjectMap.set(key, index);
           });
 
-          // Add any new subjects
+          // Update or add subjects from new data
           formattedSubjects.forEach(newSubject => {
-            // Match by subjectCode if present, else by subjectName
-            const existingSubject = updatedSubjects.find(
-              s =>
-                (newSubject.subjectCode && s.subjectCode === newSubject.subjectCode) ||
-                (!newSubject.subjectCode && s.subjectName === newSubject.subjectName)
-            );
-            if (!existingSubject) {
-              updatedSubjects.push(newSubject);
+            const key = newSubject.subjectCode || newSubject.subjectName;
+            const existingIndex = subjectMap.get(key);
+            
+            if (existingIndex !== undefined) {
+              // Update existing subject
+              existingSubjects[existingIndex] = newSubject;
+            } else {
+              // Add new subject
+              existingSubjects.push(newSubject);
+              subjectMap.set(key, existingSubjects.length - 1);
             }
           });
 
-          monthObj.subjects = updatedSubjects;
+          monthObj.subjects = existingSubjects;
           monthObj.overallAttendance = overallAttendance;
         }
       }
@@ -201,51 +315,62 @@ export const submitAttendanceData = async (req, res) => {
       const savedAttendance = await attendance.save();
       res.status(200).json({
         status: "success",
+        message: `Attendance saved successfully for User ID: ${userId}, Semester: ${semester}, Month: ${month}`,
         data: { attendance: savedAttendance },
       });
     } catch (saveError) {
       console.error("Error saving attendance:", saveError);
-      // If there's a validation error, try to fix the data and save again
+      
+      // Provide detailed error information
+      const errorDetails = {
+        userId,
+        semester,
+        month,
+        errorType: saveError.name,
+        errorMessage: saveError.message
+      };
+
+      // If there's a validation error, provide field-specific details
       if (saveError.name === 'ValidationError') {
-        try {
-          // Ensure all subjects in all semesters and months have subject codes
-          attendance.semesters.forEach(semester => {
-            semester.months.forEach(month => {
-              month.subjects = month.subjects.map(subject => {
-                if (!subject.subjectCode) {
-                  return {
-                    ...subject,
-                    subjectCode: 'UNKNOWN'
-                  };
-                }
-                return subject;
-              });
-            });
-          });
-          
-          const savedAttendance = await attendance.save();
-          res.status(200).json({
-            status: "success",
-            data: { attendance: savedAttendance },
-          });
-        } catch (retryError) {
-          console.error("Error in retry save:", retryError);
-          return res.status(400).json({ 
-            message: "Error saving attendance data after retry",
-            error: retryError.message 
-          });
-        }
-      } else {
+        const validationErrors = {};
+        Object.keys(saveError.errors).forEach(field => {
+          validationErrors[field] = {
+            message: saveError.errors[field].message,
+            value: saveError.errors[field].value,
+            kind: saveError.errors[field].kind
+          };
+        });
+        
+        errorDetails.validationErrors = validationErrors;
+        
         return res.status(400).json({ 
-          message: "Error saving attendance data",
-          error: saveError.message 
+          message: "Validation failed while saving attendance data",
+          details: `Failed to save attendance for User ID: ${userId}`,
+          error: errorDetails
         });
       }
+
+      // For other types of errors
+      return res.status(500).json({ 
+        message: "Database error while saving attendance",
+        details: `Failed to save attendance for User ID: ${userId}, Semester: ${semester}, Month: ${month}`,
+        error: errorDetails
+      });
     }
 
   } catch (error) {
     console.error("Error in submitAttendanceData:", error.message);
-    res.status(400).json({ message: error.message });
+    console.error("Error stack:", error.stack);
+    
+    res.status(500).json({ 
+      message: "Unexpected error occurred while processing attendance data",
+      details: error.message,
+      context: {
+        userId: req.params.userId,
+        hasRequestBody: !!req.body,
+        requestKeys: req.body ? Object.keys(req.body) : []
+      }
+    });
   }
 };
 

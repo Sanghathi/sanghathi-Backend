@@ -1,21 +1,65 @@
 import mongoose from "mongoose";
 
-const { Schema, model } = mongoose;
-
-const conversationSchema = new Schema({
-  recipients: [{ type: Schema.Types.ObjectId, ref: "Users" }],
+const conversationSchema = new mongoose.Schema({
   conversationId: {
     type: String,
+    required: false,
   },
-  lastMessage: {
+  status: {
     type: String,
+    default: "closed",
+    enum: ["active", "closed"],
+  },
+  mentorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: false,
+  },
+  menteeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: false,
+  },
+  title: {
+    type: String,
+    default: "",
+  },
+  topic: {
+    type: String,
+    default: "",
+  },
+  conversationText: {
+    type: String,
+    default: "",
+  },
+  description: {
+    type: String,
+    default: "",
+  },
+  moocChecked: {
+    type: Boolean,
+    default: false,
+  },
+  projectChecked: {
+    type: Boolean,
+    default: false,
+  },
+  summary: {
+    type: String,
+    default: "",
+  },
+  isOffline: {
+    type: Boolean,
+    default: true,
   },
   date: {
-    type: String,
+    type: Date,
     default: Date.now,
   },
 });
 
-const Conversation = model("conversations", conversationSchema);
-
+const Conversation = mongoose.model("Conversation", conversationSchema);
 export default Conversation;
+
+
+
