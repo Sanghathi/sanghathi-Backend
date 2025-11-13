@@ -9,9 +9,9 @@ const iatSchema = new mongoose.Schema({
         {
           subjectName: { type: String, required: true },
           subjectCode: { type: String, required: true },
-          iat1: { type: Number },
-          iat2: { type: Number },
-          avg: { type: Number },
+          iat1: { type: String },
+          iat2: { type: String },
+          avg: { type: String },
         },
       ],
     },
