@@ -1,0 +1,57 @@
+# Auto-labeling configuration
+# Label PRs based on changed files
+
+# Controllers
+controllers:
+  - changed-files:
+    - any-glob-to-any-file: 'src/controllers/**/*'
+
+# Routes
+routes:
+  - changed-files:
+    - any-glob-to-any-file: 'src/routes/**/*'
+
+# Models
+models:
+  - changed-files:
+    - any-glob-to-any-file: 'src/models/**/*'
+
+# Services
+services:
+  - changed-files:
+    - any-glob-to-any-file: 'src/services/**/*'
+
+# Middlewares
+middlewares:
+  - changed-files:
+    - any-glob-to-any-file: 'src/middlewares/**/*'
+
+# Configuration
+config:
+  - changed-files:
+    - any-glob-to-any-file: ['src/config/**/*', '*.config.js', '*.config.ts', '.github/**/*']
+
+# Tests
+tests:
+  - changed-files:
+    - any-glob-to-any-file: ['**/*.test.js', '**/*.spec.js', 'src/tests/**/*']
+
+# Documentation
+documentation:
+  - changed-files:
+    - any-glob-to-any-file: ['**/*.md', 'docs/**/*']
+
+# CI/CD
+ci-cd:
+  - changed-files:
+    - any-glob-to-any-file: ['.github/**/*', '*.yml', 'Dockerfile']
+
+# Dependencies
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file: ['package.json', 'package-lock.json']
+
+# Utils
+utils:
+  - changed-files:
+    - any-glob-to-any-file: 'src/utils/**/*'

@@ -1,0 +1,26 @@
+# Auto-assign configuration
+# Set reviewers and assignees for new PRs
+
+# Default reviewers (add your team members' GitHub usernames)
+addReviewers: true
+addAssignees: author
+
+# Number of reviewers to assign
+numberOfReviewers: 1
+
+# Reviewers pool - Replace with actual GitHub usernames
+reviewers:
+  - Kulsum06
+  - Sai-Emani25
+  - advitha24
+
+# Skip these keywords in PR title to avoid assignment
+skipKeywords:
+  - wip
+  - WIP
+  - draft
+
+# Don't auto-assign for dependabot PRs (handled separately)
+filterLabels:
+  exclude:
+    - dependencies
