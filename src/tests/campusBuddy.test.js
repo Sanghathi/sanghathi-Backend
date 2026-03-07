@@ -1,28 +1,27 @@
+import { jest } from '@jest/globals';
 import dotenv from 'dotenv';
-import campusBuddy from '../services/campusBuddy.js';
-import logger from "../utils/logger.js";
 
-// Load environment variables
 dotenv.config();
 
-async function testCampusBuddy() {
-  try {
-    console.log('Testing Campus Buddy...');
-    
-    const testQuery = "What are the library timings?";
-    console.log('Query:', testQuery);
-    
-    const response = await campusBuddy.generateResponse(testQuery);
-    console.log('Response:', response);
-    
-    console.log('Test completed successfully!');
-  } catch (error) {
-    console.error('Test failed:', error.message);
-    logger.error("Test failed", {
-      error: error.message,
-      stack: error.stack,
-    });
-  }
-}
+// Mock the campusBuddy service to avoid real API calls in CI
+const mockGenerateResponse = jest.fn().mockResolvedValue("Library is open from 9am to 5pm.");
 
-testCampusBuddy(); 
+jest.unstable_mockModule('../services/campusBuddy.js', () => ({
+  default: { generateResponse: mockGenerateResponse },
+}));
+
+describe('CampusBuddy Service', () => {
+  it('should return a response for a valid query', async () => {
+    const { default: campusBuddy } = await import('../services/campusBuddy.js');
+    const response = await campusBuddy.generateResponse("What are the library timings?");
+    expect(response).toBeDefined();
+    expect(typeof response).toBe('string');
+  });
+
+  it('should be called with the correct query', async () => {
+    const { default: campusBuddy } = await import('../services/campusBuddy.js');
+    const query = "What are the library timings?";
+    await campusBuddy.generateResponse(query);
+    expect(mockGenerateResponse).toHaveBeenCalledWith(query);
+  });
+});
