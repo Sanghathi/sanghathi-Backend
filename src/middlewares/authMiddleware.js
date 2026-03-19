@@ -25,4 +25,8 @@ const authorizePermissions = (...requiredPermissions) => {
   };
 };
 
+
+// Re-export protect middleware from authController.js
+export { protect } from "../controllers/authController.js";
+
 export { authorizePermissions };
