@@ -122,14 +122,15 @@ export const createUser = catchAsync(async (req, res, next) => {
 // Login
 export const login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
+  const normalizedEmail = email?.trim().toLowerCase();
 
   // 1) Check if email and password exist
-  if (!email || !password) {
+  if (!normalizedEmail || !password) {
     return next(new AppError("Please provide email and password", 400));
   }
 
   // 2) Find user and check password
-  const user = await User.findOne({ email }).select("+password");
+  const user = await User.findOne({ email: normalizedEmail }).select("+password");
 
   if (!user || !(await compare(password, user.password))) {
     return next(new AppError("Incorrect email or password", 401));
@@ -203,7 +204,8 @@ export const restrictTo = (...roles) => {
 // Forgot Password
 // controllers/authController.js - Update forgotPassword function
 export const forgotPassword = catchAsync(async (req, res, next) => {
-  const user = await User.findOne({ email: req.body.email });
+  const normalizedEmail = req.body.email?.trim().toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail });
 
   if (!user) {
     return next(new AppError("There is no user with that email address.", 404));
@@ -212,8 +214,8 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
   const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
 
-  // CHANGE THIS: Point to your React frontend, not the API
-const resetURL = `${process.env.CLIENT_HOST}/resetPassword/${resetToken}`;
+  const clientHost = req.get("origin") || process.env.CLIENT_HOST;
+  const resetURL = `${clientHost}/resetPassword/${resetToken}`;
   
   // For production, use environment variables
   // const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
@@ -258,6 +260,8 @@ const resetURL = `${process.env.CLIENT_HOST}/resetPassword/${resetToken}`;
 
 // Reset Password
 export const resetPassword = catchAsync(async (req, res, next) => {
+  const { password, passwordConfirm } = req.body;
+
   // 1) Get user based on the token
   const hashedToken = createHash("sha256")
     .update(req.params.token)
@@ -272,9 +276,17 @@ export const resetPassword = catchAsync(async (req, res, next) => {
     return next(new AppError("Token is invalid or has expired", 400));
   }
 
+  if (!password || !passwordConfirm) {
+    return next(new AppError("Please provide password and password confirmation", 400));
+  }
+
+  if (password !== passwordConfirm) {
+    return next(new AppError("Passwords do not match", 400));
+  }
+
   // 2) Update password
-  user.password = req.body.password;
-  user.passwordConfirm = req.body.passwordConfirm;
+  user.password = password;
+  user.passwordConfirm = passwordConfirm;
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
   await user.save();

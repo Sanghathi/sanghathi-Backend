@@ -4,10 +4,11 @@ import Mongoose from "mongoose";
 import logger from "./logger.js";
 dotenv.config() ;
 const uri = process.env.MONGODB_URI
-.replace(
-  "<PASSWORD>",
-  process.env.DATABASE_PASSWORD
-);
+  ? process.env.MONGODB_URI.replace(
+      "<PASSWORD>",
+      process.env.DATABASE_PASSWORD
+    )
+  : "";
 
 async function connectDB() {
   try {

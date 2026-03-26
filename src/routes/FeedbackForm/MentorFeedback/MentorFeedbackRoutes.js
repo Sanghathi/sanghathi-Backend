@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createMentorFeedback,
+  getMentorFeedbackById,
   getMentorFeedbackByUserId,
   getAllMentorFeedback,
   deleteMentorFeedbackById,
@@ -17,6 +18,9 @@ router.post("/", createMentorFeedback);
 
 // GET: Get mentor feedback by user ID
 router.get("/user/:userId", getMentorFeedbackByUserId);
+
+// GET: Get mentor feedback by feedback ID
+router.get("/:id", getMentorFeedbackById);
 
 // GET: Get all mentor feedback
 router.get("/", getAllMentorFeedback);
