@@ -10,7 +10,7 @@ router.use(protect);
 // Get TYL scores for a user
 router.get('/:userId', getTYLScores);
 
-// Update TYL scores (faculty only)
-router.post('/', restrictTo('faculty'), updateTYLScores);
+// Update TYL scores (faculty/admin)
+router.post('/', restrictTo('faculty', 'admin'), updateTYLScores);
 
 export default router; 
