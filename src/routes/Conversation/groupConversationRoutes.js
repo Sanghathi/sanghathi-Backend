@@ -1,3 +1,8 @@
-const express = require("express");
-const router = express.Router();
-const groupConversationController = require("../controllers/groupConversationController");
+import { Router } from "express";
+import { protect } from "../../controllers/authController.js";
+
+const router = Router();
+
+router.use(protect);
+
+export default router;

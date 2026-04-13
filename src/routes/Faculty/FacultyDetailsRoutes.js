@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { protect } from "../../controllers/authController.js";
 import {
   createOrUpdateFacultyProfile,
   getFacultyProfileById,
@@ -6,6 +7,8 @@ import {
 } from "../../controllers/Faculty/FacultyDetailsController.js";
 
 const router = Router();
+
+router.use(protect);
 
 // Create or update faculty profile
 router.post("/profile", createOrUpdateFacultyProfile);

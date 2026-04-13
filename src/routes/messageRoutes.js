@@ -1,8 +1,11 @@
 import { Router } from "express";
 import Message from "../models/Message";
 import logger from "../utils/logger.js";
+import { protect } from "../controllers/authController.js";
 
 const router = Router();
+
+router.use(protect);
 //new message
 router.post("/", async (req, res) => {
   const newMessage = {

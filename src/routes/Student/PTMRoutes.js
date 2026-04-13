@@ -1,8 +1,11 @@
 import { Router } from "express";
-const router = Router();
-
 import StudentRecordSchema from "../../zod/PTM.js";
 import PTMRecord from "../../models/Student/PTM.js";
+import { protect } from "../../controllers/authController.js";
+
+const router = Router();
+
+router.use(protect);
 
 router.get("/:id", async (req, res) => {
 	try {

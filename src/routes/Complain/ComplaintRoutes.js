@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { protect } from "../../controllers/authController.js";
 import {
   createOrUpdateComplaint,
   getComplaintByUserId,
@@ -7,6 +8,8 @@ import {
 } from "../../controllers/Complain/ComplaintController.js";
 
 const router = Router();
+
+router.use(protect);
 
 router.get("/:userId", getComplaintByUserId);
 

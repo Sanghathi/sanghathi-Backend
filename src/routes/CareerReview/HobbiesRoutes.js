@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { protect } from "../../controllers/authController.js";
 import {
   createOrUpdateHobbies,
   getHobbiesByUserId,
@@ -7,6 +8,8 @@ import {
 } from "../../controllers/CareerReview/HobbiesController.js";
 
 const router = Router();
+
+router.use(protect);
 
 /**
  * @swagger

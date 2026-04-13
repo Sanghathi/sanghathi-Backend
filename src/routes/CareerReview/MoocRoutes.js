@@ -1,4 +1,5 @@
 import {Router} from "express";
+import { protect } from "../../controllers/authController.js";
 
 import{
     createOrUpdateMooc,
@@ -7,6 +8,8 @@ import{
   } from "../../controllers/CareerReview/MoocController.js";
 
   const router = Router();
+
+router.use(protect);
 
    //Routes for Proffessional Body
     router.get("/mooc/:userId",getMoocByUserId);

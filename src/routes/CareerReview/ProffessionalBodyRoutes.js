@@ -1,4 +1,5 @@
 import {Router} from "express";
+import { protect } from "../../controllers/authController.js";
 
 import{
     createOrUpdatePBEvents,
@@ -13,6 +14,8 @@ import{
   } from "../../controllers/CareerReview/PBController.js";
 
   const router = Router();
+
+router.use(protect);
 
   //Routes for Proffessional Body
   router.get("/proffessionalbody/:id",getPBByUserId);

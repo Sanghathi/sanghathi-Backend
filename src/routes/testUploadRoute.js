@@ -2,8 +2,12 @@ import { Router } from 'express';
 import multer from 'multer';
 import { uploadToCloudinary } from '../utils/cloudinaryUpload.js';
 import cloudinary from '../config/cloudinary.js';
+import { protect, restrictTo } from "../controllers/authController.js";
 
 const router = Router();
+
+router.use(protect);
+router.use(restrictTo("admin", "hod", "director"));
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();

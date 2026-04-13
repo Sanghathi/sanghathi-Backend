@@ -1,8 +1,12 @@
 // src/routes/testSummaryRoutes.js
 import express from "express";
 import { generateSummary } from "../services/summaryService.js";
+import { protect, restrictTo } from "../controllers/authController.js";
 
 const router = express.Router();
+
+router.use(protect);
+router.use(restrictTo("admin", "hod", "director"));
 
 router.post("/", async (req, res) => {
   try {

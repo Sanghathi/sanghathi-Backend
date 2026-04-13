@@ -1,4 +1,5 @@
 import {Router} from "express";
+import { protect } from "../../controllers/authController.js";
 import {
   createOrUpdateCareerCounselling,
   getCareerCounsellingById,
@@ -20,6 +21,8 @@ import{
 
 
 const router = Router();
+
+router.use(protect);
 
 //Routes for career review
 router.get("/",getAllCareer); 

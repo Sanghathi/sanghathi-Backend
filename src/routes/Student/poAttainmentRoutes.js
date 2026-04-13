@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { protect } from "../../controllers/authController.js";
 import {
   createOrUpdatePOAttainment,
   getPOAttainmentByUserIdAndSemester,
@@ -6,6 +7,8 @@ import {
 } from "../../controllers/Student/POAttainmentController.js";
 
 const router = Router();
+
+router.use(protect);
 
 /**
  * @swagger

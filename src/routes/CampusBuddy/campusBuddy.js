@@ -1,6 +1,9 @@
+import { protect } from "../../controllers/authController.js";
 import { ragAnswer } from "../../rag.js"; // ✅ Correct
 import { Router } from "express"; // ✅ Correct import statement
 const router = Router();
+
+router.use(protect);
 router.post('/', async (req, res) => {
     const question = req.body.question;
     if (!question) {

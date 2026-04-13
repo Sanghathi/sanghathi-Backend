@@ -1,4 +1,5 @@
 import {Router} from "express";
+import { protect } from "../../controllers/authController.js";
 
 import{
     createOrUpdateMiniProject,
@@ -7,6 +8,8 @@ import{
   } from "../../controllers/CareerReview/MiniProjectController.js";
 
   const router = Router();
+
+router.use(protect);
 
    //Routes for Proffessional Body
     router.get("/miniproject/:userId",getMiniProjectByUserId);

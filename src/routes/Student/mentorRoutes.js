@@ -3,8 +3,11 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import User from "../../models/User.js";
 import Mentorship from "../../models/Mentorship.js";
+import { protect } from "../../controllers/authController.js";
 
 const router = Router();
+
+router.use(protect);
 
 // Get all students with their profiles and mentor details
 router.get("/students", async (req, res) => {
