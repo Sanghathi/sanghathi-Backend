@@ -47,4 +47,52 @@ describe("validateRequest middleware", () => {
       })
     );
   });
+
+  it("applies schema transforms and coercion to req.body", () => {
+    const schema = z.object({
+      name: z.string().trim().min(1),
+      semester: z.coerce.number().int().min(1),
+    });
+
+    const middleware = validateRequest(schema);
+    const req = { body: { name: "  Alice  ", semester: "5" } };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
+    const next = jest.fn();
+
+    middleware(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(req.body).toEqual({ name: "Alice", semester: 5 });
+  });
+
+  it("returns nested path information for schema errors", () => {
+    const schema = z.object({
+      profile: z.object({
+        email: z.string().email(),
+      }),
+    });
+
+    const middleware = validateRequest(schema);
+    const req = { body: { profile: { email: "not-an-email" } } };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
+    const next = jest.fn();
+
+    middleware(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errors: expect.arrayContaining([
+          expect.objectContaining({ path: "profile.email" }),
+        ]),
+      })
+    );
+  });
 });
