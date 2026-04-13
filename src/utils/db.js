@@ -2,7 +2,6 @@
 import dotenv from 'dotenv';
 import Mongoose from "mongoose";
 import logger from "./logger.js";
-import logger from "./logger.js";
 dotenv.config() ;
 const uri = process.env.MONGODB_URI
 .replace(
