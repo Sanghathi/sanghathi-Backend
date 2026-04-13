@@ -2,15 +2,32 @@ import catchAsync from "../../utils/catchAsync.js";
 import PrivateConversation from "../../models/Conversation/PrivateConversation.js";
 
 export const getAllConversations = catchAsync(async (req, res, next) => {
-  //   const userId = req.user._id;
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+  const skip = (page - 1) * limit;
 
-  const conversations = await PrivateConversation.find().populate({
-    path: "participants",
-    select: "name avatar",
-  });
+  const [conversations, total] = await Promise.all([
+    PrivateConversation.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: "participants",
+        select: "name avatar",
+      })
+      .lean(),
+    PrivateConversation.countDocuments(),
+  ]);
 
   res.status(200).json({
     status: "success",
+    results: conversations.length,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(Math.ceil(total / limit), 1),
+    },
     data: {
       conversations,
     },
@@ -19,16 +36,34 @@ export const getAllConversations = catchAsync(async (req, res, next) => {
 
 export const getAllConversationsOfUser = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
-  const conversations = await PrivateConversation.find({
-    participants: { $in: [userId] },
-  }).populate({
-    path: "participants",
-    select: "name avatar",
-    options: { _id: 1 } // Explicit ID inclusion
-  })
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+  const skip = (page - 1) * limit;
+
+  const filter = { participants: { $in: [userId] } };
+
+  const [conversations, total] = await Promise.all([
+    PrivateConversation.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: "participants",
+        select: "name avatar",
+      })
+      .lean(),
+    PrivateConversation.countDocuments(filter),
+  ]);
 
   res.status(200).json({
     status: "success",
+    results: conversations.length,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(Math.ceil(total / limit), 1),
+    },
     data: {
       conversations,
     },

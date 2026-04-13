@@ -14,11 +14,27 @@ router.use(protect);
 router.get("/students", async (req, res) => {
   try {
     // First get all students
-    const students = await User.find({ roleName: "student" });
+    const students = await User.find({ roleName: "student" })
+      .select("_id name email phone roleName")
+      .lean();
     logger.info(`Fetched ${students.length} students`);
+
+    const studentIds = students.map((student) => student._id);
+    const StudentProfile = mongoose.model("StudentProfile");
+    const studentProfiles = await StudentProfile.find({
+      userId: { $in: studentIds },
+    })
+      .select("userId department sem usn")
+      .lean();
+
+    const profileMap = new Map(
+      studentProfiles.map((profile) => [profile.userId.toString(), profile])
+    );
     
     // Get all mentorships
-    const mentorships = await Mentorship.find();
+    const mentorships = await Mentorship.find()
+      .select("mentorId menteeId")
+      .lean();
     logger.info(`Fetched ${mentorships.length} mentorships`);
     
     // Create mentee-to-mentor mapping
@@ -33,7 +49,9 @@ router.get("/students", async (req, res) => {
     // Fetch all mentors in a single query
     const mentors = await User.find({ 
       _id: { $in: mentorIds.map(id => new mongoose.Types.ObjectId(id)) } 
-    });
+    })
+      .select("_id name email")
+      .lean();
     
     // Create mentor ID to mentor data mapping
     const mentorMap = {};
@@ -52,11 +70,11 @@ router.get("/students", async (req, res) => {
         roleName: student.roleName
       };
       
-      // Add profile fields if they exist
-      if (student.profile) {
-        studentObj.department = student.profile.department;
-        studentObj.sem = student.profile.sem;
-        studentObj.usn = student.profile.usn;
+      const profile = profileMap.get(student._id.toString());
+      if (profile) {
+        studentObj.department = profile.department;
+        studentObj.sem = profile.sem;
+        studentObj.usn = profile.usn;
       }
       
       // Add mentor data if exists
@@ -69,18 +87,12 @@ router.get("/students", async (req, res) => {
             name: mentor.name,
             email: mentor.email
           };
-          logger.info(`Added mentor ${mentor.name} to student ${student.name}`);
         }
       }
       
       return studentObj;
     });
     
-    // Log a sample student to verify data structure
-    if (enhancedStudents.length > 0) {
-      logger.info("Sample enhanced student:", JSON.stringify(enhancedStudents[0], null, 2));
-    }
-
     res.status(200).json({ data: enhancedStudents });
   } catch (error) {
     logger.error("Error fetching students:", error);
@@ -248,7 +260,9 @@ router.get("/debug-mentorships", async (req, res) => {
 router.get("/allocation-students", async (req, res) => {
   try {
     // First get all students
-    const students = await User.find({ roleName: "student" }).lean();
+    const students = await User.find({ roleName: "student" })
+      .select("_id name email phone roleName")
+      .lean();
     logger.info(`Fetched ${students.length} students`);
     
     // Get all student IDs
@@ -268,7 +282,9 @@ router.get("/allocation-students", async (req, res) => {
     });
     
     // Get all mentorships
-    const mentorships = await Mentorship.find().lean();
+    const mentorships = await Mentorship.find()
+      .select("mentorId menteeId")
+      .lean();
     logger.info(`Found ${mentorships.length} mentorships`);
     
     // Get all mentor IDs from mentorships
@@ -278,7 +294,9 @@ router.get("/allocation-students", async (req, res) => {
     // Fetch all mentors
     const mentors = await User.find({ 
       _id: { $in: mentorIds.map(id => new mongoose.Types.ObjectId(id)) } 
-    }).lean();
+    })
+      .select("_id name email")
+      .lean();
     logger.info(`Found ${mentors.length} mentors`);
     
     // Create maps for quick lookups
@@ -306,9 +324,6 @@ router.get("/allocation-students", async (req, res) => {
         studentObj.usn = profile.usn;
         studentObj.department = profile.department;
         studentObj.sem = profile.sem;
-        logger.info(`Added profile data for student ${student.name}: USN=${profile.usn}, Dept=${profile.department}, Sem=${profile.sem}`);
-      } else {
-        logger.info(`No profile found for student ${student.name} (${student._id})`);
       }
       
       // Add mentor data if exists
@@ -320,17 +335,10 @@ router.get("/allocation-students", async (req, res) => {
             name: mentor.name,
             _id: mentor._id
           };
-          logger.info(`Added mentor ${mentor.name} to student ${student.name}`);
         }
       }
       
       enhancedStudents.push(studentObj);
-    }
-    
-    // Log a sample for debugging
-    if (enhancedStudents.length > 0) {
-      const sample = enhancedStudents[0];
-      logger.info("Sample student:", JSON.stringify(sample, null, 2));
     }
     
     return res.status(200).json({ data: enhancedStudents });
@@ -377,19 +385,14 @@ router.delete("/unassign", async (req, res) => {
 router.get("/mentors-with-mentees", async (req, res) => {
   try {
     const { department } = req.query; // Optional department filter
-    logger.info("=== Fetching mentors-with-mentees ===");
-    logger.info("Requested department:", department);
     
     // Get all mentorships
-    const mentorships = await Mentorship.find();
-    logger.info(`Found ${mentorships.length} total mentorships`);
+    const mentorships = await Mentorship.find().select("mentorId").lean();
     
     // Get unique mentor IDs
     const mentorIds = [...new Set(mentorships.map(m => m.mentorId.toString()))];
-    logger.info(`Found ${mentorIds.length} unique mentor IDs`);
     
     if (mentorIds.length === 0) {
-      logger.info("No mentorships found, returning empty array");
       return res.status(200).json({ mentors: [] });
     }
     
@@ -402,14 +405,12 @@ router.get("/mentors-with-mentees", async (req, res) => {
     // Add department filter if provided
     if (department && department !== 'all') {
       mentorQuery.department = department;
-      logger.info("Filtering by department:", department);
     }
-    
-    logger.info("Mentor query:", JSON.stringify(mentorQuery));
-    
+
     // Fetch mentors
-    const mentors = await User.find(mentorQuery);
-    logger.info(`Found ${mentors.length} mentors matching criteria`);
+    const mentors = await User.find(mentorQuery)
+      .select("_id name email phone department roleName")
+      .lean();
     
     // Count mentees for each mentor
     const mentorsWithCounts = mentors.map(mentor => {
@@ -430,8 +431,7 @@ router.get("/mentors-with-mentees", async (req, res) => {
     
     // Sort by mentee count (descending)
     mentorsWithCounts.sort((a, b) => b.menteeCount - a.menteeCount);
-    
-    logger.info(`Returning ${mentorsWithCounts.length} mentors with counts`);
+
     res.status(200).json({ mentors: mentorsWithCounts });
   } catch (error) {
     logger.error("Error fetching mentors with mentees:", error);

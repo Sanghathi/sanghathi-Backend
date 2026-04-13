@@ -16,7 +16,7 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
 
   // If a role is provided in the query, filter by role
   if (role) {
-    const roleDoc = await Role.findOne({ name: role });
+    const roleDoc = await Role.findOne({ name: role }).select("_id").lean();
 
     // If no valid role is found, throw an error
     if (!roleDoc) {
@@ -29,7 +29,8 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
 
   // Get all users with profile data
   const users = await User.find(filter)
-    .populate("role")
+    .select("name email phone avatar role roleName profile status lastActivity")
+    .populate({ path: "role", select: "name permissions" })
     .lean();
 
   if (users.length === 0) {
@@ -48,12 +49,12 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   // Fetch student profiles
   const studentProfiles = await mongoose.model('StudentProfile').find({ 
     userId: { $in: userIds } 
-  }).lean();
+  }).select("userId department sem usn").lean();
   
   // Fetch faculty profiles
   const facultyProfiles = await mongoose.model('FacultyProfile').find({ 
     userId: { $in: userIds } 
-  }).lean();
+  }).select("userId department cabin").lean();
   
   // Create maps for quick lookup
   const studentProfileMap = {};
@@ -213,14 +214,16 @@ export const getUserByUSN = async (req, res) => {
     
     // First, find the student profile with this USN
     const StudentProfile = mongoose.model("StudentProfile");
-    const studentProfile = await StudentProfile.findOne({ usn });
+    const studentProfile = await StudentProfile.findOne({ usn })
+      .select("userId")
+      .lean();
     
     if (!studentProfile) {
       return res.status(404).json({ message: "Student profile with this USN not found" });
     }
     
     // Find the user associated with this profile - using the userId field in the StudentProfile
-    const user = await User.findById(studentProfile.userId);
+    const user = await User.findById(studentProfile.userId).select("_id").lean();
     
     if (!user) {
       return res.status(404).json({ message: "User associated with this USN not found" });

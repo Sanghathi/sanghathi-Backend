@@ -97,6 +97,9 @@ const studentProfileSchema = new Schema({
   },
 });
 
+studentProfileSchema.index({ userId: 1 });
+studentProfileSchema.index({ usn: 1 });
+
 const StudentProfile = model("StudentProfile", studentProfileSchema);
 
 export default StudentProfile;

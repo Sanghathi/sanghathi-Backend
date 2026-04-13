@@ -65,17 +65,44 @@ export const createNewThread = catchAsync(async (req, res, next) => {
 });
 
 export const getAllThreads = catchAsync(async (req, res, next) => {
-  const threads = await Thread.find()
-    .populate({
-      path: "participants",
-      select: "name avatar",
-    })
-    .populate({
-      path: "author",
-      select: "name avatar",
-    });
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+  const skip = (page - 1) * limit;
+
+  const filter = {};
+  if (req.query.status) {
+    filter.status = req.query.status;
+  }
+  if (req.query.topic) {
+    filter.topic = req.query.topic;
+  }
+
+  const [threads, total] = await Promise.all([
+    Thread.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: "participants",
+        select: "name avatar",
+      })
+      .populate({
+        path: "author",
+        select: "name avatar",
+      })
+      .lean(),
+    Thread.countDocuments(filter),
+  ]);
+
   res.status(200).json({
     status: "success",
+    results: threads.length,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(Math.ceil(total / limit), 1),
+    },
     data: {
       threads,
     },
@@ -89,7 +116,16 @@ export const getThreadById = catchAsync(async (req, res, next) => {
       path: "participants",
       select: "name avatar",
     })
-    .populate("messages");
+    .populate({
+      path: "messages",
+      options: { sort: { createdAt: 1 } },
+    })
+    .lean();
+
+  if (!thread) {
+    return next(new AppError("Thread not found", 404));
+  }
+
   res.status(200).json({
     status: "success",
     data: {
@@ -101,6 +137,11 @@ export const getThreadById = catchAsync(async (req, res, next) => {
 export const deleteThread = catchAsync(async (req, res, next) => {
   const { threadId } = req.params;
   const thread = await Thread.findByIdAndDelete(threadId);
+
+  if (!thread) {
+    return next(new AppError("Thread not found", 404));
+  }
+
   res.status(204).json({
     status: "success",
     data: null,
@@ -112,11 +153,15 @@ export const sendMessageToThread = catchAsync(async (req, res, next) => {
   const { body, senderId } = req.body;
   const newMessage = await Message.create({ senderId, body });
 
-  await Thread.findByIdAndUpdate(
+  const updatedThread = await Thread.findByIdAndUpdate(
     threadId,
     { $push: { messages: newMessage._id } },
     { new: true }
   );
+
+  if (!updatedThread) {
+    return next(new AppError("Thread not found", 404));
+  }
 
   res.status(201).json({
     status: "success",
@@ -129,13 +174,33 @@ export const sendMessageToThread = catchAsync(async (req, res, next) => {
 export const getAllThreadsOfUser = catchAsync(async (req, res, next) => {
   const { id: userId } = req.params;
 
-  const threads = await Thread.find({ participants: userId }).populate({
-    path: "participants",
-    select: "name avatar",
-  });
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+  const skip = (page - 1) * limit;
+  const filter = { participants: userId };
+
+  const [threads, total] = await Promise.all([
+    Thread.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: "participants",
+        select: "name avatar",
+      })
+      .lean(),
+    Thread.countDocuments(filter),
+  ]);
 
   res.status(200).json({
     status: "success",
+    results: threads.length,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(Math.ceil(total / limit), 1),
+    },
     data: {
       threads,
     },

@@ -65,6 +65,9 @@ const userSchema = new Schema({
   passwordResetExpires: Date,
 });
 
+userSchema.index({ roleName: 1, status: 1 });
+userSchema.index({ lastActivity: -1 });
+
 // 🔑 Hash password before save
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();

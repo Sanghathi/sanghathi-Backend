@@ -28,6 +28,8 @@ const PrivateConversationSchema = new Schema({
   }
 });
 
+PrivateConversationSchema.index({ participants: 1, createdAt: -1 });
+
 const PrivateConversation = model(
   "PrivateConversation",
   PrivateConversationSchema

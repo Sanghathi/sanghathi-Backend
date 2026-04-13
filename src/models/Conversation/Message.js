@@ -15,4 +15,6 @@ const MessageSchema = new mongoose.Schema({
   },
 });
 
+MessageSchema.index({ senderId: 1, createdAt: -1 });
+
 export default mongoose.model("Messages", MessageSchema);

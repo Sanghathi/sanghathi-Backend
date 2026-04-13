@@ -22,6 +22,10 @@ const mentorshipSchema = new Schema({
   },
 });
 
+mentorshipSchema.index({ mentorId: 1 });
+mentorshipSchema.index({ menteeId: 1 });
+mentorshipSchema.index({ mentorId: 1, menteeId: 1 });
+
 // Add a validation to limit the number of students per mentor
 mentorshipSchema.statics.countMentorships = async function (mentorId) {
   const count = await this.countDocuments({ mentorId });
