@@ -4,6 +4,7 @@ import Attendance from "../../models/Attendance.js";
 import User from "../../models/User.js";
 import Mentorship from "../../models/Mentorship.js";
 
+import logger from "../../utils/logger.js";
 // Define the cron job function
 //TODO : Code is not acceptable
 const sendAttendanceNotifications = async () => {
@@ -58,7 +59,7 @@ const sendAttendanceNotifications = async () => {
       }
     }
   } catch (error) {
-    console.error("Error sending attendance notifications:", error);
+    logger.error("Error sending attendance notifications:", error);
   }
 };
 

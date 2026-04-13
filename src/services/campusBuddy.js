@@ -115,7 +115,7 @@ class CampusBuddy {
         return greetingResponse;
       }
 
-      console.log("Making request to Google Gemini API...");
+      logger.info("Making request to Google Gemini API...");
       
       // Use the Gemini service to generate a response
       const aiResponse = await geminiService.generateResponse(query, threadId);
@@ -140,7 +140,7 @@ class CampusBuddy {
         return "No conversation history found.";
       }
 
-      console.log(
+      logger.info(
         "Generating summary for conversation:",
         JSON.stringify(conversation, null, 2)
       );
@@ -149,7 +149,7 @@ class CampusBuddy {
         .map((msg) => `User: ${msg.query}\nAssistant: ${msg.response}`)
         .join("\n\n");
 
-      console.log("Conversation text:", conversationText);
+      logger.info("Conversation text:", conversationText);
 
       const summaryPrompt = `You are a conversation summarizer. Your task is to create a detailed summary of the following conversation between a user and the CMRIT Campus Buddy assistant. The summary must be between 40-80 words and must include:
 
@@ -168,7 +168,7 @@ Requirements:
 - Summary must be between 40-80 words
 - Include specific details about what was discussed`;
 
-      console.log("Sending summary prompt to API:", summaryPrompt);
+      logger.info("Sending summary prompt to API:", summaryPrompt);
 
       const response = await geminiService.generateResponse(summaryPrompt, threadId);
 
@@ -177,7 +177,7 @@ Requirements:
       }
 
       let summary = response.trim();
-      console.log("Initial summary:", summary);
+      logger.info("Initial summary:", summary);
 
       // Ensure the summary starts with "Summary: " and ends with problem resolution status
       if (!summary.startsWith("Summary: ")) {
@@ -204,7 +204,7 @@ Requirements:
           "Summary: The conversation was brief and did not provide sufficient information to assess the mentor's performance or the student's needs.\nProblem resolved: No";
       }
 
-      console.log("Final summary:", summary);
+      logger.info("Final summary:", summary);
       return summary;
     } catch (error) {
       logger.error("Error generating thread summary", {

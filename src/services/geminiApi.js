@@ -13,7 +13,7 @@ class GeminiService {
     this.modelName = "gemini-2.5-pro";
     this.model = this.genAI.getGenerativeModel({ model: this.modelName });
     
-    console.log(`Initialized Google Gemini API with model: ${this.modelName}`);
+    logger.info(`Initialized Google Gemini API with model: ${this.modelName}`);
     
     // Store conversation history
     this.conversations = {};
@@ -86,7 +86,7 @@ REMEMBER: NEVER exceed 2 lines (60 words max) under ANY circumstances.`;
         this.conversations[threadId] = this.conversations[threadId].slice(-20);
       }
       
-      console.log(`Generated response with ${this.modelName} for query: "${query}"`);
+      logger.info(`Generated response with ${this.modelName} for query: "${query}"`);
       return response;
     } catch (error) {
       logger.error("Error in Google Gemini API call", {
@@ -104,7 +104,7 @@ REMEMBER: NEVER exceed 2 lines (60 words max) under ANY circumstances.`;
   clearConversation(threadId) {
     if (this.conversations[threadId]) {
       this.conversations[threadId] = [];
-      console.log(`Cleared conversation history for thread ${threadId}`);
+      logger.info(`Cleared conversation history for thread ${threadId}`);
     }
   }
 }

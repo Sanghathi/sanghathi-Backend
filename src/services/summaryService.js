@@ -1,5 +1,6 @@
 import geminiService from "./geminiApi.js";
 
+import logger from "../utils/logger.js";
 const conversationSummaryPrompt = (thread) => {
   if (thread.messages.length < 1) {
     return "Not enough messages to generate a summary.";
@@ -49,7 +50,7 @@ export async function generateSummary(thread) {
     
     return response;
   } catch (error) {
-    console.error("Error generating summary:", error);
+    logger.error("Error generating summary:", error);
     return "Error generating summary. Please try again.";
   }
 }

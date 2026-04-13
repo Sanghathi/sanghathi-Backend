@@ -38,27 +38,27 @@ export const checkMinimumAttendance = async (userId, semester, month, subjects) 
     const totalClasses = subjects.reduce((acc, subject) => acc + (subject.totalClasses || 0), 0);
     const attendedClasses = subjects.reduce((acc, subject) => acc + (subject.attendedClasses || 0), 0);
 
-    console.log("Total Classes:", totalClasses, "Attended Classes:", attendedClasses);
+    logger.info("Total Classes:", totalClasses, "Attended Classes:", attendedClasses);
 
     if (totalClasses === 0) {
         return 0;
     }
 
     const overallAttendance = (attendedClasses / totalClasses) * 100;
-    console.log("Overall Attendance:", overallAttendance);
+    logger.info("Overall Attendance:", overallAttendance);
 
     // if (overallAttendance < MINIMUM_ATTENDANCE_CRITERIA) {
     //     try {
     //       // Get the mentor of the student
     //       const mentorUrl = `${BACKEND_URL}/api/mentorship/mentor/${userId}`;
-    //       console.log("Fetching mentor details from:", mentorUrl);
+    //       logger.info("Fetching mentor details from:", mentorUrl);
           
     //       const mentordetails = await axios.get(mentorUrl);
-    //       console.log("Mentor Details: ", mentordetails);
+    //       logger.info("Mentor Details: ", mentordetails);
           
     //       if (mentordetails.data?.mentor?._id) {
     //         const mentorId = mentordetails.data.mentor._id;
-    //         console.log("Mentor: ", mentorId);
+    //         logger.info("Mentor: ", mentorId);
     //         await threadService.createThread(
     //             mentorId,
     //             [userId, mentorId],
@@ -70,7 +70,7 @@ export const checkMinimumAttendance = async (userId, semester, month, subjects) 
     //         logger.warn("No mentor found for student:", userId);
     //       }
     //     } catch (error) {
-    //         console.error("Error in checkMinimumAttendance:", error);
+    //         logger.error("Error in checkMinimumAttendance:", error);
     //         // Don't throw the error, just log it and continue
     //         logger.error("Error fetching mentor details", {
     //           error: error.message,
@@ -84,8 +84,8 @@ export const checkMinimumAttendance = async (userId, semester, month, subjects) 
 };
 
 export const submitAttendanceData = async (req, res) => {
-  console.log("User ID received:", req.params.userId);
-  console.log("Request body:", req.body);
+  logger.info("User ID received:", req.params.userId);
+  logger.info("Request body:", req.body);
   try {
     const { semester, month, subjects } = req.body;
     const userId = req.params.userId;
@@ -181,7 +181,7 @@ export const submitAttendanceData = async (req, res) => {
       overallAttendance = await checkMinimumAttendance(userId, semester, month, subjects);
     }
     catch (error) {
-      console.error("Error in checkMinimumAttendance:", error);
+      logger.error("Error in checkMinimumAttendance:", error);
       return res.status(400).json({ 
         message: "Error calculating attendance percentage",
         details: error.message,
@@ -319,7 +319,7 @@ export const submitAttendanceData = async (req, res) => {
         data: { attendance: savedAttendance },
       });
     } catch (saveError) {
-      console.error("Error saving attendance:", saveError);
+      logger.error("Error saving attendance:", saveError);
       
       // Provide detailed error information
       const errorDetails = {
@@ -359,8 +359,8 @@ export const submitAttendanceData = async (req, res) => {
     }
 
   } catch (error) {
-    console.error("Error in submitAttendanceData:", error.message);
-    console.error("Error stack:", error.stack);
+    logger.error("Error in submitAttendanceData:", error.message);
+    logger.error("Error stack:", error.stack);
     
     res.status(500).json({ 
       message: "Unexpected error occurred while processing attendance data",

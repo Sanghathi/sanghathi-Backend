@@ -7,6 +7,8 @@ import DailyRotateFile from "winston-daily-rotate-file";
 
 class Logger {
   constructor() {
+    const isProduction = process.env.NODE_ENV === "production";
+
     const logFormat = _format.printf(
       ({ timestamp, level, message, ...meta }) => {
         return `${timestamp},${level},${message},"${JSON.stringify(
@@ -16,7 +18,7 @@ class Logger {
     );
 
     this.logger = createLogger({
-      level: "info",
+      level: isProduction ? "info" : "debug",
       format: _format.combine(
         _format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
         logFormat
@@ -38,7 +40,7 @@ class Logger {
       ],
     });
 
-    if (process.env.NODE_ENV !== "production") {
+    if (!isProduction) {
       this.logger.add(
         new _transports.Console({
           format: _format.combine(

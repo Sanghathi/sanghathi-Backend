@@ -1,6 +1,7 @@
 import Hobbies from "../../models/CareerReview/Hobbies.js";
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
+import logger from "../../utils/logger.js";
 import User from "../../models/User.js"; // Assuming you need the User model
 
 // Create or Update Hobbies Data
@@ -21,7 +22,7 @@ export const createOrUpdateHobbies = catchAsync(async (req, res, next) => {
   } = req.body;
 
   try {
-    console.log("Create or update reached")
+    logger.info("Create or update reached")
     const updatedHobbies = await Hobbies.findOneAndUpdate(
       { userId },
       {
@@ -53,9 +54,9 @@ export const createOrUpdateHobbies = catchAsync(async (req, res, next) => {
 
 // Get Hobbies Data by User ID
 export const getHobbiesByUserId = catchAsync(async (req, res, next) => {
-    console.log("Route handler triggered, req.params:", req.params);
+    logger.info("Route handler triggered, req.params:", req.params);
     const { userId } = req.params; // Changed from id to userId
-    console.log("Querying for userId:", userId);
+    logger.info("Querying for userId:", userId);
     const hobbies = await Hobbies.findOne({ userId: userId });
   
     if (!hobbies) {

@@ -1,5 +1,6 @@
 import Role from '../models/Role.js';
 
+import logger from "../utils/logger.js";
 // Controller to get role by name
 export const getRoleByName = async (req, res) => {
   try {
@@ -12,7 +13,7 @@ export const getRoleByName = async (req, res) => {
 
     res.json(role);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
@@ -23,7 +24,7 @@ export const getAllRoles = async (req, res) => {
     const roles = await Role.find();
     res.json(roles);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };

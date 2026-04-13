@@ -5,6 +5,7 @@ import User from "../../models/User.js";
 import Mentorship from "../../models/Mentorship.js";
 import { protect } from "../../controllers/authController.js";
 
+import logger from "../../utils/logger.js";
 const router = Router();
 
 router.use(protect);
@@ -14,11 +15,11 @@ router.get("/students", async (req, res) => {
   try {
     // First get all students
     const students = await User.find({ roleName: "student" });
-    console.log(`Fetched ${students.length} students`);
+    logger.info(`Fetched ${students.length} students`);
     
     // Get all mentorships
     const mentorships = await Mentorship.find();
-    console.log(`Fetched ${mentorships.length} mentorships`);
+    logger.info(`Fetched ${mentorships.length} mentorships`);
     
     // Create mentee-to-mentor mapping
     const menteeToMentorMap = {};
@@ -68,7 +69,7 @@ router.get("/students", async (req, res) => {
             name: mentor.name,
             email: mentor.email
           };
-          console.log(`Added mentor ${mentor.name} to student ${student.name}`);
+          logger.info(`Added mentor ${mentor.name} to student ${student.name}`);
         }
       }
       
@@ -77,12 +78,12 @@ router.get("/students", async (req, res) => {
     
     // Log a sample student to verify data structure
     if (enhancedStudents.length > 0) {
-      console.log("Sample enhanced student:", JSON.stringify(enhancedStudents[0], null, 2));
+      logger.info("Sample enhanced student:", JSON.stringify(enhancedStudents[0], null, 2));
     }
 
     res.status(200).json({ data: enhancedStudents });
   } catch (error) {
-    console.error("Error fetching students:", error);
+    logger.error("Error fetching students:", error);
     res.status(500).json({ message: "Error fetching students", error: error.message });
   }
 });
@@ -101,7 +102,7 @@ router.get("/debug-profiles", async (req, res) => {
       hasProfileRef: !!sampleStudent?.profile,
     });
   } catch (error) {
-    console.error("Debug route error:", error);
+    logger.error("Debug route error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -138,7 +139,7 @@ router.post("/batch", async (req, res) => {
       count: results.length,
     });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
@@ -162,7 +163,7 @@ router.get("/mentor/:menteeId", async (req, res) => {
 
     res.status(200).json({ mentor });
   } catch (error) {
-    console.error("Error fetching mentor:", error);
+    logger.error("Error fetching mentor:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
@@ -189,7 +190,7 @@ router.get("/:mentorId/mentees", async (req, res) => {
 
     res.status(200).json({ mentees });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -200,7 +201,7 @@ router.get("/", async (req, res) => {
     const mentorships = await Mentorship.find();
     res.status(200).json({ mentorships });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -238,7 +239,7 @@ router.get("/debug-mentorships", async (req, res) => {
       debugData
     });
   } catch (error) {
-    console.error("Debug mentorships error:", error);
+    logger.error("Debug mentorships error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -248,7 +249,7 @@ router.get("/allocation-students", async (req, res) => {
   try {
     // First get all students
     const students = await User.find({ roleName: "student" }).lean();
-    console.log(`Fetched ${students.length} students`);
+    logger.info(`Fetched ${students.length} students`);
     
     // Get all student IDs
     const studentIds = students.map(student => student._id);
@@ -258,7 +259,7 @@ router.get("/allocation-students", async (req, res) => {
     const studentProfiles = await StudentProfile.find({ 
       userId: { $in: studentIds } 
     }).lean();
-    console.log(`Found ${studentProfiles.length} student profiles`);
+    logger.info(`Found ${studentProfiles.length} student profiles`);
     
     // Create map of userId to profile for quick lookup
     const profileMap = {};
@@ -268,17 +269,17 @@ router.get("/allocation-students", async (req, res) => {
     
     // Get all mentorships
     const mentorships = await Mentorship.find().lean();
-    console.log(`Found ${mentorships.length} mentorships`);
+    logger.info(`Found ${mentorships.length} mentorships`);
     
     // Get all mentor IDs from mentorships
     const mentorIds = [...new Set(mentorships.map(m => m.mentorId.toString()))];
-    console.log(`Found ${mentorIds.length} unique mentor IDs`);
+    logger.info(`Found ${mentorIds.length} unique mentor IDs`);
     
     // Fetch all mentors
     const mentors = await User.find({ 
       _id: { $in: mentorIds.map(id => new mongoose.Types.ObjectId(id)) } 
     }).lean();
-    console.log(`Found ${mentors.length} mentors`);
+    logger.info(`Found ${mentors.length} mentors`);
     
     // Create maps for quick lookups
     const mentorMap = {};
@@ -305,9 +306,9 @@ router.get("/allocation-students", async (req, res) => {
         studentObj.usn = profile.usn;
         studentObj.department = profile.department;
         studentObj.sem = profile.sem;
-        console.log(`Added profile data for student ${student.name}: USN=${profile.usn}, Dept=${profile.department}, Sem=${profile.sem}`);
+        logger.info(`Added profile data for student ${student.name}: USN=${profile.usn}, Dept=${profile.department}, Sem=${profile.sem}`);
       } else {
-        console.log(`No profile found for student ${student.name} (${student._id})`);
+        logger.info(`No profile found for student ${student.name} (${student._id})`);
       }
       
       // Add mentor data if exists
@@ -319,7 +320,7 @@ router.get("/allocation-students", async (req, res) => {
             name: mentor.name,
             _id: mentor._id
           };
-          console.log(`Added mentor ${mentor.name} to student ${student.name}`);
+          logger.info(`Added mentor ${mentor.name} to student ${student.name}`);
         }
       }
       
@@ -329,12 +330,12 @@ router.get("/allocation-students", async (req, res) => {
     // Log a sample for debugging
     if (enhancedStudents.length > 0) {
       const sample = enhancedStudents[0];
-      console.log("Sample student:", JSON.stringify(sample, null, 2));
+      logger.info("Sample student:", JSON.stringify(sample, null, 2));
     }
     
     return res.status(200).json({ data: enhancedStudents });
   } catch (error) {
-    console.error("Error in allocation-students:", error);
+    logger.error("Error in allocation-students:", error);
     return res.status(500).json({ message: "Server error", error: error.message });
   }
 });
@@ -360,14 +361,14 @@ router.delete("/unassign", async (req, res) => {
       menteeId: { $in: validMenteeIds.map(id => new mongoose.Types.ObjectId(id)) }
     });
 
-    console.log(`Unassigned ${result.deletedCount} mentorships`);
+    logger.info(`Unassigned ${result.deletedCount} mentorships`);
 
     res.status(200).json({
       message: "Mentors unassigned successfully",
       unassignedCount: result.deletedCount
     });
   } catch (error) {
-    console.error("Error unassigning mentors:", error);
+    logger.error("Error unassigning mentors:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
@@ -376,19 +377,19 @@ router.delete("/unassign", async (req, res) => {
 router.get("/mentors-with-mentees", async (req, res) => {
   try {
     const { department } = req.query; // Optional department filter
-    console.log("=== Fetching mentors-with-mentees ===");
-    console.log("Requested department:", department);
+    logger.info("=== Fetching mentors-with-mentees ===");
+    logger.info("Requested department:", department);
     
     // Get all mentorships
     const mentorships = await Mentorship.find();
-    console.log(`Found ${mentorships.length} total mentorships`);
+    logger.info(`Found ${mentorships.length} total mentorships`);
     
     // Get unique mentor IDs
     const mentorIds = [...new Set(mentorships.map(m => m.mentorId.toString()))];
-    console.log(`Found ${mentorIds.length} unique mentor IDs`);
+    logger.info(`Found ${mentorIds.length} unique mentor IDs`);
     
     if (mentorIds.length === 0) {
-      console.log("No mentorships found, returning empty array");
+      logger.info("No mentorships found, returning empty array");
       return res.status(200).json({ mentors: [] });
     }
     
@@ -401,14 +402,14 @@ router.get("/mentors-with-mentees", async (req, res) => {
     // Add department filter if provided
     if (department && department !== 'all') {
       mentorQuery.department = department;
-      console.log("Filtering by department:", department);
+      logger.info("Filtering by department:", department);
     }
     
-    console.log("Mentor query:", JSON.stringify(mentorQuery));
+    logger.info("Mentor query:", JSON.stringify(mentorQuery));
     
     // Fetch mentors
     const mentors = await User.find(mentorQuery);
-    console.log(`Found ${mentors.length} mentors matching criteria`);
+    logger.info(`Found ${mentors.length} mentors matching criteria`);
     
     // Count mentees for each mentor
     const mentorsWithCounts = mentors.map(mentor => {
@@ -430,10 +431,10 @@ router.get("/mentors-with-mentees", async (req, res) => {
     // Sort by mentee count (descending)
     mentorsWithCounts.sort((a, b) => b.menteeCount - a.menteeCount);
     
-    console.log(`Returning ${mentorsWithCounts.length} mentors with counts`);
+    logger.info(`Returning ${mentorsWithCounts.length} mentors with counts`);
     res.status(200).json({ mentors: mentorsWithCounts });
   } catch (error) {
-    console.error("Error fetching mentors with mentees:", error);
+    logger.error("Error fetching mentors with mentees:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });

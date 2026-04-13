@@ -2,6 +2,7 @@ import ActivityData from "../../models/CareerReview/Activity.js";
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 
+import logger from "../../utils/logger.js";
 export const createOrUpdateActivity = catchAsync(async (req, res, next) => {
     const { userId, activity } = req.body;
 
@@ -35,10 +36,10 @@ export const createOrUpdateActivity = catchAsync(async (req, res, next) => {
 // Get activity data for a specific user
 export const getActivityByUserId = catchAsync(async (req, res, next) => {
     const { userId } = req.params;
-    console.log("Fetching Activity data for userId:", userId);
+    logger.info("Fetching Activity data for userId:", userId);
     const activityRecord = await ActivityData.findOne({ userId });
 
-    console.log("Activity data being sent:", activityRecord);
+    logger.info("Activity data being sent:", activityRecord);
 
     if (!activityRecord) {
         return res.status(200).json({

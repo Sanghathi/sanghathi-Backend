@@ -1,5 +1,6 @@
 import Internship from "../../models/Placement/Internship.js";
 
+import logger from "../../utils/logger.js";
 export const createOrUpdateInternships = async (req, res) => {
   try {
     const { userId, internships } = req.body;
@@ -15,7 +16,7 @@ export const createOrUpdateInternships = async (req, res) => {
 
     res.status(200).json({ status: "success", message: "Internships saved!" });
   } catch (err) {
-    console.error("Error saving internships:", err);
+    logger.error("Error saving internships:", err);
     res.status(500).json({
       status: "error",
       message: "Failed to save internships",
@@ -34,7 +35,7 @@ export const getInternshipsByUserId = async (req, res) => {
       data: internshipData ? internshipData.internships : [],
     });
   } catch (err) {
-    console.error("Error fetching internships by userId:", err);
+    logger.error("Error fetching internships by userId:", err);
     res.status(500).json({
       status: "error",
       message: "Failed to fetch internship data",

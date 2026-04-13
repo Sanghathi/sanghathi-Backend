@@ -9,6 +9,7 @@ import sendEmail from "../utils/email.js";
 import { compare } from "../utils/passwordHelper.js";
 import { createHash } from "crypto";
 
+import logger from "../utils/logger.js";
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
@@ -114,7 +115,7 @@ export const createUser = catchAsync(async (req, res, next) => {
       },
     });
   } catch (error) {
-    console.error("Error creating user:", error); // Log the error details
+    logger.error("Error creating user:", error); // Log the error details
     return next(new AppError("Failed to create user", 500));
   }
 });

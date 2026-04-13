@@ -1,9 +1,10 @@
 import Thread from "../models/Thread.js";
 import { generateSummary } from "./summaryService.js";
 
+import logger from "../utils/logger.js";
 class ThreadService {
   async closeThread(threadId) {
-    console.log(threadId);
+    logger.info(threadId);
     const updatedThread = await Thread.findByIdAndUpdate(
       threadId,
       { status: "closed", closedAt: new Date() },

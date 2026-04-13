@@ -1,4 +1,5 @@
 import { protect } from "../../controllers/authController.js";
+import logger from "../../utils/logger.js";
 import { ragAnswer } from "../../rag.js"; // ✅ Correct
 import { Router } from "express"; // ✅ Correct import statement
 const router = Router();
@@ -14,7 +15,7 @@ router.post('/', async (req, res) => {
       const answer = await ragAnswer(question);
       res.json({ answer });
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       res.status(500).json({ error: 'RAG pipeline failed' });
     }
   });

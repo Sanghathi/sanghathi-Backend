@@ -4,6 +4,7 @@ import { uploadToCloudinary } from '../utils/cloudinaryUpload.js';
 import cloudinary from '../config/cloudinary.js';
 import { protect, restrictTo } from "../controllers/authController.js";
 
+import logger from "../utils/logger.js";
 const router = Router();
 
 router.use(protect);
@@ -29,7 +30,7 @@ router.get('/cloudinary-status', (req, res) => {
       api_secret_exists: !!config.api_secret
     });
   } catch (error) {
-    console.error('Error checking Cloudinary status:', error);
+    logger.error('Error checking Cloudinary status:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to check Cloudinary configuration',
@@ -46,11 +47,11 @@ router.post('/test-upload', upload.single('image'), async (req, res) => {
     let uploadResult;
     
     if (req.file) {
-      console.log('Processing uploaded file:', req.file.originalname);
+      logger.info('Processing uploaded file:', req.file.originalname);
       // Convert file buffer to base64
       imageData = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     } else if (req.body.image) {
-      console.log('Processing base64 image');
+      logger.info('Processing base64 image');
       imageData = req.body.image;
     } else {
       return res.status(400).json({
@@ -60,9 +61,9 @@ router.post('/test-upload', upload.single('image'), async (req, res) => {
     }
     
     // Upload to Cloudinary
-    console.log('Uploading to Cloudinary...');
+    logger.info('Uploading to Cloudinary...');
     uploadResult = await uploadToCloudinary(imageData, 'mentor-connect/test');
-    console.log('Upload successful, image URL:', uploadResult);
+    logger.info('Upload successful, image URL:', uploadResult);
     
     return res.status(200).json({
       success: true,
@@ -70,7 +71,7 @@ router.post('/test-upload', upload.single('image'), async (req, res) => {
       imageUrl: uploadResult
     });
   } catch (error) {
-    console.error('Error in test upload:', error);
+    logger.error('Error in test upload:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to upload image',

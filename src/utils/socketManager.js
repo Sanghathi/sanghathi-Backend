@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 
+import logger from "./logger.js";
 class SocketManager {
   static instance = null;
   io = null;
@@ -12,9 +13,9 @@ class SocketManager {
   }
 
   createServer(server, options) {
-    console.log("Creating Socket.IO server with options:", options);
+    logger.info("Creating Socket.IO server with options:", options);
     this.io = new Server(server, options);
-    console.log("Socket.IO server created successfully");
+    logger.info("Socket.IO server created successfully");
     return this.io;
   }
 

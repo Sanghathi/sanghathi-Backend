@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 import Role from "../models/Role.js";
 
+import logger from "../utils/logger.js";
 async function seedRoles() {
   try {
     // Connect to MongoDB
@@ -37,9 +38,9 @@ async function seedRoles() {
       },
     ]);
 
-    console.log("Roles seeded successfully");
+    logger.info("Roles seeded successfully");
   } catch (error) {
-    console.error("Error seeding roles:", error);
+    logger.error("Error seeding roles:", error);
   } finally {
     // Disconnect from MongoDB
     await mongoose.disconnect();

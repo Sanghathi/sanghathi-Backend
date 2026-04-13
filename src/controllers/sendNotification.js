@@ -1,6 +1,7 @@
 /* import { schedule } from "node-cron";
 import { createTransport } from "nodemailer";
 
+import logger from "../utils/logger.js";
 const sendNotification = async (to, subject, body) => {
   const mailOptions = {
     from: "your_email_address",
@@ -21,9 +22,9 @@ const sendNotification = async (to, subject, body) => {
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
-      console.error(error);
+      logger.error(error);
     } else {
-      console.log(`Email sent: ${info.response}`);
+      logger.info(`Email sent: ${info.response}`);
     }
   });
 };

@@ -105,7 +105,7 @@ export function getUser(req, res) {
 // Create a new user
 export async function createUser(req, res, next) {
   try {
-    console.log("Received Data:", req.body); // Debugging log
+    logger.info("Received Data:", req.body); // Debugging log
 
     const { name, email, phone, avatar, role, roleName, profile, password, passwordConfirm } = req.body;
 
@@ -141,7 +141,7 @@ export async function createUser(req, res, next) {
       },
     });
   } catch (err) {
-    console.error("Error in createUser:", err);
+    logger.error("Error in createUser:", err);
     next(new AppError(err.message || "Error creating user", 500));
   }
 }
@@ -228,7 +228,7 @@ export const getUserByUSN = async (req, res) => {
     
     res.json({ userId: user._id });
   } catch (error) {
-    console.error("Error in getUserByUSN:", error);
+    logger.error("Error in getUserByUSN:", error);
     res.status(500).json({ message: error.message });
   }
 };

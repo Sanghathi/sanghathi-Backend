@@ -3,6 +3,7 @@ import StudentRecordSchema from "../../zod/PTM.js";
 import PTMRecord from "../../models/Student/PTM.js";
 import { protect } from "../../controllers/authController.js";
 
+import logger from "../../utils/logger.js";
 const router = Router();
 
 router.use(protect);
@@ -15,7 +16,7 @@ router.get("/:id", async (req, res) => {
 		}
 		res.json(records);
 	} catch (error) {
-		console.error(error.message);
+		logger.error(error.message);
 		res.status(500).send("Server Error");
 	}
 });

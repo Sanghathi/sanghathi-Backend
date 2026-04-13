@@ -2,9 +2,10 @@ import ClubEvents from "../../models/CareerReview/ClubEvents.js";
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 
+import logger from "../../utils/logger.js";
 export const createOrUpdateClubEvents = catchAsync(async (req, res, next) => {
   const { userId, clubevents } = req.body;
-    console.log("clubevents data in backend:",clubevents);
+    logger.info("clubevents data in backend:",clubevents);
   if (!userId || !Array.isArray(clubevents)) {
     return next(
       new AppError(

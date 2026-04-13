@@ -3,6 +3,7 @@ import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 import User from "../../models/User.js";
 
+import logger from "../../utils/logger.js";
 // ✅ Create or Update Parent Details (Merged Update Fix)
 export const createOrUpdateParentDetails = catchAsync(async (req, res, next) => {
   const { userId } = req.body;
@@ -11,11 +12,11 @@ export const createOrUpdateParentDetails = catchAsync(async (req, res, next) => 
   }
 
   try {
-    console.log("🔹 Create or update parent details reached for user:", userId);
+    logger.info("🔹 Create or update parent details reached for user:", userId);
 
     // Fetch existing data first to preserve non-updated fields
     const existing = await ParentDetails.findOne({ userId });
-    console.log("Existing parent details found:", existing ? "Yes" : "No");
+    logger.info("Existing parent details found:", existing ? "Yes" : "No");
 
     // Merge old and new data safely
     const mergedData = { ...(existing?.toObject() || {}), ...req.body };
@@ -26,14 +27,14 @@ export const createOrUpdateParentDetails = catchAsync(async (req, res, next) => 
       { new: true, upsert: true, runValidators: true }
     );
 
-    console.log("✅ Parent details successfully updated or created:", updatedParentDetails);
+    logger.info("✅ Parent details successfully updated or created:", updatedParentDetails);
 
     res.status(200).json({
       status: "success",
       data: { parentDetails: updatedParentDetails },
     });
   } catch (err) {
-    console.error("❌ Error in createOrUpdateParentDetails:", err);
+    logger.error("❌ Error in createOrUpdateParentDetails:", err);
     next(new AppError(err.message, 400));
   }
 });
@@ -41,19 +42,19 @@ export const createOrUpdateParentDetails = catchAsync(async (req, res, next) => 
 // ✅ Get Parent Details by User ID
 export const getParentDetailsByUserId = catchAsync(async (req, res, next) => {
   const { userId } = req.params;
-  console.log("🔹 Fetching parent details for userId:", userId);
+  logger.info("🔹 Fetching parent details for userId:", userId);
 
   const parentDetails = await ParentDetails.findOne({ userId });
 
   if (!parentDetails) {
-    console.log("ℹ️ No parent details found for user:", userId);
+    logger.info("ℹ️ No parent details found for user:", userId);
     return res.status(200).json({
       status: "success",
       data: { parentDetails: null },
     });
   }
 
-  console.log("✅ Parent details fetched successfully for user:", userId);
+  logger.info("✅ Parent details fetched successfully for user:", userId);
   res.status(200).json({
     status: "success",
     data: { parentDetails },
@@ -62,7 +63,7 @@ export const getParentDetailsByUserId = catchAsync(async (req, res, next) => {
 
 // ✅ Get All Parent Details (with user info)
 export const getAllParentDetails = catchAsync(async (req, res, next) => {
-  console.log("🔹 Fetching all parent details for students...");
+  logger.info("🔹 Fetching all parent details for students...");
 
   const parentDetailsData = await User.aggregate([
     { $match: { role: "student" } },
@@ -85,7 +86,7 @@ export const getAllParentDetails = catchAsync(async (req, res, next) => {
     },
   ]);
 
-  console.log(`✅ Total parent records found: ${parentDetailsData.length}`);
+  logger.info(`✅ Total parent records found: ${parentDetailsData.length}`);
 
   res.status(200).json({
     status: "success",
@@ -96,16 +97,16 @@ export const getAllParentDetails = catchAsync(async (req, res, next) => {
 // ✅ Delete Parent Details by User ID
 export const deleteParentDetailsByUserId = catchAsync(async (req, res, next) => {
   const { userId } = req.params;
-  console.log("🔹 Attempting to delete parent details for user:", userId);
+  logger.info("🔹 Attempting to delete parent details for user:", userId);
 
   const deletedParentDetails = await ParentDetails.findOneAndDelete({ userId });
 
   if (!deletedParentDetails) {
-    console.warn("⚠️ Parent details not found for deletion:", userId);
+    logger.warn("⚠️ Parent details not found for deletion:", userId);
     return next(new AppError("Parent details not found for deletion", 404));
   }
 
-  console.log("🗑️ Parent details deleted successfully for user:", userId);
+  logger.info("🗑️ Parent details deleted successfully for user:", userId);
 
   res.status(204).json({
     status: "success",

@@ -1,9 +1,10 @@
 // utils/email.js
 import { createTransport } from "nodemailer";
 
+import logger from "./logger.js";
 const sendEmail = async (options) => {
-  console.log("📧 Starting email send process...");
-  console.log("Email options:", {
+  logger.info("📧 Starting email send process...");
+  logger.info("Email options:", {
     to: options.email,
     subject: options.subject,
     hasHtml: !!options.html,
@@ -11,7 +12,7 @@ const sendEmail = async (options) => {
   });
 
   // Log environment variables (without exposing sensitive data)
-  console.log("Email configuration:", {
+  logger.info("Email configuration:", {
     host: process.env.EMAIL_HOST,
     port: process.env.EMAIL_PORT,
     userExists: !!process.env.EMAIL_USER,
@@ -35,9 +36,9 @@ const sendEmail = async (options) => {
     });
 
     // Verify transporter configuration
-    console.log("🔍 Verifying transporter configuration...");
+    logger.info("🔍 Verifying transporter configuration...");
     await transporter.verify();
-    console.log("✅ Transporter verified successfully");
+    logger.info("✅ Transporter verified successfully");
 
     // 2) Define the email options
     const mailOptions = {
@@ -49,19 +50,19 @@ const sendEmail = async (options) => {
     };
 
     // 3) Actually send the email
-    console.log("📤 Sending email...");
+    logger.info("📤 Sending email...");
     const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Email sent successfully:", info.messageId);
-    console.log("Preview URL:", info.getTestMessageUrl?.() || 'N/A');
+    logger.info("✅ Email sent successfully:", info.messageId);
+    logger.info("Preview URL:", info.getTestMessageUrl?.() || 'N/A');
     
     return info;
   } catch (error) {
-    console.error("❌ Email sending failed:");
-    console.error("Error name:", error.name);
-    console.error("Error message:", error.message);
-    console.error("Error code:", error.code);
-    console.error("Error response:", error.response);
-    console.error("Full error:", error);
+    logger.error("❌ Email sending failed:");
+    logger.error("Error name:", error.name);
+    logger.error("Error message:", error.message);
+    logger.error("Error code:", error.code);
+    logger.error("Error response:", error.response);
+    logger.error("Full error:", error);
     throw error;
   }
 };

@@ -2,6 +2,7 @@ import MoocData from "../../models/CareerReview/Mooc.js";
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 
+import logger from "../../utils/logger.js";
 export const createOrUpdateMooc = catchAsync(async (req, res, next) => {
     const { userId, mooc } = req.body;
 
@@ -37,7 +38,7 @@ export const getMoocByUserId = catchAsync(async (req, res, next) => {
     const { userId } = req.params;
     const moocData = await MoocData.findOne({ userId });
 
-    console.log("Mooc data being sent:", moocData); // Log the data
+    logger.info("Mooc data being sent:", moocData); // Log the data
 
     if (!moocData) {
         return res.status(200).json({

@@ -1,6 +1,7 @@
 import cloudinary from '../config/cloudinary.js';
 import AppError from './appError.js';
 
+import logger from "./logger.js";
 /**
  * Uploads an image to Cloudinary
  * @param {string} file - Base64 encoded image or file path
@@ -23,7 +24,7 @@ export const uploadToCloudinary = async (file, folder = 'profile-images') => {
       ]
     });
 
-    console.log('Cloudinary upload result:', {
+    logger.info('Cloudinary upload result:', {
       public_id: result.public_id,
       secure_url: result.secure_url,
       format: result.format
@@ -31,7 +32,7 @@ export const uploadToCloudinary = async (file, folder = 'profile-images') => {
 
     return result.secure_url;
   } catch (error) {
-    console.error('Cloudinary upload error:', error);
+    logger.error('Cloudinary upload error:', error);
     throw new AppError(`Error uploading image to Cloudinary: ${error.message}`, 400);
   }
 };

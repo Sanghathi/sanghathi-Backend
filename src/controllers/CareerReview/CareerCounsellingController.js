@@ -3,6 +3,7 @@ import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 import User from "../../models/User.js";
 
+import logger from "../../utils/logger.js";
 export const createOrUpdateCareerCounselling = catchAsync(async (req, res, next) => {
   const{
     userId,
@@ -49,9 +50,9 @@ export const createOrUpdateCareerCounselling = catchAsync(async (req, res, next)
 
 // Get all records
 export const getCareerCounsellingById = catchAsync(async (req, res, next) => {
-  console.log("Route handler triggered, req.params:", req.params);
+  logger.info("Route handler triggered, req.params:", req.params);
   const { id } = req.params;
-  console.log("Querying for userId:", id);
+  logger.info("Querying for userId:", id);
   const careers = await CareerCounselling.findOne({ userId: id });
   if (!careers) {
     return next(new AppError("Career profile not found", 404));

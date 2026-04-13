@@ -1,5 +1,6 @@
 import Project from "../../models/Placement/Project.js";
 
+import logger from "../../utils/logger.js";
 export const createOrUpdateProjects = async (req, res) => {
   try {
     const { userId, projects } = req.body;
@@ -15,7 +16,7 @@ export const createOrUpdateProjects = async (req, res) => {
 
     res.status(200).json({ status: "success", message: "Projects saved!" });
   } catch (err) {
-    console.error("Error saving projects:", err);
+    logger.error("Error saving projects:", err);
     res.status(500).json({
       status: "error",
       message: "Failed to save projects",
@@ -34,7 +35,7 @@ export const getProjectsByUserId = async (req, res) => {
       data: projectData ? projectData : null,
     });
   } catch (err) {
-    console.error("Error fetching projects by userId:", err);
+    logger.error("Error fetching projects by userId:", err);
     res.status(500).json({
       status: "error",
       message: "Failed to fetch project data",

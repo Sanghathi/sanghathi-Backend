@@ -2,6 +2,7 @@ import MiniProjectData from "../../models/CareerReview/MiniProject.js";
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 
+import logger from "../../utils/logger.js";
 export const createOrUpdateMiniProject = catchAsync(async (req, res, next) => {
     const { userId, miniproject } = req.body;
 
@@ -35,10 +36,10 @@ export const createOrUpdateMiniProject = catchAsync(async (req, res, next) => {
 // Get miniproject data for a specific user
 export const getMiniProjectByUserId = catchAsync(async (req, res, next) => { // Fixed function name
     const { userId } = req.params;
-    console.log("Fetching MiniProject data for userId:", userId);
+    logger.info("Fetching MiniProject data for userId:", userId);
     const miniProjectData = await MiniProjectData.findOne({ userId });
 
-    console.log("MiniProject data being sent:", miniProjectData); // Log the data
+    logger.info("MiniProject data being sent:", miniProjectData); // Log the data
 
     if (!miniProjectData) {
         return res.status(200).json({

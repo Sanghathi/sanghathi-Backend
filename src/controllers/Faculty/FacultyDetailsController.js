@@ -9,6 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from "url";
 
+import logger from "../../utils/logger.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -39,9 +40,9 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
   if (typeof photo === 'string' && photo.includes('data:image')) {
     try {
       photoUrl = await uploadToCloudinary(photo, 'mentor-connect/faculty');
-      console.log('Image uploaded to Cloudinary:', photoUrl);
+      logger.info('Image uploaded to Cloudinary:', photoUrl);
     } catch (error) {
-      console.error('Error uploading image to Cloudinary:', error);
+      logger.error('Error uploading image to Cloudinary:', error);
       return next(new AppError('Failed to upload image', 500));
     }
   }
