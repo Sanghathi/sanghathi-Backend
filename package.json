@@ -2,7 +2,7 @@
   "name": "mentor-tool",
   "version": "1.0.0",
   "engines": {
-    "node": ">=10.0.0"
+    "node": ">=20.0.0"
   },
   "target": "ES2020",
   "module": "nodenext",

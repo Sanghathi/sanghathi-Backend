@@ -15,6 +15,7 @@ import {
   resetPassword as resetPasswordWithToken,
   logout,
   protect,
+  restrictTo,
 } from "../controllers/authController.js";
 import { getAllThreadsOfUser } from "../controllers/threadController.js";
 
@@ -140,6 +141,8 @@ router.patch("/resetPassword/:token", resetPasswordWithToken);
  */
 router.get("/logout", logout);
 
+router.use(protect);
+
 /**
  * @swagger
  * /api/users/usn/{usn}:
@@ -157,7 +160,7 @@ router.get("/logout", logout);
  *       200:
  *         description: User details
  */
-router.get("/usn/:usn", getUserByUSN);
+router.get("/usn/:usn", restrictTo("admin", "faculty", "hod", "director"), getUserByUSN);
 
 /**
  * @swagger
@@ -189,8 +192,8 @@ router.get("/usn/:usn", getUserByUSN);
  *         description: User created successfully
  */
 router.route("/")
-  .get(getAllUsers)
-  .post(createUser);
+  .get(restrictTo("admin", "faculty", "hod", "director"), getAllUsers)
+  .post(restrictTo("admin", "hod", "director"), createUser);
 
 /**
  * @swagger
@@ -248,8 +251,8 @@ router.route("/")
  */
 router.route("/:id")
   .get(getUser)
-  .patch(updateUser)
-  .delete(deleteUser);
+  .patch(restrictTo("admin", "hod", "director"), updateUser)
+  .delete(restrictTo("admin", "hod", "director"), deleteUser);
 
 /**
  * @swagger
@@ -270,6 +273,6 @@ router.route("/:id")
  */
 router.route("/:id/threads").get(getAllThreadsOfUser);
 
-router.post("/reset-password", protect, resetPassword);
+router.post("/reset-password", resetPassword);
 
 export default router;

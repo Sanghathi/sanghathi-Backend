@@ -5,12 +5,14 @@ import logger from "./utils/logger.js";
 import SocketManager from "./utils/socketManager.js";
 import socketController from "./controllers/socketController.js";
 import morganMiddleware from "./utils/morganMiddleware.js";
-import swaggerDocs from "./swagger.js"; // Import Swagger
 
-
+if (process.env.NODE_ENV === "production") {
+  console.log = () => {};
+  console.info = () => {};
+  console.debug = () => {};
+}
 
 app.use(morganMiddleware);
-console.log("✅ Swagger initialized");
 process.on("uncaughtException", (err) => {
   logger.error("UNCAUGHT EXCEPTION! 💥 Shutting down...", {
     error: err.message,
@@ -50,14 +52,5 @@ process.on("unhandledRejection", (err) => {
   });
   server.close(() => {
     process.exit(1);
-  });
-});
-// ✅ Apply Swagger Docs BEFORE the error-handling middleware
-swaggerDocs(app);
-
-app.all("*", (req, res, next) => {
-  res.status(404).json({
-    status: "fail",
-    message: `Can't find ${req.originalUrl} on this server!`,
   });
 });

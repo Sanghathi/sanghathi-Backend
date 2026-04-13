@@ -1,10 +1,25 @@
 import { Router } from "express";
 import Conversation from "../models/Conversation.js";
+import { z } from "zod";
+import { protect, restrictTo } from "../controllers/authController.js";
+import validateRequest from "../middlewares/validateRequest.js";
 
 const router = Router();
 
+const mentorMenteeConversationSchema = z.object({
+  mentorId: z.string().trim().min(1),
+  menteeId: z.string().trim().min(1),
+  moocChecked: z.boolean().optional(),
+  projectChecked: z.boolean().optional(),
+  conversationText: z.string().trim().min(30),
+  title: z.string().trim().optional(),
+  topic: z.string().trim().optional(),
+});
+
+router.use(protect);
+
 // ✅ Get all conversations
-router.get("/", async (req, res) => {
+router.get("/", restrictTo("admin", "faculty", "hod", "director"), async (req, res) => {
   try {
     const conversations = await Conversation.find();
     res.status(200).json(conversations);
@@ -15,97 +30,71 @@ router.get("/", async (req, res) => {
 
 // ✅ New route: Mentor–Mentee Offline Conversation with Gemini Summary
 // IMPORTANT: This must come BEFORE /:userId routes to avoid route conflicts
-router.post("/mentor-mentee", async (req, res) => {
-  try {
-    console.log("📥 Received mentor-mentee conversation request:", req.body);
-    
-    const { mentorId, menteeId, moocChecked, projectChecked, conversationText, title, topic } = req.body;
+router.post(
+  "/mentor-mentee",
+  restrictTo("admin", "faculty", "hod", "director"),
+  validateRequest(mentorMenteeConversationSchema),
+  async (req, res) => {
+    try {
+      const { mentorId, menteeId, moocChecked, projectChecked, conversationText, title, topic } = req.body;
 
-    if (!mentorId || !menteeId || !conversationText || conversationText.length < 30) {
-      console.log("❌ Validation failed:", { mentorId, menteeId, conversationTextLength: conversationText?.length });
-      return res
-        .status(400)
-        .json({ message: "Mentor, Mentee, and valid conversation text (min 30 chars) required" });
-    }
+      // Import generateSummary
+      const { generateSummary } = await import("../services/summaryService.js");
 
-    // Import generateSummary
-    const { generateSummary } = await import("../services/summaryService.js");
+      // Create a mock thread object for Gemini summary generation
+      const mockThread = {
+        _id: `offline_${Date.now()}`,
+        topic: topic || "Offline Mentorship",
+        title: title || "Offline Conversation",
+        participants: [
+          { _id: mentorId, name: "Mentor", roleName: "faculty" },
+          { _id: menteeId, name: "Mentee", roleName: "student" }
+        ],
+        messages: [
+          {
+            senderId: mentorId,
+            body: conversationText
+          }
+        ]
+      };
 
-    // Create a mock thread object for Gemini summary generation
-    const mockThread = {
-      _id: `offline_${Date.now()}`,
-      topic: topic || "Offline Mentorship",
-      title: title || "Offline Conversation",
-      participants: [
-        { _id: mentorId, name: "Mentor", roleName: "faculty" },
-        { _id: menteeId, name: "Mentee", roleName: "student" }
-      ],
-      messages: [
-        {
-          senderId: mentorId,
-          body: conversationText
+      const aiGeneratedSummary = await generateSummary(mockThread);
+
+      // Create conversation with all details and AI summary
+      const conversationData = {
+        conversationId: `mentor-mentee-${Date.now()}`,
+        mentorId,
+        menteeId,
+        title: title || "Offline Conversation",
+        topic: topic || "Offline Mentorship",
+        conversationText,
+        description: aiGeneratedSummary || "", // Save AI summary as description
+        summary: aiGeneratedSummary || "", // Also save in summary field for backward compatibility
+        moocChecked: moocChecked || false,
+        projectChecked: projectChecked || false,
+        status: "closed",
+        isOffline: true,
+        date: new Date()
+      };
+
+      const newMentorMenteeConv = new Conversation(conversationData);
+      const savedConv = await newMentorMenteeConv.save();
+
+      res.status(201).json({
+        message: "Mentor–Mentee conversation saved successfully with AI summary",
+        data: {
+          conversation: savedConv,
+          aiSummary: aiGeneratedSummary // Return for frontend display
         }
-      ]
-    };
-
-    console.log("🤖 Generating AI summary for conversation...");
-    const aiGeneratedSummary = await generateSummary(mockThread);
-    console.log("✅ AI Summary generated (length:", aiGeneratedSummary?.length, ")");
-    console.log("📝 Summary preview:", aiGeneratedSummary?.substring(0, 100));
-
-    // Create conversation with all details and AI summary
-    const conversationData = {
-      conversationId: `mentor-mentee-${Date.now()}`,
-      mentorId,
-      menteeId,
-      title: title || "Offline Conversation",
-      topic: topic || "Offline Mentorship",
-      conversationText,
-      description: aiGeneratedSummary || "", // Save AI summary as description
-      summary: aiGeneratedSummary || "", // Also save in summary field for backward compatibility
-      moocChecked: moocChecked || false,
-      projectChecked: projectChecked || false,
-      status: "closed",
-      isOffline: true,
-      date: new Date()
-    };
-
-    console.log("💾 Saving conversation to database with data:", {
-      conversationId: conversationData.conversationId,
-      mentorId: conversationData.mentorId,
-      menteeId: conversationData.menteeId,
-      title: conversationData.title,
-      topic: conversationData.topic,
-      conversationTextLength: conversationData.conversationText?.length,
-      descriptionLength: conversationData.description?.length,
-      moocChecked: conversationData.moocChecked,
-      projectChecked: conversationData.projectChecked,
-      status: conversationData.status,
-      isOffline: conversationData.isOffline
-    });
-
-    const newMentorMenteeConv = new Conversation(conversationData);
-    const savedConv = await newMentorMenteeConv.save();
-    
-    console.log("✅ Conversation saved successfully to database!");
-    console.log("📊 Saved document:", savedConv);
-    
-    res.status(201).json({
-      message: "Mentor–Mentee conversation saved successfully with AI summary",
-      data: {
-        conversation: savedConv,
-        aiSummary: aiGeneratedSummary // Return for frontend display
-      }
-    });
-  } catch (err) {
-    console.error("❌ Error creating mentor–mentee conversation:", err);
-    console.error("❌ Error stack:", err.stack);
-    res.status(500).json({ 
-      message: "Error creating mentor–mentee conversation", 
-      error: err.message 
-    });
+      });
+    } catch (err) {
+      res.status(500).json({
+        message: "Error creating mentor–mentee conversation",
+        error: err.message
+      });
+    }
   }
-});
+);
 
 // ✅ Create new conversation for a user
 router.post("/:userId", async (req, res) => {

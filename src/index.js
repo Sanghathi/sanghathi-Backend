@@ -129,7 +129,6 @@ app.use("/api/students/academic", academicRouter);
 app.use("/api/students/admissions", admissionRouter);
 app.use("/api/student-profiles", studentProfileRoutes);
 app.use("/api/students/ptm", ptmRouter);
-app.use("/api/test-summary", testSummaryRoutes);
 app.use("/api/v1/local-guardians", localGuardianRoutes);
 app.use("/api/v1/admissions", admissionRoutes);
 app.use("/api/v1/contact-details", contactDetailsRoutes);
@@ -152,21 +151,27 @@ app.use("/api/internship", internshipRoutes);
 
 // Register routes
 app.use("/api/v1/upload", uploadRouter);
-app.use("/api/test", testUploadRouter);
 
 app.use("/api/feedback",feedbackRoutes);
 app.use("/api/complaint", ComplaintRoutes);
 
-// Serve the test HTML file
-app.get('/test-upload', (req, res) => {
-  const testHtmlPath = path.join(__dirname, '..', 'test-upload.html');
-  
-  if (fs.existsSync(testHtmlPath)) {
-    res.sendFile(testHtmlPath);
-  } else {
-    res.status(404).send('Test file not found');
-  }
-});
+if (process.env.NODE_ENV !== "production") {
+  app.use("/api/test-summary", testSummaryRoutes);
+  app.use("/api/test", testUploadRouter);
+
+  // Serve the test HTML file in non-production environments only.
+  app.get("/test-upload", (req, res) => {
+    const testHtmlPath = path.join(__dirname, "..", "test-upload.html");
+
+    if (fs.existsSync(testHtmlPath)) {
+      res.sendFile(testHtmlPath);
+    } else {
+      res.status(404).send("Test file not found");
+    }
+  });
+}
+
+swaggerDocs(app);
 
 // Handle non-existing routes
 app.all("*", (req, res, next) => {

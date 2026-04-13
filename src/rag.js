@@ -3,12 +3,37 @@ import { MongoClient } from 'mongodb';
 import OpenAI from 'openai';
 import 'dotenv/config';
 
-const mongoClient = new MongoClient(process.env.MONGODB_URI2);
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const chatModel = process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini';
+const ragDbName = process.env.RAG_DB_NAME || 'sample_mflix';
+const ragCollectionName = process.env.RAG_COLLECTION_NAME || 'help_content';
+
+const mongoUris = [process.env.MONGODB_URI2, process.env.MONGODB_URI].filter(Boolean);
+
+async function getConnectedMongoClient() {
+  let lastError = null;
+
+  for (const uri of mongoUris) {
+    const client = new MongoClient(uri);
+    try {
+      await client.connect();
+      return client;
+    } catch (error) {
+      lastError = error;
+      await client.close().catch(() => {});
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  throw new Error('No MongoDB URI configured for RAG');
+}
 
 export async function semanticSearch(queryText) {
-  await mongoClient.connect();
-  const col = mongoClient.db('sample_mflix').collection('help_content');
+  const mongoClient = await getConnectedMongoClient();
+  const col = mongoClient.db(ragDbName).collection(ragCollectionName);
 
   const embedding = (await openai.embeddings.create({
     model: 'text-embedding-ada-002',
@@ -28,9 +53,12 @@ export async function semanticSearch(queryText) {
     { $project: { category:1, option:1, text:1, _id:0 } }
   ];
 
-  const docs = await col.aggregate(pipeline).toArray();
-  await mongoClient.close();
-  return docs;
+  try {
+    const docs = await col.aggregate(pipeline).toArray();
+    return docs;
+  } finally {
+    await mongoClient.close();
+  }
 }
 
 export async function ragAnswer(userQuestion) {
@@ -41,14 +69,13 @@ export async function ragAnswer(userQuestion) {
     .join('\n');
 
   const messages = [
-    { role: 'system',    content: 'You are a helpful assistant.' },
-    { role: 'developer', content: 'Talk like a pirate.' },
+    { role: 'system',    content: 'You are a helpful campus assistant. Answer clearly and concisely.' },
     { role: 'system',    content: `Use the following retrieved snippets:\n${context}` },
     { role: 'user',      content: userQuestion }
   ];
 
   const resp = await openai.chat.completions.create({
-    model: 'gpt-4',
+    model: chatModel,
     messages
   });
 
