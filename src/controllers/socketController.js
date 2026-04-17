@@ -52,10 +52,18 @@ class SocketController {
     };
   }
 
+  handleFeedbackSettingUpdated(socket) {
+    return (data) => {
+      logger.info(`Feedback setting updated: ${data.mentorFeedbackEnabled}`);
+      socket.broadcast.emit("feedback-setting-updated", data);
+    };
+  }
+
   handleEvents(socket) {
     socket.on("join_room", this.joinRoom(socket));
     socket.on("leave_room", this.leaveRoom(socket));
     socket.on("sendMessage", this.sendMessage(socket));
+    socket.on("feedback-setting-updated", this.handleFeedbackSettingUpdated(socket));
     socket.on("disconnect", this.disconnect(socket));
   }
 }

@@ -7,7 +7,7 @@ import User from "../../models/User.js";
 
 // Create or Update Feedback Details
 export const createOrUpdateFeedback = catchAsync(async (req, res, next) => {
-  const { userId, issues, features, performance, feedback } = req.body;
+  const { userId, mentorFeedback, averageScore, rateMentor, semester } = req.body;
 
   if (!userId) {
     return next(new AppError("userId is required", 400));
@@ -15,8 +15,8 @@ export const createOrUpdateFeedback = catchAsync(async (req, res, next) => {
 
   const updatedDoc = await Feedback.findOneAndUpdate(
     { userId },
-    { issues, features, performance, feedback },
-    { new: true, upsert: true /* create if not exists */ }
+    { mentorFeedback, averageScore, rateMentor, semester },
+    { new: true, upsert: true }
   );
 
   res.status(200).json({

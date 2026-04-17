@@ -1,8 +1,10 @@
+
 import express from "express";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cors from "cors";
-import conversationRoutes from "./routes/conversation.js";
+import conversationRoutes from "./src/routes/conversationRoutes.js";
+import globalSettingsRouter from "./src/routes/globalSettings.js";
 
 dotenv.config();
 
@@ -21,7 +23,9 @@ mongoose
   .catch((err) => console.error("MongoDB error:", err.message));
 
 // routes
+
 app.use("/api/conversation", conversationRoutes);
+app.use("/api/global-settings", globalSettingsRouter);
 
 app.get("/", (req, res) => res.send("Mentor–Mentee Server Running ✅"));
 

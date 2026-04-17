@@ -5,17 +5,12 @@ const FeedbackDetailsSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: false,
+      required: true,
     },
-    issues: { type: String },
-    features: { type: String },
-    performance: { type: String },
-    feedback: { type: String },
-
-
-
-    
-
+    mentorFeedback: [{ type: Number }],
+    averageScore: { type: Number },
+    rateMentor: { type: Number },
+    semester: { type: Number },
   },
   { timestamps: true }
 );
