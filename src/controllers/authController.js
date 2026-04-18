@@ -193,20 +193,42 @@ export const restrictTo = (...roles) => {
 // Forgot Password
 // controllers/authController.js - Update forgotPassword function
 export const forgotPassword = catchAsync(async (req, res, next) => {
-  const user = await User.findOne({ email: req.body.email });
+  const normalizedEmail = req.body.email?.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return next(new AppError("Please provide your email address.", 400));
+  }
+
+  const user = await User.findOne({ email: normalizedEmail });
+
+  const genericResponseMessage =
+    "If an account exists with this email, a reset link has been sent.";
 
   if (!user) {
-    return next(new AppError("There is no user with that email address.", 404));
+    return res.status(200).json({
+      status: "success",
+      message: genericResponseMessage,
+    });
   }
 
   const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
 
-  // CHANGE THIS: Point to your React frontend, not the API
-const resetURL = `${process.env.CLIENT_HOST}/resetPassword/${resetToken}`;
-  
-  // For production, use environment variables
-  // const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+  const clientHost = (process.env.CLIENT_HOST || "").replace(/\/+$/, "");
+  if (!clientHost) {
+    return next(
+      new AppError(
+        "CLIENT_HOST is not configured. Unable to build reset password URL.",
+        500
+      )
+    );
+  }
+
+  const resetPath = process.env.RESET_PASSWORD_PATH || "/reset-password";
+  const normalizedResetPath = resetPath.startsWith("/")
+    ? resetPath
+    : `/${resetPath}`;
+  const resetURL = `${clientHost}${normalizedResetPath}/${resetToken}`;
 
   const message = `Forgot your password? Click the link below to reset it:\n\n${resetURL}\n\nIf you didn't forget your password, please ignore this email.`;
 
@@ -233,7 +255,7 @@ const resetURL = `${process.env.CLIENT_HOST}/resetPassword/${resetToken}`;
 
     res.status(200).json({
       status: "success",
-      message: "Token sent to email!",
+      message: genericResponseMessage,
     });
   } catch (err) {
     user.passwordResetToken = undefined;

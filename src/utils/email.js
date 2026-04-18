@@ -1,70 +1,64 @@
 // utils/email.js
-import { createTransport } from "nodemailer";
+import { Resend } from "resend";
 
 import logger from "./logger.js";
-const sendEmail = async (options) => {
-  logger.info("📧 Starting email send process...");
-  logger.info("Email options:", {
-    to: options.email,
-    subject: options.subject,
-    hasHtml: !!options.html,
-    hasText: !!options.message
-  });
 
-  // Log environment variables (without exposing sensitive data)
-  logger.info("Email configuration:", {
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
-    userExists: !!process.env.EMAIL_USER,
-    passExists: !!process.env.EMAIL_PASS,
-    user: process.env.EMAIL_USER ? `${process.env.EMAIL_USER.substring(0, 3)}***` : 'NOT SET'
-  });
+const DEFAULT_DEV_FROM_EMAIL = "Sanghathi <onboarding@resend.dev>";
 
-  try {
-    // 1) Create a transporter
-    const transporter = createTransport({
-      host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT,
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      // Add these for better debugging
-      logger: true,
-      debug: true,
-    });
-
-    // Verify transporter configuration
-    logger.info("🔍 Verifying transporter configuration...");
-    await transporter.verify();
-    logger.info("✅ Transporter verified successfully");
-
-    // 2) Define the email options
-    const mailOptions = {
-      from: "Sanghathi <emithru@gmail.com>",
-      to: options.email,
-      subject: options.subject,
-      text: options.message,
-      html: options.html,
-    };
-
-    // 3) Actually send the email
-    logger.info("📤 Sending email...");
-    const info = await transporter.sendMail(mailOptions);
-    logger.info("✅ Email sent successfully:", info.messageId);
-    logger.info("Preview URL:", info.getTestMessageUrl?.() || 'N/A');
-    
-    return info;
-  } catch (error) {
-    logger.error("❌ Email sending failed:");
-    logger.error("Error name:", error.name);
-    logger.error("Error message:", error.message);
-    logger.error("Error code:", error.code);
-    logger.error("Error response:", error.response);
-    logger.error("Full error:", error);
-    throw error;
+const resolveFromEmail = () => {
+  if (process.env.RESEND_FROM_EMAIL) {
+    return process.env.RESEND_FROM_EMAIL;
   }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "RESEND_FROM_EMAIL is required in production for password reset emails."
+    );
+  }
+
+  return DEFAULT_DEV_FROM_EMAIL;
+};
+
+const sendEmail = async (options) => {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing RESEND_API_KEY for password reset emails.");
+  }
+
+  const resend = new Resend(apiKey);
+  const recipients = Array.isArray(options.email)
+    ? options.email
+    : [options.email];
+
+  logger.info("📧 Sending password reset email via Resend", {
+    to: recipients,
+    subject: options.subject,
+    from: resolveFromEmail(),
+    hasHtml: !!options.html,
+    hasText: !!options.message,
+  });
+
+  const { data, error } = await resend.emails.send({
+    from: resolveFromEmail(),
+    to: recipients,
+    subject: options.subject,
+    text: options.message,
+    html: options.html,
+  });
+
+  if (error) {
+    logger.error("❌ Resend email sending failed", {
+      name: error.name,
+      message: error.message,
+    });
+    throw new Error(error.message || "Failed to send email with Resend.");
+  }
+
+  logger.info("✅ Resend email sent successfully", {
+    emailId: data?.id,
+  });
+
+  return data;
 };
 
 export default sendEmail;
