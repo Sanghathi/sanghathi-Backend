@@ -215,11 +215,40 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
   const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
 
-  const clientHost = (process.env.CLIENT_HOST || "").replace(/\/+$/, "");
-  if (!clientHost) {
+  const clientHostInput = (process.env.CLIENT_HOST || "").trim();
+  if (!clientHostInput) {
     return next(
       new AppError(
         "CLIENT_HOST is not configured. Unable to build reset password URL.",
+        500
+      )
+    );
+  }
+
+  let clientHost;
+
+  try {
+    const parsedClientHost = new URL(clientHostInput);
+    clientHost = `${parsedClientHost.protocol}//${parsedClientHost.host}`.replace(
+      /\/+$/,
+      ""
+    );
+
+    if (
+      process.env.NODE_ENV === "production" &&
+      ["localhost", "127.0.0.1", "::1"].includes(parsedClientHost.hostname)
+    ) {
+      return next(
+        new AppError(
+          "CLIENT_HOST cannot be a localhost URL in production reset emails.",
+          500
+        )
+      );
+    }
+  } catch (urlError) {
+    return next(
+      new AppError(
+        "CLIENT_HOST must be a valid absolute URL (for example, https://app.sanghathi.com).",
         500
       )
     );
@@ -230,11 +259,14 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
     ? resetPath
     : `/${resetPath}`;
   const resetURL = `${clientHost}${normalizedResetPath}/${resetToken}`;
+  const appName = process.env.APP_NAME || "Sanghathi";
+  const supportEmail = process.env.RESEND_REPLY_TO || "support@sanghathi.com";
 
   const emailTemplate = buildPasswordResetEmailTemplate({
     userName: user.name,
     resetURL,
-    appName: "Sanghathi",
+    appName,
+    supportEmail,
   });
 
   try {
@@ -243,6 +275,7 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
       subject: emailTemplate.subject,
       message: emailTemplate.message,
       html: emailTemplate.html,
+      replyTo: supportEmail,
     });
 
     res.status(200).json({

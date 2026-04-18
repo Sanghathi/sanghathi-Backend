@@ -5,6 +5,12 @@ import logger from "./logger.js";
 
 const DEFAULT_DEV_FROM_EMAIL = "Sanghathi <onboarding@resend.dev>";
 
+const extractEmailAddress = (value = "") => {
+  const trimmedValue = value.trim();
+  const match = trimmedValue.match(/<([^>]+)>/);
+  return (match ? match[1] : trimmedValue).trim();
+};
+
 const resolveFromEmail = () => {
   if (process.env.RESEND_FROM_EMAIL) {
     return process.env.RESEND_FROM_EMAIL;
@@ -19,6 +25,18 @@ const resolveFromEmail = () => {
   return DEFAULT_DEV_FROM_EMAIL;
 };
 
+const resolveReplyTo = () => {
+  if (process.env.RESEND_REPLY_TO) {
+    return process.env.RESEND_REPLY_TO;
+  }
+
+  if (process.env.RESEND_FROM_EMAIL) {
+    return extractEmailAddress(process.env.RESEND_FROM_EMAIL);
+  }
+
+  return extractEmailAddress(DEFAULT_DEV_FROM_EMAIL);
+};
+
 const sendEmail = async (options) => {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -26,25 +44,39 @@ const sendEmail = async (options) => {
   }
 
   const resend = new Resend(apiKey);
-  const recipients = Array.isArray(options.email)
-    ? options.email
-    : [options.email];
+  const recipients = (Array.isArray(options.email) ? options.email : [options.email])
+    .map((email) => String(email || "").trim())
+    .filter(Boolean);
+
+  if (!recipients.length) {
+    throw new Error("No recipient email provided for sending password reset email.");
+  }
+
+  const from = resolveFromEmail();
+  const replyTo = options.replyTo || resolveReplyTo();
 
   logger.info("📧 Sending password reset email via Resend", {
     to: recipients,
     subject: options.subject,
-    from: resolveFromEmail(),
+    from,
+    replyTo,
     hasHtml: !!options.html,
     hasText: !!options.message,
   });
 
-  const { data, error } = await resend.emails.send({
-    from: resolveFromEmail(),
+  const payload = {
+    from,
     to: recipients,
     subject: options.subject,
     text: options.message,
     html: options.html,
-  });
+  };
+
+  if (replyTo) {
+    payload.replyTo = replyTo;
+  }
+
+  const { data, error } = await resend.emails.send(payload);
 
   if (error) {
     logger.error("❌ Resend email sending failed", {
