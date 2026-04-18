@@ -3,7 +3,6 @@ import Thread from "../models/Thread.js";
 import Message from "../models/Conversation/Message.js";
 import AppError from "../utils/appError.js";
 import ThreadService from "../services/threadService.js";
-import featureFlags from "../config/featureFlags.js";
 
 const threadService = new ThreadService();
 
@@ -112,45 +111,23 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
 
 export const getThreadById = catchAsync(async (req, res, next) => {
   const { threadId } = req.params;
-  const thread = await Thread.findById(threadId)
-    .populate({
-      path: "participants",
-      select: "name avatar",
-    })
-    .lean();
+  const [thread, messages] = await Promise.all([
+    Thread.findById(threadId)
+      .populate({
+        path: "participants",
+        select: "name avatar",
+      })
+      .lean(),
+    Message.find({ parentType: "thread", parentId: threadId })
+      .sort({ createdAt: 1 })
+      .lean(),
+  ]);
 
   if (!thread) {
     return next(new AppError("Thread not found", 404));
   }
 
-  if (featureFlags.messageReadFromParent) {
-    const parentMessages = await Message.find({
-      parentType: "thread",
-      parentId: threadId,
-    })
-      .sort({ createdAt: 1 })
-      .lean();
-
-    if (parentMessages.length > 0) {
-      thread.messages = parentMessages;
-    } else {
-      const fallback = await Thread.findById(threadId)
-        .populate({
-          path: "messages",
-          options: { sort: { createdAt: 1 } },
-        })
-        .lean();
-      thread.messages = fallback?.messages || [];
-    }
-  } else {
-    const fallback = await Thread.findById(threadId)
-      .populate({
-        path: "messages",
-        options: { sort: { createdAt: 1 } },
-      })
-      .lean();
-    thread.messages = fallback?.messages || [];
-  }
+  thread.messages = messages;
 
   res.status(200).json({
     status: "success",
@@ -189,21 +166,6 @@ export const sendMessageToThread = catchAsync(async (req, res, next) => {
     parentType: "thread",
     parentId: threadId,
   });
-
-  let updatedThread;
-  if (featureFlags.messageDualWriteArrays) {
-    updatedThread = await Thread.findByIdAndUpdate(
-      threadId,
-      { $push: { messages: newMessage._id } },
-      { new: true }
-    );
-  } else {
-    updatedThread = threadExists;
-  }
-
-  if (!updatedThread) {
-    return next(new AppError("Thread not found", 404));
-  }
 
   res.status(201).json({
     status: "success",

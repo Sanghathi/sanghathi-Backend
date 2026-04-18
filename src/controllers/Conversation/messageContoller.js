@@ -3,44 +3,20 @@ import AppError from "../../utils/appError.js";
 import Message from "../../models/Conversation/Message.js";
 import GroupConversation from "../../models/Conversation/GroupConversation.js";
 import PrivateConversation from "../../models/Conversation/PrivateConversation.js";
-import featureFlags from "../../config/featureFlags.js";
 
 class ConversationAdapter {
-  constructor(conversation, conversationModel, parentType) {
+  constructor(conversation, parentType) {
     this.conversation = conversation;
-    this.conversationModel = conversationModel;
     this.parentType = parentType;
   }
 
-  async sendMessage(newMessage) {
-    if (!featureFlags.messageDualWriteArrays) {
-      return;
-    }
-
-    await this.conversationModel.findByIdAndUpdate(this.conversation._id, {
-      $push: { messages: newMessage._id },
-    });
-  }
-
   async getMessages() {
-    if (featureFlags.messageReadFromParent) {
-      const parentMessages = await Message.find({
-        parentType: this.parentType,
-        parentId: this.conversation._id,
-      })
-        .sort({ createdAt: 1 })
-        .lean();
-
-      if (parentMessages.length > 0) {
-        return parentMessages;
-      }
-    }
-
-    const conversation = await this.conversationModel
-      .findById(this.conversation._id)
-      .populate("messages");
-
-    return conversation?.messages || [];
+    return Message.find({
+      parentType: this.parentType,
+      parentId: this.conversation._id,
+    })
+      .sort({ createdAt: 1 })
+      .lean();
   }
 }
 
@@ -59,7 +35,6 @@ const messageController = {
       parentType: conversation.parentType,
       parentId: conversation.conversation._id,
     });
-    await conversation.sendMessage(newMessage);
 
     res.status(201).json({
       status: "success",
@@ -114,7 +89,6 @@ const messageController = {
 
     req.conversationAdapter = new ConversationAdapter(
       conversation,
-      conversationModel,
       parentType
     );
 

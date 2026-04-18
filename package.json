@@ -19,7 +19,8 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "db:audit-user-duplicates": "node scripts/audit-user-one-to-one-duplicates.mjs",
     "db:backfill-message-parents": "node scripts/backfill-message-parents.mjs",
-    "db:apply-p0-indexes": "node scripts/apply-p0-indexes.mjs"
+    "db:apply-p0-indexes": "node scripts/apply-p0-indexes.mjs",
+    "db:enforce-one-to-one-unique-indexes": "node scripts/enforce-one-to-one-unique-indexes.mjs"
   },
   "repository": {
     "type": "git",

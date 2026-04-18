@@ -180,8 +180,8 @@ const hasEquivalentIndex = (indexes, spec) => {
       return false;
     }
 
-    const sameUnique = Boolean(index.unique) === Boolean(spec.options?.unique);
-    if (!sameUnique) {
+    const requiresUnique = Boolean(spec.options?.unique);
+    if (requiresUnique && !Boolean(index.unique)) {
       return false;
     }
 
