@@ -180,6 +180,63 @@ router.get("/mentor/:menteeId", async (req, res) => {
   }
 });
 
+// Get all mentees under a specific mentor with profile data in a single response
+router.get("/:mentorId/mentees-with-profiles", async (req, res) => {
+  try {
+    const { mentorId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(mentorId)) {
+      return res.status(400).json({ message: "Invalid mentor ID format" });
+    }
+
+    const mentorships = await Mentorship.find({ mentorId })
+      .select("menteeId")
+      .lean();
+
+    if (!mentorships.length) {
+      return res.status(200).json({ mentees: [] });
+    }
+
+    const menteeIds = mentorships.map((mentorship) => mentorship.menteeId);
+
+    const mentees = await User.find({
+      _id: { $in: menteeIds },
+      roleName: "student",
+    })
+      .select("_id name email phone")
+      .lean();
+
+    const StudentProfile = mongoose.model("StudentProfile");
+    const profiles = await StudentProfile.find({
+      userId: { $in: menteeIds },
+    })
+      .select("userId department sem usn")
+      .lean();
+
+    const profileMap = new Map(
+      profiles.map((profile) => [profile.userId.toString(), profile])
+    );
+
+    const menteesWithProfiles = mentees.map((mentee) => {
+      const profile = profileMap.get(mentee._id.toString());
+      return {
+        ...mentee,
+        profile: profile
+          ? {
+              department: profile.department,
+              sem: profile.sem,
+              usn: profile.usn,
+            }
+          : null,
+      };
+    });
+
+    res.status(200).json({ mentees: menteesWithProfiles });
+  } catch (error) {
+    logger.error("Error fetching mentees with profiles:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // Get all mentees under a specific mentor
 router.get("/:mentorId/mentees", async (req, res) => {
   try {
@@ -188,7 +245,9 @@ router.get("/:mentorId/mentees", async (req, res) => {
       return res.status(400).json({ message: "Invalid mentor ID format" });
     }
 
-    const mentorships = await Mentorship.find({ mentorId });
+    const mentorships = await Mentorship.find({ mentorId })
+      .select("menteeId")
+      .lean();
     if (!mentorships.length)
       return res.status(200).json({ mentees: [] });
 
@@ -196,7 +255,9 @@ router.get("/:mentorId/mentees", async (req, res) => {
     const mentees = await User.find({
       _id: { $in: menteeIds },
       roleName: "student",
-    });
+    })
+      .select("_id name email phone roleName")
+      .lean();
 
     res.status(200).json({ mentees });
   } catch (error) {
