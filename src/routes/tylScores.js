@@ -1,6 +1,6 @@
 import express from 'express';
 import { protect, restrictTo } from '../controllers/authController.js';
-import { getTYLScores, updateTYLScores } from '../controllers/TYLScoresController.js';
+import { deleteTYLScores, getTYLScores, updateTYLScores } from '../controllers/TYLScoresController.js';
 
 const router = express.Router();
 
@@ -12,5 +12,8 @@ router.get('/:userId', getTYLScores);
 
 // Update TYL scores (faculty/admin)
 router.post('/', restrictTo('faculty', 'admin'), updateTYLScores);
+
+// Delete TYL scores for rollback workflows (admin)
+router.delete('/:userId', restrictTo('admin'), deleteTYLScores);
 
 export default router; 

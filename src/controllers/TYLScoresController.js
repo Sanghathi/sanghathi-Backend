@@ -79,3 +79,23 @@ export const updateTYLScores = catchAsync(async (req, res, next) => {
     data: tylScores.semesters
   });
 }); 
+
+export const deleteTYLScores = catchAsync(async (req, res, next) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return next(new AppError('User ID is required', 400));
+  }
+
+  const result = await TYLScores.deleteMany({ userId });
+
+  if (!result.deletedCount) {
+    return next(new AppError('No TYL records found for this user', 404));
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: 'TYL scores deleted successfully',
+    deletedCount: result.deletedCount,
+  });
+});
