@@ -3,8 +3,58 @@ import Thread from "../models/Thread.js";
 import Message from "../models/Conversation/Message.js";
 import AppError from "../utils/appError.js";
 import ThreadService from "../services/threadService.js";
+import {
+  buildProfilePhotoMap,
+  enrichLeanUserAvatar,
+  getUserIdFromEntity,
+} from "../utils/profilePhotoResolver.js";
 
 const threadService = new ThreadService();
+
+const collectThreadUserIds = (threads = []) => {
+  const userIds = [];
+
+  threads.forEach((thread) => {
+    const authorId = getUserIdFromEntity(thread?.author);
+    if (authorId) {
+      userIds.push(authorId);
+    }
+
+    if (Array.isArray(thread?.participants)) {
+      thread.participants.forEach((participant) => {
+        const participantId = getUserIdFromEntity(participant);
+        if (participantId) {
+          userIds.push(participantId);
+        }
+      });
+    }
+  });
+
+  return userIds;
+};
+
+const enrichThreadsWithProfilePhotos = async (threads = []) => {
+  if (!threads.length) {
+    return threads;
+  }
+
+  const photoMap = await buildProfilePhotoMap(collectThreadUserIds(threads));
+  if (!photoMap.size) {
+    return threads;
+  }
+
+  return threads.map((thread) => ({
+    ...thread,
+    author: thread.author
+      ? enrichLeanUserAvatar(thread.author, photoMap)
+      : thread.author,
+    participants: Array.isArray(thread.participants)
+      ? thread.participants.map((participant) =>
+          enrichLeanUserAvatar(participant, photoMap)
+        )
+      : thread.participants,
+  }));
+};
 
 export const closeThread = catchAsync(async (req, res, next) => {
   const { threadId } = req.params;
@@ -56,10 +106,14 @@ export const createNewThread = catchAsync(async (req, res, next) => {
     path: "participants",
     select: "name avatar",
   });
+  const [enrichedThread] = await enrichThreadsWithProfilePhotos([
+    newThread.toObject(),
+  ]);
+
   res.status(201).json({
     status: "success",
     data: {
-      thread: newThread,
+      thread: enrichedThread,
     },
   });
 });
@@ -95,9 +149,11 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
     Thread.countDocuments(filter),
   ]);
 
+  const enrichedThreads = await enrichThreadsWithProfilePhotos(threads);
+
   res.status(200).json({
     status: "success",
-    results: threads.length,
+    results: enrichedThreads.length,
     pagination: {
       page,
       limit,
@@ -105,7 +161,7 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
       totalPages: Math.max(Math.ceil(total / limit), 1),
     },
     data: {
-      threads,
+      threads: enrichedThreads,
     },
   });
 });
@@ -147,7 +203,9 @@ export const getThreadById = catchAsync(async (req, res, next) => {
     return next(new AppError("Thread not found", 404));
   }
 
-  thread.messages = latestMessages.reverse();
+  const [enrichedThread] = await enrichThreadsWithProfilePhotos([thread]);
+
+  enrichedThread.messages = latestMessages.reverse();
 
   res.status(200).json({
     status: "success",
@@ -158,7 +216,7 @@ export const getThreadById = catchAsync(async (req, res, next) => {
       totalPages: Math.max(Math.ceil(totalMessages / messageLimit), 1),
     },
     data: {
-      thread,
+      thread: enrichedThread,
     },
   });
 });
@@ -223,9 +281,11 @@ export const getAllThreadsOfUser = catchAsync(async (req, res, next) => {
     Thread.countDocuments(filter),
   ]);
 
+  const enrichedThreads = await enrichThreadsWithProfilePhotos(threads);
+
   res.status(200).json({
     status: "success",
-    results: threads.length,
+    results: enrichedThreads.length,
     pagination: {
       page,
       limit,
@@ -233,7 +293,7 @@ export const getAllThreadsOfUser = catchAsync(async (req, res, next) => {
       totalPages: Math.max(Math.ceil(total / limit), 1),
     },
     data: {
-      threads,
+      threads: enrichedThreads,
     },
   });
 });

@@ -57,6 +57,7 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
     "email",
     "phone",
     "avatar",
+    "photo",
     "role",
     "roleName",
     "profile",
@@ -151,12 +152,12 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   // Fetch student profiles
   const studentProfiles = await mongoose.model('StudentProfile').find({ 
     userId: { $in: userIds } 
-  }).select("userId department sem usn").lean();
+  }).select("userId department sem usn photo").lean();
   
   // Fetch faculty profiles
   const facultyProfiles = await mongoose.model('FacultyProfile').find({ 
     userId: { $in: userIds } 
-  }).select("userId department cabin").lean();
+  }).select("userId department cabin photo").lean();
   
   // Create maps for quick lookup
   const studentProfileMap = {};
@@ -180,9 +181,17 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
       enhancedUser.department = studentProfile.department;
       enhancedUser.sem = studentProfile.sem;
       enhancedUser.usn = studentProfile.usn;
+      enhancedUser.photo = studentProfile.photo || null;
+      if (studentProfile.photo) {
+        enhancedUser.avatar = studentProfile.photo;
+      }
     } else if (user.roleName === 'faculty' && facultyProfile) {
       enhancedUser.department = facultyProfile.department;
       enhancedUser.cabin = facultyProfile.cabin;
+      enhancedUser.photo = facultyProfile.photo || null;
+      if (facultyProfile.photo) {
+        enhancedUser.avatar = facultyProfile.photo;
+      }
     }
     
     return enhancedUser;
@@ -223,6 +232,7 @@ export const getUser = catchAsync(async (req, res, next) => {
     "email",
     "phone",
     "avatar",
+    "photo",
     "role",
     "roleName",
     "profile",
@@ -262,12 +272,12 @@ export const getUser = catchAsync(async (req, res, next) => {
     mongoose
       .model("StudentProfile")
       .findOne({ userId: user._id })
-      .select("department sem usn")
+      .select("department sem usn photo")
       .lean(),
     mongoose
       .model("FacultyProfile")
       .findOne({ userId: user._id })
-      .select("department cabin")
+      .select("department cabin photo")
       .lean(),
   ]);
 
@@ -277,6 +287,10 @@ export const getUser = catchAsync(async (req, res, next) => {
     enhancedUser.department = studentProfile.department;
     enhancedUser.sem = studentProfile.sem;
     enhancedUser.usn = studentProfile.usn;
+    enhancedUser.photo = studentProfile.photo || null;
+    if (studentProfile.photo) {
+      enhancedUser.avatar = studentProfile.photo;
+    }
   }
 
   if (facultyProfile) {
@@ -284,6 +298,12 @@ export const getUser = catchAsync(async (req, res, next) => {
       enhancedUser.department = facultyProfile.department;
     }
     enhancedUser.cabin = facultyProfile.cabin;
+    if (!enhancedUser.photo) {
+      enhancedUser.photo = facultyProfile.photo || null;
+    }
+    if (facultyProfile.photo) {
+      enhancedUser.avatar = facultyProfile.photo;
+    }
   }
 
   return res.status(200).json({

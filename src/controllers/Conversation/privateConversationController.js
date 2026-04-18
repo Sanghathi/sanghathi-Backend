@@ -1,5 +1,43 @@
 import catchAsync from "../../utils/catchAsync.js";
 import PrivateConversation from "../../models/Conversation/PrivateConversation.js";
+import {
+  buildProfilePhotoMap,
+  enrichLeanUserAvatar,
+  getUserIdFromEntity,
+} from "../../utils/profilePhotoResolver.js";
+
+const enrichConversationsWithProfilePhotos = async (conversations = []) => {
+  if (!conversations.length) {
+    return conversations;
+  }
+
+  const participantIds = [];
+
+  conversations.forEach((conversation) => {
+    if (Array.isArray(conversation?.participants)) {
+      conversation.participants.forEach((participant) => {
+        const participantId = getUserIdFromEntity(participant);
+        if (participantId) {
+          participantIds.push(participantId);
+        }
+      });
+    }
+  });
+
+  const photoMap = await buildProfilePhotoMap(participantIds);
+  if (!photoMap.size) {
+    return conversations;
+  }
+
+  return conversations.map((conversation) => ({
+    ...conversation,
+    participants: Array.isArray(conversation.participants)
+      ? conversation.participants.map((participant) =>
+          enrichLeanUserAvatar(participant, photoMap)
+        )
+      : conversation.participants,
+  }));
+};
 
 export const getAllConversations = catchAsync(async (req, res, next) => {
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
@@ -19,9 +57,13 @@ export const getAllConversations = catchAsync(async (req, res, next) => {
     PrivateConversation.countDocuments(),
   ]);
 
+  const enrichedConversations = await enrichConversationsWithProfilePhotos(
+    conversations
+  );
+
   res.status(200).json({
     status: "success",
-    results: conversations.length,
+    results: enrichedConversations.length,
     pagination: {
       page,
       limit,
@@ -29,7 +71,7 @@ export const getAllConversations = catchAsync(async (req, res, next) => {
       totalPages: Math.max(Math.ceil(total / limit), 1),
     },
     data: {
-      conversations,
+      conversations: enrichedConversations,
     },
   });
 });
@@ -55,9 +97,13 @@ export const getAllConversationsOfUser = catchAsync(async (req, res, next) => {
     PrivateConversation.countDocuments(filter),
   ]);
 
+  const enrichedConversations = await enrichConversationsWithProfilePhotos(
+    conversations
+  );
+
   res.status(200).json({
     status: "success",
-    results: conversations.length,
+    results: enrichedConversations.length,
     pagination: {
       page,
       limit,
@@ -65,7 +111,7 @@ export const getAllConversationsOfUser = catchAsync(async (req, res, next) => {
       totalPages: Math.max(Math.ceil(total / limit), 1),
     },
     data: {
-      conversations,
+      conversations: enrichedConversations,
     },
   });
 });

@@ -15,7 +15,7 @@ router.get("/students", async (req, res) => {
   try {
     // First get all students
     const students = await User.find({ roleName: "student" })
-      .select("_id name email phone roleName")
+      .select("_id name email phone roleName avatar")
       .lean();
     logger.info(`Fetched ${students.length} students`);
 
@@ -24,7 +24,7 @@ router.get("/students", async (req, res) => {
     const studentProfiles = await StudentProfile.find({
       userId: { $in: studentIds },
     })
-      .select("userId department sem usn")
+      .select("userId department sem usn photo")
       .lean();
 
     const profileMap = new Map(
@@ -50,7 +50,7 @@ router.get("/students", async (req, res) => {
     const mentors = await User.find({ 
       _id: { $in: mentorIds.map(id => new mongoose.Types.ObjectId(id)) } 
     })
-      .select("_id name email")
+      .select("_id name email avatar")
       .lean();
     
     // Create mentor ID to mentor data mapping
@@ -67,7 +67,8 @@ router.get("/students", async (req, res) => {
         name: student.name,
         email: student.email,
         phone: student.phone,
-        roleName: student.roleName
+        roleName: student.roleName,
+        avatar: student.avatar || null,
       };
       
       const profile = profileMap.get(student._id.toString());
@@ -75,6 +76,8 @@ router.get("/students", async (req, res) => {
         studentObj.department = profile.department;
         studentObj.sem = profile.sem;
         studentObj.usn = profile.usn;
+        studentObj.avatar = profile.photo || studentObj.avatar;
+        studentObj.photo = profile.photo || null;
       }
       
       // Add mentor data if exists
@@ -85,7 +88,8 @@ router.get("/students", async (req, res) => {
           studentObj.mentor = {
             _id: mentor._id,
             name: mentor.name,
-            email: mentor.email
+            email: mentor.email,
+            avatar: mentor.avatar || null,
           };
         }
       }
@@ -170,10 +174,22 @@ router.get("/mentor/:menteeId", async (req, res) => {
     if (!mentorship)
       return res.status(404).json({ message: "Mentorship not found" });
 
-    const mentor = await User.findById(mentorship.mentorId, "name email role");
+    const mentor = await User.findById(mentorship.mentorId, "name email role avatar").lean();
     if (!mentor) return res.status(404).json({ message: "Mentor not found" });
 
-    res.status(200).json({ mentor });
+    const facultyProfile = await mongoose
+      .model("FacultyProfile")
+      .findOne({ userId: mentor._id })
+      .select("photo")
+      .lean();
+
+    const enhancedMentor = {
+      ...mentor,
+      avatar: facultyProfile?.photo || mentor.avatar || null,
+      photo: facultyProfile?.photo || null,
+    };
+
+    res.status(200).json({ mentor: enhancedMentor });
   } catch (error) {
     logger.error("Error fetching mentor:", error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -215,7 +231,7 @@ router.get("/:mentorId/mentees-with-profiles", async (req, res) => {
         _id: { $in: menteeIds },
         roleName: "student",
       })
-        .select("_id name email phone")
+        .select("_id name email phone avatar")
         .sort({ name: 1, _id: 1 })
         .skip(skip)
         .limit(limit)
@@ -232,7 +248,7 @@ router.get("/:mentorId/mentees-with-profiles", async (req, res) => {
     const profiles = await StudentProfile.find({
       userId: { $in: currentMenteeIds },
     })
-      .select("userId department sem usn")
+      .select("userId department sem usn photo")
       .lean();
 
     const profileMap = new Map(
@@ -243,11 +259,13 @@ router.get("/:mentorId/mentees-with-profiles", async (req, res) => {
       const profile = profileMap.get(mentee._id.toString());
       return {
         ...mentee,
+        avatar: profile?.photo || mentee.avatar || null,
         profile: profile
           ? {
               department: profile.department,
               sem: profile.sem,
               usn: profile.usn,
+              photo: profile.photo || null,
             }
           : null,
       };
@@ -300,7 +318,7 @@ router.get("/:mentorId/mentees", async (req, res) => {
         _id: { $in: menteeIds },
         roleName: "student",
       })
-        .select("_id name email phone roleName")
+        .select("_id name email phone roleName avatar")
         .sort({ name: 1, _id: 1 })
         .skip(skip)
         .limit(limit)
@@ -423,7 +441,7 @@ router.get("/allocation-students", async (req, res) => {
 
     const [students, totalStudents] = await Promise.all([
       User.find(studentFilter)
-        .select("_id name email phone roleName")
+        .select("_id name email phone roleName avatar")
         .sort({ name: 1, _id: 1 })
         .skip(skip)
         .limit(limit)
@@ -449,7 +467,7 @@ router.get("/allocation-students", async (req, res) => {
     const studentProfiles = await StudentProfile.find({
       userId: { $in: studentIds },
     })
-      .select("userId usn department sem")
+      .select("userId usn department sem photo")
       .lean();
     logger.info(`Found ${studentProfiles.length} student profiles for current page`);
 
@@ -473,7 +491,7 @@ router.get("/allocation-students", async (req, res) => {
     const mentors = await User.find({ 
       _id: { $in: mentorIds.map(id => new mongoose.Types.ObjectId(id)) } 
     })
-      .select("_id name email")
+      .select("_id name email avatar")
       .lean();
     logger.info(`Found ${mentors.length} mentors`);
     
@@ -502,6 +520,8 @@ router.get("/allocation-students", async (req, res) => {
         studentObj.usn = profile.usn;
         studentObj.department = profile.department;
         studentObj.sem = profile.sem;
+        studentObj.avatar = profile.photo || studentObj.avatar || null;
+        studentObj.photo = profile.photo || null;
       }
       
       // Add mentor data if exists
@@ -511,7 +531,8 @@ router.get("/allocation-students", async (req, res) => {
         if (mentor) {
           studentObj.mentor = {
             name: mentor.name,
-            _id: mentor._id
+            _id: mentor._id,
+            avatar: mentor.avatar || null,
           };
         }
       }
@@ -608,7 +629,7 @@ router.get("/mentors-with-mentees", async (req, res) => {
     }
 
     const facultyProfiles = await FacultyProfile.find(facultyProfileFilter)
-      .select("userId department cabin")
+      .select("userId department cabin photo")
       .lean();
 
     const facultyProfileMap = new Map(
@@ -636,7 +657,7 @@ router.get("/mentors-with-mentees", async (req, res) => {
       _id: { $in: filteredMentorIds },
       roleName: "faculty",
     })
-      .select("_id name email phone department roleName")
+      .select("_id name email phone department roleName avatar")
       .lean();
 
     const mentorsWithCounts = mentors.map(mentor => {
@@ -649,6 +670,8 @@ router.get("/mentors-with-mentees", async (req, res) => {
         email: mentor.email,
         phone: mentor.phone,
         department: facultyProfile?.department || mentor.department,
+        avatar: facultyProfile?.photo || mentor.avatar || null,
+        photo: facultyProfile?.photo || null,
         roleName: mentor.roleName,
         menteeCount
       };
