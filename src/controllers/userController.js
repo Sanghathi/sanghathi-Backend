@@ -8,10 +8,72 @@ import { encrypt, compare } from "../utils/passwordHelper.js";
 import mongoose from "mongoose";
 import { createHash } from "crypto";
 
+const parseBoolean = (value, defaultValue = true) => {
+  if (value === undefined) {
+    return defaultValue;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["false", "0", "no", "off"].includes(normalized)) {
+      return false;
+    }
+    if (["true", "1", "yes", "on"].includes(normalized)) {
+      return true;
+    }
+  }
+
+  return Boolean(value);
+};
+
+const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const sanitizeSelectFields = (rawFields, allowedFields, fallbackFields) => {
+  if (!rawFields || typeof rawFields !== "string") {
+    return fallbackFields;
+  }
+
+  const fields = rawFields
+    .split(",")
+    .map((field) => field.trim())
+    .filter((field) => field.length > 0 && allowedFields.has(field));
+
+  return fields.length ? fields.join(" ") : fallbackFields;
+};
+
 
 // Get all users with optional role filtering
 export const getAllUsers = catchAsync(async (req, res, next) => {
-  const { role } = req.query;
+  const { role, q, fields } = req.query;
+  const includeProfiles = parseBoolean(req.query.includeProfiles, true);
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 500);
+  const skip = (page - 1) * limit;
+
+  const fallbackUserFields = "name email phone avatar role roleName profile status lastActivity";
+  const allowedUserFields = new Set([
+    "_id",
+    "name",
+    "email",
+    "phone",
+    "avatar",
+    "role",
+    "roleName",
+    "profile",
+    "status",
+    "lastActivity",
+    "department",
+    "sem",
+    "usn",
+    "cabin",
+  ]);
+
+  const selectedUserFields = sanitizeSelectFields(
+    fields,
+    allowedUserFields,
+    fallbackUserFields
+  );
+
   let filter = {};
 
   // If a role is provided in the query, filter by role
@@ -27,18 +89,58 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
     filter.role = roleDoc._id;
   }
 
+  if (q && typeof q === "string") {
+    const escapedSearch = escapeRegex(q.trim());
+    if (escapedSearch) {
+      const searchRegex = new RegExp(escapedSearch, "i");
+      filter.$or = [
+        { name: searchRegex },
+        { email: searchRegex },
+        { phone: searchRegex },
+      ];
+    }
+  }
+
   // Get all users with profile data
-  const users = await User.find(filter)
-    .select("name email phone avatar role roleName profile status lastActivity")
-    .populate({ path: "role", select: "name permissions" })
-    .lean();
+  const [users, total] = await Promise.all([
+    User.find(filter)
+      .select(selectedUserFields)
+      .sort({ name: 1, _id: 1 })
+      .skip(skip)
+      .limit(limit)
+      .populate({ path: "role", select: "name permissions" })
+      .lean(),
+    User.countDocuments(filter),
+  ]);
 
   if (users.length === 0) {
     return res.status(200).json({
       status: "success",
       results: 0,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+      },
       data: {
         users: [],
+      },
+    });
+  }
+
+  if (!includeProfiles) {
+    return res.status(200).json({
+      status: "success",
+      results: users.length,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+      },
+      data: {
+        users,
       },
     });
   }
@@ -89,6 +191,12 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   return res.status(200).json({
     status: "success",
     results: enhancedUsers.length,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(Math.ceil(total / limit), 1),
+    },
     data: {
       users: enhancedUsers,
     },

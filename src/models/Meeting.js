@@ -24,6 +24,9 @@ const meetingSchema = new Schema({
   },
 });
 
+meetingSchema.index({ recipients: 1, start: -1 });
+meetingSchema.index({ type: 1, start: -1 });
+
 const Meeting = model("meeting", meetingSchema);
 
 export default Meeting;

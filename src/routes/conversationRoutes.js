@@ -16,13 +16,118 @@ const mentorMenteeConversationSchema = z.object({
   topic: z.string().trim().optional(),
 });
 
+const parseBooleanQuery = (value) => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "on"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "0", "no", "off"].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return undefined;
+};
+
+const sanitizeSelectFields = (rawFields, allowedFields, fallbackFields) => {
+  if (!rawFields || typeof rawFields !== "string") {
+    return fallbackFields;
+  }
+
+  const fields = rawFields
+    .split(",")
+    .map((field) => field.trim())
+    .filter((field) => field.length > 0 && allowedFields.has(field));
+
+  return fields.length ? fields.join(" ") : fallbackFields;
+};
+
 router.use(protect);
 
 // ✅ Get all conversations
 router.get("/", restrictTo("admin", "faculty", "hod", "director"), async (req, res) => {
   try {
-    const conversations = await Conversation.find();
-    res.status(200).json(conversations);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const skip = (page - 1) * limit;
+
+    const allowedFields = new Set([
+      "_id",
+      "conversationId",
+      "mentorId",
+      "menteeId",
+      "status",
+      "title",
+      "topic",
+      "conversationText",
+      "description",
+      "summary",
+      "moocChecked",
+      "projectChecked",
+      "isOffline",
+      "date",
+    ]);
+    const selectedFields = sanitizeSelectFields(
+      req.query.fields,
+      allowedFields,
+      "_id conversationId mentorId menteeId status title topic description summary moocChecked projectChecked isOffline date"
+    );
+
+    const filter = {};
+    if (req.query.mentorId) {
+      filter.mentorId = req.query.mentorId;
+    }
+    if (req.query.menteeId) {
+      filter.menteeId = req.query.menteeId;
+    }
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+    if (req.query.conversationId) {
+      filter.conversationId = req.query.conversationId;
+    }
+
+    const isOffline = parseBooleanQuery(req.query.isOffline);
+    if (isOffline !== undefined) {
+      filter.isOffline = isOffline;
+    }
+
+    const hasSummary = parseBooleanQuery(req.query.hasSummary);
+    if (hasSummary === true) {
+      filter.description = { $exists: true, $ne: "" };
+    }
+    if (hasSummary === false) {
+      filter.$or = [{ description: { $exists: false } }, { description: "" }];
+    }
+
+    const [conversations, total] = await Promise.all([
+      Conversation.find(filter)
+        .select(selectedFields)
+        .sort({ date: -1, _id: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Conversation.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      conversations,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+      },
+    });
   } catch (err) {
     res.status(500).json(err);
   }
@@ -124,7 +229,10 @@ router.get("/:userId", async (req, res) => {
   try {
     const conversation = await Conversation.find({
       conversationId: req.params.userId,
-    });
+    })
+      .select("_id conversationId mentorId menteeId status title topic description summary moocChecked projectChecked isOffline date")
+      .limit(1)
+      .lean();
     res.status(200).json(conversation);
   } catch (err) {
     res.status(500).json(err);

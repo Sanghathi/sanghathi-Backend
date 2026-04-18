@@ -79,6 +79,7 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
 
   const [threads, total] = await Promise.all([
     Thread.find(filter)
+      .select("title description author participants status topic createdAt closedAt")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -111,26 +112,51 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
 
 export const getThreadById = catchAsync(async (req, res, next) => {
   const { threadId } = req.params;
-  const [thread, messages] = await Promise.all([
+
+  const messagePage = Math.max(parseInt(req.query.messagePage, 10) || 1, 1);
+  const messageLimit = Math.min(
+    Math.max(parseInt(req.query.messageLimit, 10) || 100, 1),
+    300
+  );
+  const messageSkip = (messagePage - 1) * messageLimit;
+
+  const messageFilter = { parentType: "thread", parentId: threadId };
+
+  const [thread, latestMessages, totalMessages] = await Promise.all([
     Thread.findById(threadId)
+      .select("title description author participants status topic createdAt closedAt")
       .populate({
         path: "participants",
         select: "name avatar",
       })
+      .populate({
+        path: "author",
+        select: "name avatar",
+      })
       .lean(),
-    Message.find({ parentType: "thread", parentId: threadId })
-      .sort({ createdAt: 1 })
+    Message.find(messageFilter)
+      .select("_id senderId body createdAt")
+      .sort({ createdAt: -1 })
+      .skip(messageSkip)
+      .limit(messageLimit)
       .lean(),
+    Message.countDocuments(messageFilter),
   ]);
 
   if (!thread) {
     return next(new AppError("Thread not found", 404));
   }
 
-  thread.messages = messages;
+  thread.messages = latestMessages.reverse();
 
   res.status(200).json({
     status: "success",
+    pagination: {
+      messagePage,
+      messageLimit,
+      totalMessages,
+      totalPages: Math.max(Math.ceil(totalMessages / messageLimit), 1),
+    },
     data: {
       thread,
     },
@@ -185,6 +211,7 @@ export const getAllThreadsOfUser = catchAsync(async (req, res, next) => {
 
   const [threads, total] = await Promise.all([
     Thread.find(filter)
+      .select("title description participants status topic createdAt closedAt")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)

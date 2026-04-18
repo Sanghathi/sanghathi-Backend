@@ -16,6 +16,19 @@ const meetingCreateSchema = z.object({
   recipients: z.array(z.any()).optional(),
 });
 
+const sanitizeSelectFields = (rawFields, allowedFields, fallbackFields) => {
+  if (!rawFields || typeof rawFields !== "string") {
+    return fallbackFields;
+  }
+
+  const fields = rawFields
+    .split(",")
+    .map((field) => field.trim())
+    .filter((field) => field.length > 0 && allowedFields.has(field));
+
+  return fields.length ? fields.join(" ") : fallbackFields;
+};
+
 router.use(protect);
 
 router.post(
@@ -53,10 +66,81 @@ router.post(
 
 router.get("/", async (req, res) => {
   try {
-    const meetingsData = await Meeting.find();
-    res.status(200).json(meetingsData);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 500);
+    const skip = (page - 1) * limit;
+
+    const allowedFields = new Set([
+      "_id",
+      "title",
+      "location",
+      "start",
+      "end",
+      "type",
+      "recipients",
+    ]);
+    const selectedFields = sanitizeSelectFields(
+      req.query.fields,
+      allowedFields,
+      "_id title location start end type recipients"
+    );
+
+    const filter = {};
+
+    if (req.query.type) {
+      filter.type = req.query.type;
+    }
+
+    if (req.query.recipient) {
+      filter.recipients = req.query.recipient;
+    }
+
+    if (req.query.from || req.query.to) {
+      const startFilter = {};
+
+      if (req.query.from) {
+        const fromDate = new Date(req.query.from);
+        if (!Number.isNaN(fromDate.getTime())) {
+          startFilter.$gte = fromDate.toISOString();
+        }
+      }
+
+      if (req.query.to) {
+        const toDate = new Date(req.query.to);
+        if (!Number.isNaN(toDate.getTime())) {
+          startFilter.$lte = toDate.toISOString();
+        }
+      }
+
+      if (Object.keys(startFilter).length) {
+        filter.start = startFilter;
+      }
+    }
+
+    const [meetingsData, total] = await Promise.all([
+      Meeting.find(filter)
+        .select(selectedFields)
+        .sort({ start: -1, _id: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Meeting.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      meetings: meetingsData,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+      },
+    });
     logger.info("Meetings fetched successfully", {
       count: meetingsData.length,
+      page,
+      limit,
+      total,
     });
   } catch (err) {
     logger.error("Error fetching meetings", {

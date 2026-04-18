@@ -184,6 +184,10 @@ router.get("/mentor/:menteeId", async (req, res) => {
 router.get("/:mentorId/mentees-with-profiles", async (req, res) => {
   try {
     const { mentorId } = req.params;
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
+    const skip = (page - 1) * limit;
+
     if (!mongoose.Types.ObjectId.isValid(mentorId)) {
       return res.status(400).json({ message: "Invalid mentor ID format" });
     }
@@ -193,21 +197,40 @@ router.get("/:mentorId/mentees-with-profiles", async (req, res) => {
       .lean();
 
     if (!mentorships.length) {
-      return res.status(200).json({ mentees: [] });
+      return res.status(200).json({
+        mentees: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 1,
+        },
+      });
     }
 
     const menteeIds = mentorships.map((mentorship) => mentorship.menteeId);
 
-    const mentees = await User.find({
-      _id: { $in: menteeIds },
-      roleName: "student",
-    })
-      .select("_id name email phone")
-      .lean();
+    const [mentees, total] = await Promise.all([
+      User.find({
+        _id: { $in: menteeIds },
+        roleName: "student",
+      })
+        .select("_id name email phone")
+        .sort({ name: 1, _id: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments({
+        _id: { $in: menteeIds },
+        roleName: "student",
+      }),
+    ]);
+
+    const currentMenteeIds = mentees.map((mentee) => mentee._id);
 
     const StudentProfile = mongoose.model("StudentProfile");
     const profiles = await StudentProfile.find({
-      userId: { $in: menteeIds },
+      userId: { $in: currentMenteeIds },
     })
       .select("userId department sem usn")
       .lean();
@@ -230,7 +253,15 @@ router.get("/:mentorId/mentees-with-profiles", async (req, res) => {
       };
     });
 
-    res.status(200).json({ mentees: menteesWithProfiles });
+    res.status(200).json({
+      mentees: menteesWithProfiles,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+      },
+    });
   } catch (error) {
     logger.error("Error fetching mentees with profiles:", error);
     res.status(500).json({ message: "Server error" });
@@ -241,6 +272,10 @@ router.get("/:mentorId/mentees-with-profiles", async (req, res) => {
 router.get("/:mentorId/mentees", async (req, res) => {
   try {
     const { mentorId } = req.params;
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
+    const skip = (page - 1) * limit;
+
     if (!mongoose.Types.ObjectId.isValid(mentorId)) {
       return res.status(400).json({ message: "Invalid mentor ID format" });
     }
@@ -249,17 +284,42 @@ router.get("/:mentorId/mentees", async (req, res) => {
       .select("menteeId")
       .lean();
     if (!mentorships.length)
-      return res.status(200).json({ mentees: [] });
+      return res.status(200).json({
+        mentees: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 1,
+        },
+      });
 
     const menteeIds = mentorships.map((m) => m.menteeId);
-    const mentees = await User.find({
-      _id: { $in: menteeIds },
-      roleName: "student",
-    })
-      .select("_id name email phone roleName")
-      .lean();
+    const [mentees, total] = await Promise.all([
+      User.find({
+        _id: { $in: menteeIds },
+        roleName: "student",
+      })
+        .select("_id name email phone roleName")
+        .sort({ name: 1, _id: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments({
+        _id: { $in: menteeIds },
+        roleName: "student",
+      }),
+    ]);
 
-    res.status(200).json({ mentees });
+    res.status(200).json({
+      mentees,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+      },
+    });
   } catch (error) {
     logger.error(error);
     res.status(500).json({ message: "Server error" });
@@ -318,30 +378,89 @@ router.get("/debug-mentorships", async (req, res) => {
 // Special endpoint for MentorAllocation page
 router.get("/allocation-students", async (req, res) => {
   try {
-    // First get all students
-    const students = await User.find({ roleName: "student" })
-      .select("_id name email phone roleName")
-      .lean();
-    logger.info(`Fetched ${students.length} students`);
-    
-    // Get all student IDs
-    const studentIds = students.map(student => student._id);
-    
-    // Fetch student profiles directly
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 500, 1), 1000);
+    const skip = (page - 1) * limit;
+    const department = req.query.department;
+    const sem = req.query.sem;
+
     const StudentProfile = mongoose.model("StudentProfile");
-    const studentProfiles = await StudentProfile.find({ 
-      userId: { $in: studentIds } 
-    }).lean();
-    logger.info(`Found ${studentProfiles.length} student profiles`);
-    
-    // Create map of userId to profile for quick lookup
+    const profileFilter = {};
+
+    if (department && department !== "all") {
+      profileFilter.department = department;
+    }
+
+    if (sem && sem !== "all") {
+      profileFilter.sem = sem;
+    }
+
+    let filteredProfileUserIds = null;
+    if (Object.keys(profileFilter).length) {
+      const filteredProfiles = await StudentProfile.find(profileFilter)
+        .select("userId")
+        .lean();
+
+      filteredProfileUserIds = filteredProfiles.map((profile) => profile.userId);
+
+      if (!filteredProfileUserIds.length) {
+        return res.status(200).json({
+          data: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            totalPages: 1,
+          },
+        });
+      }
+    }
+
+    const studentFilter = { roleName: "student" };
+    if (filteredProfileUserIds) {
+      studentFilter._id = { $in: filteredProfileUserIds };
+    }
+
+    const [students, totalStudents] = await Promise.all([
+      User.find(studentFilter)
+        .select("_id name email phone roleName")
+        .sort({ name: 1, _id: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(studentFilter),
+    ]);
+    logger.info(`Fetched ${students.length} students for allocation`);
+
+    if (!students.length) {
+      return res.status(200).json({
+        data: [],
+        pagination: {
+          page,
+          limit,
+          total: totalStudents,
+          totalPages: Math.max(Math.ceil(totalStudents / limit), 1),
+        },
+      });
+    }
+
+    const studentIds = students.map((student) => student._id);
+
+    const studentProfiles = await StudentProfile.find({
+      userId: { $in: studentIds },
+    })
+      .select("userId usn department sem")
+      .lean();
+    logger.info(`Found ${studentProfiles.length} student profiles for current page`);
+
     const profileMap = {};
-    studentProfiles.forEach(profile => {
+    studentProfiles.forEach((profile) => {
       profileMap[profile.userId.toString()] = profile;
     });
-    
-    // Get all mentorships
-    const mentorships = await Mentorship.find()
+
+    const mentorships = await Mentorship.find({
+      menteeId: { $in: studentIds },
+    })
       .select("mentorId menteeId")
       .lean();
     logger.info(`Found ${mentorships.length} mentorships`);
@@ -399,8 +518,16 @@ router.get("/allocation-students", async (req, res) => {
       
       enhancedStudents.push(studentObj);
     }
-    
-    return res.status(200).json({ data: enhancedStudents });
+
+    return res.status(200).json({
+      data: enhancedStudents,
+      pagination: {
+        page,
+        limit,
+        total: totalStudents,
+        totalPages: Math.max(Math.ceil(totalStudents / limit), 1),
+      },
+    });
   } catch (error) {
     logger.error("Error in allocation-students:", error);
     return res.status(500).json({ message: "Server error", error: error.message });
@@ -443,50 +570,106 @@ router.delete("/unassign", async (req, res) => {
 // Get all mentors who have assigned mentees with their details
 router.get("/mentors-with-mentees", async (req, res) => {
   try {
-    const { department } = req.query; // Optional department filter
-    
-    // Get all mentorships
+    const { department } = req.query;
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
+
     const mentorships = await Mentorship.find().select("mentorId").lean();
-    
-    // Get unique mentor IDs
+
     const mentorCounts = new Map();
     mentorships.forEach((mentorship) => {
       const mentorKey = mentorship.mentorId.toString();
       mentorCounts.set(mentorKey, (mentorCounts.get(mentorKey) || 0) + 1);
     });
 
-    // Build query for mentors
-    const mentorQuery = { roleName: "faculty" };
-    
-    // Add department filter if provided
-    if (department && department !== 'all') {
-      mentorQuery.department = department;
+    if (!mentorCounts.size) {
+      return res.status(200).json({
+        mentors: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 1,
+        },
+      });
     }
 
-    // Fetch mentors
-    const mentors = await User.find(mentorQuery)
+    const mentorIds = Array.from(mentorCounts.keys()).map(
+      (id) => new mongoose.Types.ObjectId(id)
+    );
+
+    const FacultyProfile = mongoose.model("FacultyProfile");
+    const facultyProfileFilter = {
+      userId: { $in: mentorIds },
+    };
+
+    if (department && department !== "all") {
+      facultyProfileFilter.department = department;
+    }
+
+    const facultyProfiles = await FacultyProfile.find(facultyProfileFilter)
+      .select("userId department cabin")
+      .lean();
+
+    const facultyProfileMap = new Map(
+      facultyProfiles.map((profile) => [profile.userId.toString(), profile])
+    );
+
+    const filteredMentorIds =
+      department && department !== "all"
+        ? facultyProfiles.map((profile) => profile.userId)
+        : mentorIds;
+
+    if (!filteredMentorIds.length) {
+      return res.status(200).json({
+        mentors: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 1,
+        },
+      });
+    }
+
+    const mentors = await User.find({
+      _id: { $in: filteredMentorIds },
+      roleName: "faculty",
+    })
       .select("_id name email phone department roleName")
       .lean();
-    
-    // Count mentees for each mentor
+
     const mentorsWithCounts = mentors.map(mentor => {
       const menteeCount = mentorCounts.get(mentor._id.toString()) || 0;
+      const facultyProfile = facultyProfileMap.get(mentor._id.toString());
 
       return {
         _id: mentor._id,
         name: mentor.name,
         email: mentor.email,
         phone: mentor.phone,
-        department: mentor.department,
+        department: facultyProfile?.department || mentor.department,
         roleName: mentor.roleName,
         menteeCount
       };
     });
-    
-    // Sort by mentee count (descending)
+
     mentorsWithCounts.sort((a, b) => b.menteeCount - a.menteeCount);
 
-    res.status(200).json({ mentors: mentorsWithCounts });
+    const total = mentorsWithCounts.length;
+    const start = (page - 1) * limit;
+    const end = start + limit;
+    const paginatedMentors = mentorsWithCounts.slice(start, end);
+
+    res.status(200).json({
+      mentors: paginatedMentors,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+      },
+    });
   } catch (error) {
     logger.error("Error fetching mentors with mentees:", error);
     res.status(500).json({ message: "Server error", error: error.message });

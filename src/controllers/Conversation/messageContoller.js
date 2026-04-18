@@ -10,13 +10,32 @@ class ConversationAdapter {
     this.parentType = parentType;
   }
 
-  async getMessages() {
-    return Message.find({
+  async getMessages(page = 1, limit = 100) {
+    const safePage = Math.max(page, 1);
+    const safeLimit = Math.min(Math.max(limit, 1), 300);
+    const skip = (safePage - 1) * safeLimit;
+
+    const filter = {
       parentType: this.parentType,
       parentId: this.conversation._id,
-    })
-      .sort({ createdAt: 1 })
-      .lean();
+    };
+
+    const [latestMessages, total] = await Promise.all([
+      Message.find(filter)
+        .select("_id senderId body createdAt")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(safeLimit)
+        .lean(),
+      Message.countDocuments(filter),
+    ]);
+
+    return {
+      messages: latestMessages.reverse(),
+      total,
+      page: safePage,
+      limit: safeLimit,
+    };
   }
 }
 
@@ -45,10 +64,20 @@ const messageController = {
   }),
 
   getMessagesInConversation: catchAsync(async (req, res, next) => {
-    const messages = await req.conversationAdapter.getMessages();
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 300);
+
+    const { messages, total, page: safePage, limit: safeLimit } =
+      await req.conversationAdapter.getMessages(page, limit);
 
     res.status(200).json({
       status: "success",
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages: Math.max(Math.ceil(total / safeLimit), 1),
+      },
       data: {
         messages,
       },
