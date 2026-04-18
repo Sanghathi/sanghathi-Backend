@@ -22,7 +22,7 @@ class ThreadService {
     )
       .populate({
         path: "participants",
-        select: "name avatar role",
+        select: "name avatar role roleName",
       });
 
     if (updatedThread) {
@@ -45,7 +45,7 @@ class ThreadService {
     });
     await newThread.populate({
       path: "participants",
-      select: "name avatar",
+      select: "name avatar roleName",
     });
 
     return newThread;
@@ -59,7 +59,7 @@ class ThreadService {
     )
       .populate({
         path: "participants",
-        select: "name avatar role",
+        select: "name avatar role roleName",
       });
 
     if (updatedThread) {

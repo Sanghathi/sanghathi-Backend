@@ -104,7 +104,7 @@ export const createNewThread = catchAsync(async (req, res, next) => {
   );
   await newThread.populate({
     path: "participants",
-    select: "name avatar",
+    select: "name avatar roleName",
   });
   const [enrichedThread] = await enrichThreadsWithProfilePhotos([
     newThread.toObject(),
@@ -139,11 +139,11 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
       .limit(limit)
       .populate({
         path: "participants",
-        select: "name avatar",
+        select: "name avatar roleName",
       })
       .populate({
         path: "author",
-        select: "name avatar",
+        select: "name avatar roleName",
       })
       .lean(),
     Thread.countDocuments(filter),
@@ -183,11 +183,11 @@ export const getThreadById = catchAsync(async (req, res, next) => {
       .select("title description author participants status topic createdAt closedAt")
       .populate({
         path: "participants",
-        select: "name avatar",
+        select: "name avatar roleName",
       })
       .populate({
         path: "author",
-        select: "name avatar",
+        select: "name avatar roleName",
       })
       .lean(),
     Message.find(messageFilter)
@@ -275,7 +275,7 @@ export const getAllThreadsOfUser = catchAsync(async (req, res, next) => {
       .limit(limit)
       .populate({
         path: "participants",
-        select: "name avatar",
+        select: "name avatar roleName",
       })
       .lean(),
     Thread.countDocuments(filter),
