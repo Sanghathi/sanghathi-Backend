@@ -204,12 +204,95 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
 });
 
 // Get user by ID (not yet implemented, could return an error or be defined later)
-export function getUser(req, res) {
-  res.status(500).json({
-    status: "error",
-    message: "This route is not yet defined!!",
+export const getUser = catchAsync(async (req, res, next) => {
+  const { id: userId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return next(new AppError("Invalid user ID", 400));
+  }
+
+  const includeProfiles = parseBoolean(
+    req.query.includeProfiles ?? req.query.includeProfile,
+    true
+  );
+
+  const fallbackUserFields = "name email phone avatar role roleName profile status lastActivity";
+  const allowedUserFields = new Set([
+    "_id",
+    "name",
+    "email",
+    "phone",
+    "avatar",
+    "role",
+    "roleName",
+    "profile",
+    "status",
+    "lastActivity",
+    "department",
+    "sem",
+    "usn",
+    "cabin",
+  ]);
+
+  const selectedUserFields = sanitizeSelectFields(
+    req.query.fields,
+    allowedUserFields,
+    fallbackUserFields
+  );
+
+  const user = await User.findById(userId)
+    .select(selectedUserFields)
+    .populate({ path: "role", select: "name permissions" })
+    .lean();
+
+  if (!user) {
+    return next(new AppError("User not found", 404));
+  }
+
+  if (!includeProfiles) {
+    return res.status(200).json({
+      status: "success",
+      data: {
+        user,
+      },
+    });
+  }
+
+  const [studentProfile, facultyProfile] = await Promise.all([
+    mongoose
+      .model("StudentProfile")
+      .findOne({ userId: user._id })
+      .select("department sem usn")
+      .lean(),
+    mongoose
+      .model("FacultyProfile")
+      .findOne({ userId: user._id })
+      .select("department cabin")
+      .lean(),
+  ]);
+
+  const enhancedUser = { ...user };
+
+  if (studentProfile) {
+    enhancedUser.department = studentProfile.department;
+    enhancedUser.sem = studentProfile.sem;
+    enhancedUser.usn = studentProfile.usn;
+  }
+
+  if (facultyProfile) {
+    if (!enhancedUser.department) {
+      enhancedUser.department = facultyProfile.department;
+    }
+    enhancedUser.cabin = facultyProfile.cabin;
+  }
+
+  return res.status(200).json({
+    status: "success",
+    data: {
+      user: enhancedUser,
+    },
   });
-}
+});
 
 // Create a new user
 export async function createUser(req, res, next) {
