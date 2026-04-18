@@ -595,12 +595,25 @@ router.get("/mentors-with-mentees", async (req, res) => {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
 
-    const mentorships = await Mentorship.find().select("mentorId").lean();
+    const mentorships = await Mentorship.find()
+      .select("mentorId menteeId")
+      .lean();
 
     const mentorCounts = new Map();
+    const mentorMenteeIdsMap = new Map();
     mentorships.forEach((mentorship) => {
       const mentorKey = mentorship.mentorId.toString();
       mentorCounts.set(mentorKey, (mentorCounts.get(mentorKey) || 0) + 1);
+
+      if (!mentorMenteeIdsMap.has(mentorKey)) {
+        mentorMenteeIdsMap.set(mentorKey, new Set());
+      }
+
+      if (mentorship.menteeId) {
+        mentorMenteeIdsMap
+          .get(mentorKey)
+          .add(mentorship.menteeId.toString());
+      }
     });
 
     if (!mentorCounts.size) {
@@ -653,6 +666,33 @@ router.get("/mentors-with-mentees", async (req, res) => {
       });
     }
 
+    const filteredMentorKeys = filteredMentorIds.map((id) => id.toString());
+    const menteeIdSet = new Set();
+
+    filteredMentorKeys.forEach((mentorKey) => {
+      const menteeIdsForMentor = mentorMenteeIdsMap.get(mentorKey);
+      if (menteeIdsForMentor) {
+        menteeIdsForMentor.forEach((menteeId) => menteeIdSet.add(menteeId));
+      }
+    });
+
+    const menteeUsers = menteeIdSet.size
+      ? await User.find({
+          _id: {
+            $in: Array.from(menteeIdSet).map(
+              (id) => new mongoose.Types.ObjectId(id)
+            ),
+          },
+          roleName: "student",
+        })
+          .select("_id name")
+          .lean()
+      : [];
+
+    const menteeNameMap = new Map(
+      menteeUsers.map((mentee) => [mentee._id.toString(), mentee.name])
+    );
+
     const mentors = await User.find({
       _id: { $in: filteredMentorIds },
       roleName: "faculty",
@@ -660,9 +700,14 @@ router.get("/mentors-with-mentees", async (req, res) => {
       .select("_id name email phone department roleName avatar")
       .lean();
 
-    const mentorsWithCounts = mentors.map(mentor => {
+    const mentorsWithCounts = mentors.map((mentor) => {
+      const mentorKey = mentor._id.toString();
       const menteeCount = mentorCounts.get(mentor._id.toString()) || 0;
-      const facultyProfile = facultyProfileMap.get(mentor._id.toString());
+      const facultyProfile = facultyProfileMap.get(mentorKey);
+      const menteeNames = Array.from(mentorMenteeIdsMap.get(mentorKey) || [])
+        .map((menteeId) => menteeNameMap.get(menteeId))
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b));
 
       return {
         _id: mentor._id,
@@ -673,7 +718,8 @@ router.get("/mentors-with-mentees", async (req, res) => {
         avatar: facultyProfile?.photo || mentor.avatar || null,
         photo: facultyProfile?.photo || null,
         roleName: mentor.roleName,
-        menteeCount
+        menteeCount,
+        menteeNames,
       };
     });
 
