@@ -107,6 +107,7 @@
     "test-cloudinary.js",
     "server.js",
     "jest.config.js",
+    "scripts",
     "dist",
     "node_modules"
   ]
