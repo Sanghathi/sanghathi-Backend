@@ -190,9 +190,7 @@ router.get("/:mentorId/mentees", async (req, res) => {
 
     const mentorships = await Mentorship.find({ mentorId });
     if (!mentorships.length)
-      return res
-        .status(404)
-        .json({ message: "No mentees found for this mentor" });
+      return res.status(200).json({ mentees: [] });
 
     const menteeIds = mentorships.map((m) => m.menteeId);
     const mentees = await User.find({
@@ -390,17 +388,14 @@ router.get("/mentors-with-mentees", async (req, res) => {
     const mentorships = await Mentorship.find().select("mentorId").lean();
     
     // Get unique mentor IDs
-    const mentorIds = [...new Set(mentorships.map(m => m.mentorId.toString()))];
-    
-    if (mentorIds.length === 0) {
-      return res.status(200).json({ mentors: [] });
-    }
-    
+    const mentorCounts = new Map();
+    mentorships.forEach((mentorship) => {
+      const mentorKey = mentorship.mentorId.toString();
+      mentorCounts.set(mentorKey, (mentorCounts.get(mentorKey) || 0) + 1);
+    });
+
     // Build query for mentors
-    const mentorQuery = {
-      _id: { $in: mentorIds.map(id => new mongoose.Types.ObjectId(id)) },
-      roleName: "faculty"
-    };
+    const mentorQuery = { roleName: "faculty" };
     
     // Add department filter if provided
     if (department && department !== 'all') {
@@ -414,10 +409,8 @@ router.get("/mentors-with-mentees", async (req, res) => {
     
     // Count mentees for each mentor
     const mentorsWithCounts = mentors.map(mentor => {
-      const menteeCount = mentorships.filter(
-        m => m.mentorId.toString() === mentor._id.toString()
-      ).length;
-      
+      const menteeCount = mentorCounts.get(mentor._id.toString()) || 0;
+
       return {
         _id: mentor._id,
         name: mentor.name,

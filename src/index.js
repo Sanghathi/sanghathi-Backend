@@ -1,5 +1,4 @@
 import express, { json } from "express";
-import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
@@ -87,7 +86,6 @@ app.use(
     contentSecurityPolicy: false,
   })
 );
-app.use(morgan("dev"));
 
 const limiter = rateLimit({
   max: 3000, // Example: 5000 requests per hour per IP
