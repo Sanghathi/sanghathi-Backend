@@ -8,6 +8,7 @@ import AppError from "../utils/appError.js";
 import sendEmail from "../utils/email.js";
 import { compare } from "../utils/passwordHelper.js";
 import { createHash } from "crypto";
+import { buildPasswordResetEmailTemplate } from "../templates/passwordResetEmailTemplate.js";
 
 import logger from "../utils/logger.js";
 const signToken = (id) =>
@@ -230,27 +231,18 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
     : `/${resetPath}`;
   const resetURL = `${clientHost}${normalizedResetPath}/${resetToken}`;
 
-  const message = `Forgot your password? Click the link below to reset it:\n\n${resetURL}\n\nIf you didn't forget your password, please ignore this email.`;
-
-  const htmlMessage = `
-    <h2>Password Reset Request</h2>
-    <p>Hi ${user.name},</p>
-    <p>You requested a password reset. Click the link below to reset your password:</p>
-    <a href="${resetURL}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
-    <p>Or copy and paste this link in your browser:</p>
-    <p>${resetURL}</p>
-    <p>This link will expire in 10 minutes.</p>
-    <p>If you didn't request this, please ignore this email.</p>
-    <br>
-    <p>Best regards,<br>Sanghathi Team</p>
-  `;
+  const emailTemplate = buildPasswordResetEmailTemplate({
+    userName: user.name,
+    resetURL,
+    appName: "Sanghathi",
+  });
 
   try {
     await sendEmail({
       email: user.email,
-      subject: "Your password reset token (valid for 10 minutes)",
-      message: message,
-      html: htmlMessage
+      subject: emailTemplate.subject,
+      message: emailTemplate.message,
+      html: emailTemplate.html,
     });
 
     res.status(200).json({
