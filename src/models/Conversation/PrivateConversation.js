@@ -7,7 +7,7 @@ const PrivateConversationSchema = new Schema({
   participants: [
     {
       type: Schema.Types.ObjectId,
-      ref: "Users",
+      ref: "User",
     },
   ],
   messages: [
@@ -19,7 +19,7 @@ const PrivateConversationSchema = new Schema({
   body: String,
   senderId: { 
     type: Schema.Types.ObjectId, 
-    ref: 'Users',
+    ref: 'User',
     required: true 
   },
   createdAt: {

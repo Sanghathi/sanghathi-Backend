@@ -16,7 +16,10 @@
     "start:prod": "NODE_ENV=production node src/server.js",
     "start-all": "concurrently \"cd ../cmrit-mentoring-tool-frontend && yarn run dev\" \"yarn run dev\" \"cd ../cmrit-mentoring-python-api && uvicorn main:app --port 8080 --reload\"",
     "build": "tsc",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "db:audit-user-duplicates": "node scripts/audit-user-one-to-one-duplicates.mjs",
+    "db:backfill-message-parents": "node scripts/backfill-message-parents.mjs",
+    "db:apply-p0-indexes": "node scripts/apply-p0-indexes.mjs"
   },
   "repository": {
     "type": "git",

@@ -20,6 +20,8 @@ const FeedbackDetailsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+FeedbackDetailsSchema.index({ userId: 1 });
+
 const FeedbackDetails = model("FeedbackDetails", FeedbackDetailsSchema);
 
 export default FeedbackDetails;

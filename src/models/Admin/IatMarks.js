@@ -18,5 +18,8 @@ const iatSchema = new mongoose.Schema({
   ],
 });
 
+iatSchema.index({ userId: 1 });
+iatSchema.index({ userId: 1, "semesters.semester": 1 });
+
 const Iat = mongoose.model("Iat", iatSchema);
 export default Iat;

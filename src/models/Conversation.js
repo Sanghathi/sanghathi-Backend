@@ -58,6 +58,17 @@ const conversationSchema = new mongoose.Schema({
   },
 });
 
+conversationSchema.index(
+  { conversationId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      conversationId: { $type: "string" },
+    },
+  }
+);
+conversationSchema.index({ mentorId: 1, menteeId: 1, date: -1 });
+
 const Conversation = mongoose.model("Conversation", conversationSchema);
 export default Conversation;
 

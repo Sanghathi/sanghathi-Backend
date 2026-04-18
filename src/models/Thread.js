@@ -12,12 +12,12 @@ const ThreadSchema = new mongoose.Schema({
   },
   author: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Users",
+    ref: "User",
   },
   participants: [
     {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Users",
+      ref: "User",
     },
   ],
   status: {

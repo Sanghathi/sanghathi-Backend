@@ -1,8 +1,34 @@
 import Thread from "../models/Thread.js";
+import Message from "../models/Conversation/Message.js";
 import { generateSummary } from "./summaryService.js";
+import featureFlags from "../config/featureFlags.js";
 
 import logger from "../utils/logger.js";
 class ThreadService {
+  async getThreadMessages(threadId) {
+    if (featureFlags.messageReadFromParent) {
+      const parentMessages = await Message.find({
+        parentType: "thread",
+        parentId: threadId,
+      })
+        .sort({ createdAt: 1 })
+        .lean();
+
+      if (parentMessages.length > 0) {
+        return parentMessages;
+      }
+    }
+
+    const fallbackThread = await Thread.findById(threadId)
+      .populate({
+        path: "messages",
+        options: { sort: { createdAt: 1 } },
+      })
+      .lean();
+
+    return fallbackThread?.messages || [];
+  }
+
   async closeThread(threadId) {
     logger.info(threadId);
     const updatedThread = await Thread.findByIdAndUpdate(
@@ -13,9 +39,10 @@ class ThreadService {
       .populate({
         path: "participants",
         select: "name avatar role",
-      })
-      .populate("messages");
+      });
+
     if (updatedThread) {
+      updatedThread.messages = await this.getThreadMessages(threadId);
       const summary = await generateSummary(updatedThread);
 
       updatedThread.description = summary;
@@ -49,8 +76,11 @@ class ThreadService {
       .populate({
         path: "participants",
         select: "name avatar role",
-      })
-      .populate("messages");
+      });
+
+    if (updatedThread) {
+      updatedThread.messages = await this.getThreadMessages(threadId);
+    }
 
     return updatedThread;
   }

@@ -35,6 +35,8 @@ const ParentDetailsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+ParentDetailsSchema.index({ userId: 1 });
+
 const ParentDetails = model("ParentDetails", ParentDetailsSchema);
 
 export default ParentDetails;

@@ -43,5 +43,7 @@ const projectSchema = new mongoose.Schema({
   ],
 });
 
+projectSchema.index({ userId: 1 });
+
 const Project = model("Project", projectSchema);
 export default Project;

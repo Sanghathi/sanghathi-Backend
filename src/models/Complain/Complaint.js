@@ -16,6 +16,8 @@ const ComplaintSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+ComplaintSchema.index({ userId: 1 });
+
 const Complaint = model("Complaint", ComplaintSchema);
 
 export default Complaint;

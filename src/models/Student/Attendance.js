@@ -23,5 +23,8 @@ const attendanceSchema = new mongoose.Schema({
   ]
 });
 
+attendanceSchema.index({ userId: 1 });
+attendanceSchema.index({ userId: 1, "semesters.semester": 1 });
+
 const Attendance = mongoose.model("Attendance", attendanceSchema);
 export default Attendance;

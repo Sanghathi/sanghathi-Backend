@@ -49,13 +49,15 @@ const ParentTeacherMeetingSchema = new mongoose.Schema({
 const PTMRecordSchema = new mongoose.Schema({
 	userId: {
 		type: Schema.Types.ObjectId,
-		ref: "Users",
+		ref: "User",
 		required: true,
 	},
 	counsellingRecords: [CounsellingRecordSchema],
 	telephonicConversations: [TelephonicConversationSchema],
 	parentTeacherMeetings: [ParentTeacherMeetingSchema],
 });
+
+PTMRecordSchema.index({ userId: 1 });
 
 const PTMRecord = mongoose.model("PTMRecord", PTMRecordSchema);
 

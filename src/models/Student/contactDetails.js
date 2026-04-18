@@ -56,6 +56,8 @@ const contactDetailsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+contactDetailsSchema.index({ userId: 1 });
+
 const ContactDetails = mongoose.model("ContactDetails", contactDetailsSchema);
 
 export default ContactDetails;

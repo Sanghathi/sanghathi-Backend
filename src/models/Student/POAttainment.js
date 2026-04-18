@@ -28,6 +28,9 @@ const POAttainmentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+POAttainmentSchema.index({ userId: 1 });
+POAttainmentSchema.index({ userId: 1, "semesters.semester": 1 });
+
 const POAttainment = model("POAttainment", POAttainmentSchema);
 
 export default POAttainment; 

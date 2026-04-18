@@ -7,13 +7,13 @@ const GroupConversationSchema = new Schema({
   name: { type: String, required: true },
   admin: {
     type: Schema.Types.ObjectId,
-    ref: "Users",
+    ref: "User",
   },
   participants: [
     {
       participant: {
         type: Schema.Types.ObjectId,
-        ref: "Users",
+        ref: "User",
       },
       joinedAt: { type: Date, default: Date.now },
       leftAt: { type: Date },

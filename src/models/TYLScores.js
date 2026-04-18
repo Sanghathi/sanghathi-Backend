@@ -32,6 +32,9 @@ const TYLScoresSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+TYLScoresSchema.index({ userId: 1 });
+TYLScoresSchema.index({ userId: 1, "semesters.semester": 1 });
+
 const TYLScores = model("TYLScores", TYLScoresSchema);
 
 export default TYLScores; 

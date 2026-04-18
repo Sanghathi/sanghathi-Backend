@@ -25,11 +25,11 @@ router.get("/:id", async (req, res) => {
 router.post("/", async (req, res) => {
 	const ptmData = {
 		userId: req.body.userId,
-		counsellingRecords: req.body.counsellingRecords.map((record) => ({
+		counsellingRecords: (req.body.counsellingRecords || []).map((record) => ({
 			date: record.date,
 			details: record.details,
 		})),
-		telephonicConversations: req.body.telephonicConversations.map(
+		telephonicConversations: (req.body.telephonicConversations || []).map(
 			(conversation) => ({
 				date: conversation.date,
 				phoneNo: conversation.phoneNo,
@@ -37,7 +37,7 @@ router.post("/", async (req, res) => {
 				remarks: conversation.remarks,
 			})
 		),
-		parentTeacherMeetings: req.body.parentTeacherMeetings.map((meeting) => ({
+		parentTeacherMeetings: (req.body.parentTeacherMeetings || []).map((meeting) => ({
 			meetingNo: meeting.meetingNo,
 			reason: meeting.reason,
 			conclusion: meeting.conclusion,
@@ -46,9 +46,23 @@ router.post("/", async (req, res) => {
 
 	try {
 		const validate = StudentRecordSchema.safeParse(ptmData);
-		const newRecord = new PTMRecord(ptmData);
-		await newRecord.save();
-		res.status(201).json(newRecord);
+		if (!validate.success) {
+			return res.status(400).json({ error: validate.error.errors });
+		}
+
+		const existed = await PTMRecord.exists({ userId: ptmData.userId });
+		const savedRecord = await PTMRecord.findOneAndUpdate(
+			{ userId: ptmData.userId },
+			{ $set: ptmData },
+			{
+				new: true,
+				upsert: true,
+				runValidators: true,
+				setDefaultsOnInsert: true,
+			}
+		);
+
+		res.status(existed ? 200 : 201).json(savedRecord);
 	} catch (error) {
 		res.status(400).json({ error: error.message });
 	}

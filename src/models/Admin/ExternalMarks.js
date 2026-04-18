@@ -62,6 +62,9 @@ const externalSchema = new mongoose.Schema(
   }
 );
 
+externalSchema.index({ userId: 1 });
+externalSchema.index({ userId: 1, "semesters.semester": 1 });
+
 const External = mongoose.model("External", externalSchema);
 
 export default External; 
