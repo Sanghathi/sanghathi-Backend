@@ -174,19 +174,30 @@ router.get("/mentor/:menteeId", async (req, res) => {
     if (!mentorship)
       return res.status(404).json({ message: "Mentorship not found" });
 
-    const mentor = await User.findById(mentorship.mentorId, "name email role avatar").lean();
+    const mentor = await User.findById(
+      mentorship.mentorId,
+      "name email role roleName avatar phone status"
+    ).lean();
     if (!mentor) return res.status(404).json({ message: "Mentor not found" });
 
     const facultyProfile = await mongoose
       .model("FacultyProfile")
       .findOne({ userId: mentor._id })
-      .select("photo")
+      .select(
+        "photo department cabin mobileNumber alternatePhoneNumber personalEmail email"
+      )
       .lean();
 
     const enhancedMentor = {
       ...mentor,
       avatar: facultyProfile?.photo || mentor.avatar || null,
       photo: facultyProfile?.photo || null,
+      department: facultyProfile?.department || null,
+      cabin: facultyProfile?.cabin || null,
+      mobileNumber: facultyProfile?.mobileNumber || null,
+      alternatePhoneNumber: facultyProfile?.alternatePhoneNumber || null,
+      personalEmail: facultyProfile?.personalEmail || null,
+      email: facultyProfile?.email || mentor.email || null,
     };
 
     res.status(200).json({ mentor: enhancedMentor });
