@@ -88,6 +88,7 @@ export async function semanticSearch(queryText) {
 
 export async function ragAnswer(userQuestion) {
   const hits = await semanticSearch(userQuestion);
+  const openai = getOpenAiClient();
 
   const context = hits
     .map(h => `— [${h.category} • ${h.option}]: ${h.text}`)
