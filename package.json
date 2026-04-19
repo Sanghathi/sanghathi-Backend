@@ -20,7 +20,9 @@
     "db:audit-user-duplicates": "node scripts/audit-user-one-to-one-duplicates.mjs",
     "db:backfill-message-parents": "node scripts/backfill-message-parents.mjs",
     "db:apply-p0-indexes": "node scripts/apply-p0-indexes.mjs",
-    "db:enforce-one-to-one-unique-indexes": "node scripts/enforce-one-to-one-unique-indexes.mjs"
+    "db:enforce-one-to-one-unique-indexes": "node scripts/enforce-one-to-one-unique-indexes.mjs",
+    "db:ingest-iat-local": "node scripts/ingest-iat-local.mjs",
+    "db:rollback-iat-local": "node scripts/rollback-iat-local.mjs"
   },
   "repository": {
     "type": "git",
@@ -71,6 +73,7 @@
     "validator": "^13.7.0",
     "winston": "^3.8.2",
     "winston-daily-rotate-file": "^5.0.0",
+    "xlsx": "^0.18.5",
     "xss-clean": "^0.1.1",
     "zod": "^3.23.8"
   },
