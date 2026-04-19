@@ -3,18 +3,42 @@ import { MongoClient } from 'mongodb';
 import OpenAI from 'openai';
 import 'dotenv/config';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const chatModel = process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini';
 const ragDbName = process.env.RAG_DB_NAME || 'sample_mflix';
 const ragCollectionName = process.env.RAG_COLLECTION_NAME || 'help_content';
+let openaiClient = null;
 
-const mongoUris = [process.env.MONGODB_URI2, process.env.MONGODB_URI].filter(Boolean);
+function getOpenAiClient() {
+  if (openaiClient) {
+    return openaiClient;
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing OPENAI_API_KEY for RAG');
+  }
+
+  openaiClient = new OpenAI({ apiKey });
+  return openaiClient;
+}
+
+function getMongoUris() {
+  return [
+    process.env.MONGODB_URI2,
+    process.env.MONGODB_URI,
+    process.env.MONGO_URI,
+    process.env.DATABASE_URL,
+  ].filter(Boolean);
+}
 
 async function getConnectedMongoClient() {
+  const mongoUris = getMongoUris();
   let lastError = null;
 
   for (const uri of mongoUris) {
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 8000,
+    });
     try {
       await client.connect();
       return client;
@@ -32,6 +56,7 @@ async function getConnectedMongoClient() {
 }
 
 export async function semanticSearch(queryText) {
+  const openai = getOpenAiClient();
   const mongoClient = await getConnectedMongoClient();
   const col = mongoClient.db(ragDbName).collection(ragCollectionName);
 
