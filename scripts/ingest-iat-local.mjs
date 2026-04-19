@@ -366,6 +366,177 @@ const writeJson = async (filePath, payload) => {
   await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
 };
 
+const toUniqueValidObjectIdStrings = (values = []) => {
+  const seen = new Set();
+  const result = [];
+
+  for (const value of values) {
+    if (!value) {
+      continue;
+    }
+
+    const asString = String(value).trim();
+    if (!ObjectId.isValid(asString) || seen.has(asString)) {
+      continue;
+    }
+
+    seen.add(asString);
+    result.push(asString);
+  }
+
+  return result;
+};
+
+const buildSessionStatus = ({ appliedCount, unmatchedCount, validationErrorCount, failedWritesCount }) => {
+  if ((appliedCount || 0) === 0 && (failedWritesCount || 0) > 0) {
+    return "failed";
+  }
+
+  if ((failedWritesCount || 0) > 0 || (unmatchedCount || 0) > 0 || (validationErrorCount || 0) > 0) {
+    return "partial";
+  }
+
+  return "success";
+};
+
+const buildSessionErrors = ({ unmatched = [], validationErrors = [], applyFailures = [] }) => {
+  const errors = [];
+
+  for (const entry of unmatched) {
+    errors.push(`Unmatched USN ${entry.usn} (semester ${entry.semester})`);
+  }
+
+  for (const entry of validationErrors) {
+    errors.push(String(entry));
+  }
+
+  for (const entry of applyFailures) {
+    errors.push(
+      `Write failure for USN ${entry.usn || "unknown"}: ${entry.error || "Unknown error"}`
+    );
+  }
+
+  return errors.slice(0, 200);
+};
+
+const resolveScriptAdminUserId = async ({ db, args }) => {
+  const directUserId = args["admin-user-id"] ? String(args["admin-user-id"]).trim() : "";
+  const directEmail = args["admin-email"] ? String(args["admin-email"]).trim().toLowerCase() : "";
+
+  if (directUserId && ObjectId.isValid(directUserId)) {
+    const foundById = await db.collection("users").findOne(
+      { _id: new ObjectId(directUserId) },
+      { projection: { _id: 1 } }
+    );
+    if (foundById?._id) {
+      return String(foundById._id);
+    }
+  }
+
+  if (directEmail) {
+    const foundByEmail = await db.collection("users").findOne(
+      { email: directEmail },
+      { projection: { _id: 1 } }
+    );
+    if (foundByEmail?._id) {
+      return String(foundByEmail._id);
+    }
+  }
+
+  const fallbackAdmin = await db
+    .collection("users")
+    .find({ roleName: { $regex: /^admin$/i } }, { projection: { _id: 1 } })
+    .sort({ lastActivity: -1, _id: 1 })
+    .limit(1)
+    .toArray();
+
+  if (fallbackAdmin[0]?._id) {
+    return String(fallbackAdmin[0]._id);
+  }
+
+  return null;
+};
+
+const recordScriptUploadSession = async ({
+  db,
+  args,
+  sourceFile,
+  sheetName,
+  targetSemester,
+  report,
+  reportPath,
+  manifestPath,
+  actionCounts,
+  appliedOperations,
+  unmatched,
+  validationErrors,
+  applyFailures,
+}) => {
+  try {
+    const adminUserId = await resolveScriptAdminUserId({ db, args });
+
+    const affectedUserIds = toUniqueValidObjectIdStrings(
+      (appliedOperations || []).map((operation) => operation.userId)
+    );
+
+    const normalizedSourceFile = path.relative(process.cwd(), sourceFile) || sourceFile;
+    const normalizedReportPath = path.relative(process.cwd(), reportPath) || reportPath;
+    const normalizedManifestPath = manifestPath
+      ? path.relative(process.cwd(), manifestPath) || manifestPath
+      : null;
+
+    const sessionDoc = {
+      adminUserId: adminUserId ? new ObjectId(adminUserId) : null,
+      source: "local-script",
+      tabType: "add-iat-marks",
+      fileName: path.basename(sourceFile),
+      status: buildSessionStatus({
+        appliedCount: report?.counts?.appliedWrites || 0,
+        unmatchedCount: unmatched.length,
+        validationErrorCount: validationErrors.length,
+        failedWritesCount: applyFailures.length,
+      }),
+      totalRows: report?.counts?.parsedStudentSemesters || 0,
+      successCount: report?.counts?.appliedWrites || 0,
+      errorCount: unmatched.length + validationErrors.length + applyFailures.length,
+      errors: buildSessionErrors({ unmatched, validationErrors, applyFailures }),
+      affectedUserIds: affectedUserIds.map((id) => new ObjectId(id)),
+      createdUserIds: [],
+      metadata: {
+        ingestionMode: "local-file-script",
+        sourceFile: normalizedSourceFile,
+        sheetName,
+        semester: targetSemester,
+        reportPath: normalizedReportPath,
+        manifestPath: normalizedManifestPath,
+        plannedWrites: report?.counts?.plannedWrites || 0,
+        appliedWrites: report?.counts?.appliedWrites || 0,
+        actionCounts,
+        unmatchedUsns: unmatched.map((entry) => entry.usn),
+        unmatchedCount: unmatched.length,
+        validationErrorCount: validationErrors.length,
+        failedWriteCount: applyFailures.length,
+        triggeredBy: args["admin-email"] || args["admin-user-id"] || null,
+      },
+      restored: false,
+      restoredAt: null,
+      restoredBy: null,
+      restoreSummary: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const insertResult = await db.collection("adminuploadsessions").insertOne(sessionDoc);
+    return String(insertResult.insertedId);
+  } catch (error) {
+    console.warn(
+      `[${SCRIPT_NAME}] warning: unable to write admin upload session:`,
+      error?.message || error
+    );
+    return null;
+  }
+};
+
 const buildPlan = async ({ db, records, targetSemester }) => {
   const usns = Array.from(new Set(records.map((record) => record.usn)));
 
@@ -649,12 +820,14 @@ async function main() {
   let manifestPath = null;
   let applyFailures = [];
   let appliedCount = 0;
+  let appliedOperations = [];
 
   if (applyChanges) {
     const { manifestOperations, failures } = await applyPlans({ db, plans });
 
     applyFailures = failures;
     appliedCount = manifestOperations.length;
+    appliedOperations = manifestOperations;
 
     const manifest = {
       script: SCRIPT_NAME,
@@ -711,6 +884,25 @@ async function main() {
   const reportPath = path.join(LOG_DIR, `iat-ingest-report-${timestamp}.json`);
   await writeJson(reportPath, report);
 
+  let uploadSessionId = null;
+  if (applyChanges) {
+    uploadSessionId = await recordScriptUploadSession({
+      db,
+      args,
+      sourceFile,
+      sheetName,
+      targetSemester,
+      report,
+      reportPath,
+      manifestPath,
+      actionCounts,
+      appliedOperations,
+      unmatched,
+      validationErrors,
+      applyFailures,
+    });
+  }
+
   await client.close();
 
   console.log(`[${SCRIPT_NAME}] mode: ${report.mode}`);
@@ -725,6 +917,9 @@ async function main() {
     console.log(`[${SCRIPT_NAME}] applied writes: ${report.counts.appliedWrites}`);
     console.log(`[${SCRIPT_NAME}] failed writes: ${report.counts.failedWrites}`);
     console.log(`[${SCRIPT_NAME}] manifest: ${manifestPath}`);
+    if (uploadSessionId) {
+      console.log(`[${SCRIPT_NAME}] upload session: ${uploadSessionId}`);
+    }
   }
 
   console.log(`[${SCRIPT_NAME}] report: ${reportPath}`);

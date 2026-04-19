@@ -7,7 +7,14 @@ const uploadSessionSchema = new Schema(
     adminUserId: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
+      default: null,
+      index: true,
+    },
+    source: {
+      type: String,
+      enum: ["dashboard-ui", "local-script", "api"],
+      default: "dashboard-ui",
       index: true,
     },
     tabType: {
@@ -89,6 +96,7 @@ const uploadSessionSchema = new Schema(
 uploadSessionSchema.index({ createdAt: -1 });
 uploadSessionSchema.index({ tabType: 1, createdAt: -1 });
 uploadSessionSchema.index({ restored: 1, createdAt: -1 });
+uploadSessionSchema.index({ source: 1, createdAt: -1 });
 
 const AdminUploadSession = model("AdminUploadSession", uploadSessionSchema);
 

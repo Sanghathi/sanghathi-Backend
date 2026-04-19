@@ -21,6 +21,8 @@ const VALID_TAB_TYPES = new Set([
   "add-mini-project-details",
 ]);
 
+const VALID_SOURCES = new Set(["dashboard-ui", "local-script", "api"]);
+
 const toObjectIdList = (values = []) => {
   const seen = new Set();
   const objectIds = [];
@@ -170,6 +172,7 @@ const executeRestore = async (session) => {
 
 export const createUploadSession = catchAsync(async (req, res, next) => {
   const {
+    source,
     tabType,
     fileName = "",
     status,
@@ -188,6 +191,7 @@ export const createUploadSession = catchAsync(async (req, res, next) => {
 
   const session = await AdminUploadSession.create({
     adminUserId: req.user._id,
+    source: VALID_SOURCES.has(source) ? source : "dashboard-ui",
     tabType,
     fileName,
     totalRows: Number(totalRows) || 0,
@@ -227,11 +231,17 @@ export const listUploadSessions = catchAsync(async (req, res) => {
     filter.status = req.query.status;
   }
 
+  if (req.query.source && VALID_SOURCES.has(req.query.source)) {
+    filter.source = req.query.source;
+  }
+
   const [sessions, total] = await Promise.all([
     AdminUploadSession.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
+      .populate({ path: "adminUserId", select: "name email roleName" })
+      .populate({ path: "restoredBy", select: "name email roleName" })
       .lean(),
     AdminUploadSession.countDocuments(filter),
   ]);
