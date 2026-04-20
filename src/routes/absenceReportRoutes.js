@@ -6,8 +6,11 @@ import fs from "fs";
 import AbsenceReport from "../models/AbsenceReport.js";
 import User from "../models/User.js";
 import Thread from "../models/Thread.js";
+import { protect, restrictTo } from "../controllers/authController.js";
 
 const router = express.Router();
+
+router.use(protect);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -67,82 +70,12 @@ router.get("/my", async (req, res) => {
     const reports = await AbsenceReport.find({ studentId: req.user.id })
       .sort({ createdAt: -1 });
     res.status(200).json({ status: "success", data: { reports } });
-  } catch (error) {
+} catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
 
-router.get("/mentor/mentees", async (req, res) => {
-  try {
-    const mentees = await User.find({ mentorId: req.user.id }).select("name usn email");
-    const menteeIds = mentees.map((m) => m._id);
-
-    const reports = await AbsenceReport.find({ studentId: { $in: menteeIds } })
-      .populate("studentId", "name usn email")
-      .sort({ createdAt: -1 });
-
-    const menteeAttendanceMap = {};
-    mentees.forEach((mentee) => {
-      menteeAttendanceMap[mentee._id.toString()] = {
-        mentee,
-        reports: reports.filter(
-          (r) => r.studentId._id.toString() === mentee._id.toString()
-        ),
-      };
-    });
-
-    res.status(200).json({ status: "success", data: { menteeAttendanceMap } });
-  } catch (error) {
-    res.status(500).json({ status: "error", message: error.message });
-  }
-});
-
-router.patch("/:id/approve", async (req, res) => {
-  try {
-    const report = await AbsenceReport.findById(req.params.id);
-    if (!report) {
-      return res.status(404).json({ status: "error", message: "Report not found" });
-    }
-
-    if (report.mentorId.toString() !== req.user.id) {
-      return res.status(403).json({ status: "error", message: "Not authorized" });
-    }
-
-    report.status = "approved";
-    report.reviewedBy = req.user.id;
-    report.reviewedAt = new Date();
-    await report.save();
-
-    const student = await User.findById(report.studentId);
-    const mentor = await User.findById(req.user.id);
-
-    const thread = await Thread.create({
-      title: `Attendance Approved - ${new Date(report.absentDate).toLocaleDateString()}`,
-      topic: "absence_approval",
-      author: req.user.id,
-      participants: [
-        { _id: req.user.id, name: mentor.name },
-        { _id: student._id, name: student.name },
-      ],
-    });
-
-    await thread.messages.create({
-      threadId: thread._id,
-      sender: req.user.id,
-      text: `Your absence report for ${new Date(report.absentDate).toLocaleDateString()} has been approved. Reason: ${report.reason}`,
-    });
-
-    report.threadId = thread._id;
-    await report.save();
-
-    res.status(200).json({ status: "success", data: { report, thread } });
-  } catch (error) {
-    console.error("Error approving report:", error);
-    res.status(500).json({ status: "error", message: error.message });
-  }
-});
-
-router.patch("/:id/reject", async (req, res) => {
+router.patch("/:id/reject", protect, restrictTo("faculty", "admin", "hod", "director"), async (req, res) => {
   try {
     const report = await AbsenceReport.findById(req.params.id);
     if (!report) {
