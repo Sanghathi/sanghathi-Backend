@@ -1,6 +1,7 @@
 import TYLScores from '../models/TYLScores.js';
 import catchAsync from '../utils/catchAsync.js';
 import AppError from '../utils/appError.js';
+import notificationService from '../services/notificationService.js';
 
 export const getTYLScores = catchAsync(async (req, res, next) => {
   const { userId } = req.params;
@@ -51,6 +52,7 @@ export const updateTYLScores = catchAsync(async (req, res, next) => {
   }
 
   let tylScores = await TYLScores.findOne({ userId });
+  let isUpdated = false;
 
   if (!tylScores) {
     // Create new document if none exists
@@ -61,6 +63,7 @@ export const updateTYLScores = catchAsync(async (req, res, next) => {
         scores
       }]
     });
+    isUpdated = true;
   } else {
     // Update existing semester or add new one
     const semesterIndex = tylScores.semesters.findIndex(s => s.semester === semester);
@@ -72,6 +75,28 @@ export const updateTYLScores = catchAsync(async (req, res, next) => {
     }
 
     await tylScores.save();
+    isUpdated = true;
+  }
+
+  // Send notification and email to student
+  if (isUpdated && userId) {
+    const emailHtml = `
+      <h2>TYL Scorecard Updated</h2>
+      <p>Your TYL (Technical Yearly Learning) scorecard has been updated.</p>
+      <p><strong>Semester:</strong> ${semester}</p>
+      <p>Log in to Sanghathi to view your updated scores.</p>
+      <p><a href="https://sanghathi.com/student/tyl-scorecard">View TYL Scorecard</a></p>
+    `;
+
+    await notificationService.notifyUser(
+      userId,
+      "TYL Scorecard Updated",
+      `Your TYL scorecard for Semester ${semester} has been updated`,
+      "scorecard",
+      "Your TYL Scorecard Has Been Updated - Sanghathi",
+      `Your TYL (Technical Yearly Learning) scorecard for Semester ${semester} has been updated. Log in to Sanghathi to view your scores.`,
+      emailHtml
+    );
   }
 
   res.status(200).json({

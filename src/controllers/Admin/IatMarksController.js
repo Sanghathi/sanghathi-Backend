@@ -2,6 +2,7 @@
 import Iat from "../../models/Admin/IatMarks.js";
 import logger from "../../utils/logger.js";
 import AppError from "../../utils/appError.js";
+import notificationService from "../../services/notificationService.js";
 
 export const submitIatData = async (req, res) => {
   try {
@@ -19,6 +20,7 @@ export const submitIatData = async (req, res) => {
     }
 
     let iat = await Iat.findOne({ userId });
+    let isNewOrUpdated = false;
 
     if (!iat) {
       // Create a new IAT record if one doesn't exist
@@ -31,6 +33,7 @@ export const submitIatData = async (req, res) => {
       });
       await newIat.save();
       logger.info(`New IAT record created for user ${userId}, semester ${semester}`);
+      isNewOrUpdated = true;
       return res.status(201).json({ status: "success", data: { iat: newIat } });
     }
 
@@ -41,13 +44,37 @@ export const submitIatData = async (req, res) => {
       // Add a new semester if it doesn't exist
       iat.semesters.push({ semester, subjects });
       logger.info(`New semester ${semester} added for user ${userId}`);
+      isNewOrUpdated = true;
     } else {
       // Update the subjects for the existing semester (FIXED: No duplication)
       iat.semesters[semesterIndex].subjects = subjects;
       logger.info(`Semester ${semester} updated for user ${userId}`);
+      isNewOrUpdated = true;
     }
 
     await iat.save();
+
+    // Send notification and email to student
+    if (isNewOrUpdated && userId) {
+      const emailHtml = `
+        <h2>Scorecard Updated</h2>
+        <p>Your IAT (Internal Assessment Test) scores have been updated.</p>
+        <p><strong>Semester:</strong> ${semester}</p>
+        <p>Log in to Sanghathi to view your updated scores.</p>
+        <p><a href="https://sanghathi.com/student/attendance">View Scorecard</a></p>
+      `;
+
+      await notificationService.notifyUser(
+        userId,
+        "Scorecard Updated",
+        `Your IAT scores for Semester ${semester} have been updated`,
+        "scorecard",
+        "Your Scorecard Has Been Updated - Sanghathi",
+        `Your IAT (Internal Assessment Test) scores for Semester ${semester} have been updated. Log in to Sanghathi to view your scores.`,
+        emailHtml
+      );
+    }
+
     res.status(200).json({ status: "success", data: { iat } });
 
   } catch (error) {

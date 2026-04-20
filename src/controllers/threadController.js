@@ -3,6 +3,8 @@ import Thread from "../models/Thread.js";
 import Message from "../models/Conversation/Message.js";
 import AppError from "../utils/appError.js";
 import ThreadService from "../services/threadService.js";
+import notificationService from "../services/notificationService.js";
+import User from "../models/User.js";
 import {
   buildProfilePhotoMap,
   enrichLeanUserAvatar,
@@ -109,6 +111,33 @@ export const createNewThread = catchAsync(async (req, res, next) => {
   const [enrichedThread] = await enrichThreadsWithProfilePhotos([
     newThread.toObject(),
   ]);
+
+  // Send notifications to all participants except the author
+  const authorId = getUserIdFromEntity(author);
+  const participantIds = participants
+    .map((p) => getUserIdFromEntity(p))
+    .filter((id) => id && id.toString() !== authorId?.toString());
+
+  if (participantIds.length > 0) {
+    const emailHtml = `
+      <h2>New Thread Created</h2>
+      <p>A new thread has been created in Sanghathi.</p>
+      <h3>${title}</h3>
+      <p><strong>Topic:</strong> ${topic}</p>
+      <p>Log in to Sanghathi to view and respond to the thread.</p>
+      <p><a href="https://sanghathi.com/threads">View Threads</a></p>
+    `;
+
+    await notificationService.notifyMultipleUsers(
+      participantIds,
+      "New Thread Created",
+      `New thread: ${title}`,
+      "thread",
+      "New Thread Created - Sanghathi",
+      `A new thread "${title}" has been created. Log in to Sanghathi to view it.`,
+      emailHtml
+    );
+  }
 
   res.status(201).json({
     status: "success",
@@ -239,8 +268,11 @@ export const sendMessageToThread = catchAsync(async (req, res, next) => {
   const { threadId } = req.params;
   const { body, senderId } = req.body;
 
-  const threadExists = await Thread.exists({ _id: threadId });
-  if (!threadExists) {
+  const thread = await Thread.findById(threadId).populate({
+    path: "participants",
+    select: "name email",
+  });
+  if (!thread) {
     return next(new AppError("Thread not found", 404));
   }
 
@@ -250,6 +282,35 @@ export const sendMessageToThread = catchAsync(async (req, res, next) => {
     parentType: "thread",
     parentId: threadId,
   });
+
+  // Get sender info
+  const sender = await User.findById(senderId).select("name");
+
+  // Send notifications to all participants except the sender
+  const participantIds = thread.participants
+    .filter((p) => p._id.toString() !== senderId)
+    .map((p) => p._id);
+
+  if (participantIds.length > 0) {
+    const emailHtml = `
+      <h2>New Message in Thread</h2>
+      <p><strong>${sender?.name || "Someone"}</strong> sent a message in your thread.</p>
+      <h3>${thread.title}</h3>
+      <p><em>"${body.substring(0, 200)}${body.length > 200 ? "..." : ""}"</em></p>
+      <p>Log in to Sanghathi to view and respond.</p>
+      <p><a href="https://sanghathi.com/threads/${threadId}">View Thread</a></p>
+    `;
+
+    await notificationService.notifyMultipleUsers(
+      participantIds,
+      "New Message in Thread",
+      `New message from ${sender?.name || "someone"} in "${thread.title}"`,
+      "thread_message",
+      `New Message in "${thread.title}" - Sanghathi`,
+      `${sender?.name || "Someone"} sent you a message in thread "${thread.title}". Log in to view it.`,
+      emailHtml
+    );
+  }
 
   res.status(201).json({
     status: "success",
