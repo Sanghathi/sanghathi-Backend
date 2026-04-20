@@ -58,6 +58,7 @@ import feedbackRoutes from "./routes/Feedback/feedbackRoutes.js";
 import ComplaintRoutes from "./routes/Complain/ComplaintRoutes.js";
 import formDraftRoutes from "./routes/formDraftRoutes.js";
 import uploadHistoryRoutes from "./routes/Admin/uploadHistoryRoutes.js";
+import absenceReportRoutes from "./routes/absenceReportRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -160,6 +161,7 @@ app.use("/api/feedback",feedbackRoutes);
 app.use("/api/complaint", ComplaintRoutes);
 app.use("/api/forms", formDraftRoutes);
 app.use("/api/admin", uploadHistoryRoutes);
+app.use("/api/students/absence-reports", absenceReportRoutes);
 
 if (process.env.NODE_ENV !== "production") {
   app.use("/api/test-summary", testSummaryRoutes);
