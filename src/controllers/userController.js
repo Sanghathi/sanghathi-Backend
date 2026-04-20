@@ -430,20 +430,20 @@ export const getUserByUSN = async (req, res) => {
       .lean();
     
     if (!studentProfile) {
-      return res.status(404).json({ message: "Student profile with this USN not found" });
+      return res.status(404).json({ message: "No student found with this USN" });
     }
     
     // Find the user associated with this profile - using the userId field in the StudentProfile
     const user = await User.findById(studentProfile.userId).select("_id").lean();
     
     if (!user) {
-      return res.status(404).json({ message: "User associated with this USN not found" });
+      return res.status(404).json({ message: "User not found" });
     }
     
     res.json({ userId: user._id });
   } catch (error) {
     logger.error("Error in getUserByUSN:", error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: "An error occurred while processing your request" });
   }
 };
 

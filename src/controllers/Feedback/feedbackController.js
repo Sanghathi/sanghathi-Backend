@@ -13,10 +13,24 @@ export const createOrUpdateFeedback = catchAsync(async (req, res, next) => {
     return next(new AppError("userId is required", 400));
   }
 
+  const maxLength = 2000;
+  if (issues && issues.length > maxLength) {
+    return next(new AppError(`issues field cannot exceed ${maxLength} characters`, 400));
+  }
+  if (features && features.length > maxLength) {
+    return next(new AppError(`features field cannot exceed ${maxLength} characters`, 400));
+  }
+  if (performance && performance.length > maxLength) {
+    return next(new AppError(`performance field cannot exceed ${maxLength} characters`, 400));
+  }
+  if (feedback && feedback.length > 5000) {
+    return next(new AppError("feedback field cannot exceed 5000 characters", 400));
+  }
+
   const updatedDoc = await Feedback.findOneAndUpdate(
     { userId },
     { issues, features, performance, feedback },
-    { new: true, upsert: true /* create if not exists */ }
+    { new: true, upsert: true }
   );
 
   res.status(200).json({

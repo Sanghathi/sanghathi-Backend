@@ -43,22 +43,11 @@ const userSchema = new Schema({
     enum: ["active", "inactive", "suspended"],
     default: "active",
   },
-  password: {
+password: {
     type: String,
     required: [true, "Please provide a password"],
     minlength: 8,
     select: false,
-  },
-  passwordConfirm: {
-    type: String,
-    required: false, // no longer mandatory
-    select: false,   // don’t fetch from DB
-    validate: {
-      validator: function (el) {
-        return el === this.password;
-      },
-      message: "Passwords do not match!",
-    },
   },
   passwordChangedAt: Date,
   passwordResetToken: String,
@@ -73,7 +62,6 @@ userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
 
   this.password = await encrypt(this.password);
-  this.passwordConfirm = undefined;
 
   if (!this.isNew) {
     this.passwordChangedAt = Date.now() - 1000;

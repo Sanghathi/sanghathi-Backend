@@ -5,17 +5,24 @@ const FeedbackDetailsSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: false,
+      required: [true, "User ID is required"],
     },
-    issues: { type: String },
-    features: { type: String },
-    performance: { type: String },
-    feedback: { type: String },
-
-
-
-    
-
+    issues: { 
+      type: String,
+      maxlength: [2000, "Issues field cannot exceed 2000 characters"]
+    },
+    features: { 
+      type: String,
+      maxlength: [2000, "Features field cannot exceed 2000 characters"]
+    },
+    performance: { 
+      type: String,
+      maxlength: [2000, "Performance field cannot exceed 2000 characters"]
+    },
+    feedback: { 
+      type: String,
+      maxlength: [5000, "Feedback field cannot exceed 5000 characters"]
+    },
   },
   { timestamps: true }
 );
