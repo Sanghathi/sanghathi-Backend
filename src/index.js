@@ -126,6 +126,7 @@ app.use("/api/threads", threadRouter);
 app.use("/api/students", studentRouter);
 app.use("/api/students/attendance", attendanceRouter);
 app.use("/api/students/Iat", IatMarksRouter);
+app.use("/api/students/iat", IatMarksRouter);
 app.use("/api/students/external", externalMarksRouter);
 app.use("/api/students/academic", academicRouter);
 app.use("/api/students/admissions", admissionRouter);

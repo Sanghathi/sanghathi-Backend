@@ -9,10 +9,11 @@ import {
 const router = Router();
 
 router.use(protect);
+
+router.get("/:id", getIatById);
+
 router.use(restrictTo("admin", "hod", "director"));
 
 router.route("/:userId").post(submitIatData).delete(deleteAllIat);
-
-router.get("/:id", getIatById);
 
 export default router;

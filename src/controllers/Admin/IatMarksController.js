@@ -58,6 +58,19 @@ export const submitIatData = async (req, res) => {
 
 export const getIatById = async (req, res, next) => {
   const { id } = req.params;
+  const requesterId = String(req.user?._id || "");
+  const targetUserId = String(id || "");
+  const requesterRole = String(
+    req.user?.role?.name || req.user?.roleName || ""
+  ).toLowerCase();
+
+  const canViewOtherUsers = ["admin", "hod", "director", "faculty"].includes(
+    requesterRole
+  );
+
+  if (!canViewOtherUsers && requesterId !== targetUserId) {
+    return next(new AppError("You do not have permission to view this IAT data", 403));
+  }
 
   const iat = await Iat.findOne({ userId: id });
 
