@@ -143,3 +143,10 @@ $RECYCLE.BIN/
 fly.toml
 fly.toml.*
 .github/workflows/fly-deploy.yml
+
+# Security hardening: do not publish internal docs/metadata
+docs/
+*.md
+!LICENSE
+!LICENSE*
+.github/
