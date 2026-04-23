@@ -54,8 +54,6 @@ Educational mentoring data is often fragmented across spreadsheets and disconnec
 
 The Sanghathi Backend provides a stable and scalable API foundation for mentoring operations, enabling accurate data management, better process visibility, and reliable integration with the frontend platform.
 
-
-
 ## Contributors
 
 - shovan-mondal
