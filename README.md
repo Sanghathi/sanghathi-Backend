@@ -54,10 +54,6 @@ Educational mentoring data is often fragmented across spreadsheets and disconnec
 
 The Sanghathi Backend provides a stable and scalable API foundation for mentoring operations, enabling accurate data management, better process visibility, and reliable integration with the frontend platform.
 
-## New Contributors
-
-- [Kethan VR](https://github.com/Kethanvr)
-
 ## Contributors
 
 - shovan-mondal
@@ -66,6 +62,7 @@ The Sanghathi Backend provides a stable and scalable API foundation for mentorin
 - vsuryacharan
 - Kulsum06
 - Sai-Emani25
+- Kethan VR
 
 See [contribute.md](contribute.md) for contribution standards.
 
