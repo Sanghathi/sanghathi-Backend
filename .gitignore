@@ -146,5 +146,7 @@ fly.toml.*
 
 *.md
 !README.md
+!bug_report.md
+!pull_request_template.md
 /scripts
 /logs
