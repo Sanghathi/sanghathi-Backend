@@ -186,7 +186,11 @@ export const protect = catchAsync(async (req, res, next) => {
 // Restrict to specific roles
 export const restrictTo = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role.name)) {
+    const roleName = (req.user.role && req.user.role.name) || req.user.roleName;
+    logger.debug(`[restrictTo] required roles: ${JSON.stringify(roles)} | user.role: ${JSON.stringify(req.user.role)} | user.roleName: ${req.user.roleName} | resolved roleName: ${roleName}`);
+    const hasPermission = roleName && roles.some(role => role.toLowerCase() === roleName.toLowerCase());
+
+    if (!hasPermission) {
       return next(
         new AppError("You do not have permission to perform this action", 403)
       );

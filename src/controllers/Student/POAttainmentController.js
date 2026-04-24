@@ -2,7 +2,6 @@ import POAttainment from "../../models/Student/POAttainment.js";
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 
-import logger from "../../utils/logger.js";
 // Create or update PO Attainment data
 export const createOrUpdatePOAttainment = catchAsync(async (req, res, next) => {
   const { userId, semester, poAttainment, bloomLevel } = req.body;
@@ -17,7 +16,7 @@ export const createOrUpdatePOAttainment = catchAsync(async (req, res, next) => {
   }
 
   try {
-    logger.info("Creating or updating PO Attainment data for userId:", userId, "semester:", semester);
+    console.log("Creating or updating PO Attainment data for userId:", userId, "semester:", semester);
     
     // Find the user's PO attainment document or create if it doesn't exist
     let poAttainmentDoc = await POAttainment.findOne({ userId });
@@ -57,7 +56,7 @@ export const createOrUpdatePOAttainment = catchAsync(async (req, res, next) => {
       },
     });
   } catch (err) {
-    logger.error("Error in createOrUpdatePOAttainment:", err);
+    console.error("Error in createOrUpdatePOAttainment:", err);
     next(new AppError(err.message, 400));
   }
 });
@@ -67,7 +66,7 @@ export const getPOAttainmentByUserIdAndSemester = catchAsync(async (req, res, ne
   const { id } = req.params;
   const { semester } = req.query;
   
-  logger.info("Fetching PO Attainment for userId:", id, "semester:", semester);
+  console.log("Fetching PO Attainment for userId:", id, "semester:", semester);
   
   if (!semester) {
     return next(new AppError("Semester parameter is required", 400));
@@ -97,7 +96,7 @@ export const getPOAttainmentByUserIdAndSemester = catchAsync(async (req, res, ne
 export const getAllPOAttainmentByUserId = catchAsync(async (req, res, next) => {
   const { id } = req.params;
   
-  logger.info("Fetching all PO Attainment data for userId:", id);
+  console.log("Fetching all PO Attainment data for userId:", id);
   
   const poAttainmentDoc = await POAttainment.findOne({ userId: id });
 

@@ -5,10 +5,12 @@ import {
   getPOAttainmentByUserIdAndSemester,
   getAllPOAttainmentByUserId
 } from "../../controllers/Student/POAttainmentController.js";
+import { restrictTo } from "../../controllers/authController.js";
 
 const router = Router();
 
 router.use(protect);
+
 
 /**
  * @swagger
@@ -73,6 +75,6 @@ router.get("/:id/all", getAllPOAttainmentByUserId);
  *       200:
  *         description: Successfully created or updated PO attainment data
  */
-router.post("/", createOrUpdatePOAttainment);
+router.post("/", restrictTo("faculty"), createOrUpdatePOAttainment);
 
 export default router; 
