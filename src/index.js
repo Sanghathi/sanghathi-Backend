@@ -86,7 +86,12 @@ app.use("/src/images", express.static(path.join("src", "images")));
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", "static.cloudflareinsights.com"],
+      },
+    },
   })
 );
 
@@ -142,7 +147,7 @@ app.use("/api/mooc-data", MoocRoutes);
 app.use("/api/project", MiniProjectRoutes);
 app.use("/api/activity-data", ActivityRoutes);
 app.use("/api/hobbies-data", HobbiesRoutes);
-app.use("/api/admin", roleRoutes);
+app.use("/api", roleRoutes);
 app.use("/api/placement", placementRoutes);
 app.use("/api/placement/project", projectRoutes);
 app.use("/api/po-attainment", poAttainmentRoutes);
