@@ -194,13 +194,74 @@ export const submitAttendanceData = async (req, res) => {
       return false;
     };
 
-    const getSubjectIdentity = (subject) =>
-      JSON.stringify({
-        subjectCode: subject.subjectCode || null,
-        subjectName: subject.subjectName?.trim() || null,
-        attendedClasses: subject.attendedClasses,
-        totalClasses: subject.totalClasses,
+    const normalizeValue = (value) =>
+      typeof value === "string" ? value.trim() : "";
+
+    const isPlaceholderValue = (value) => {
+      const normalizedValue = normalizeValue(value).toLowerCase();
+      return !normalizedValue || normalizedValue === "na" || normalizedValue === "n/a";
+    };
+
+    const valuesMatch = (left, right) =>
+      normalizeValue(left).toLowerCase() === normalizeValue(right).toLowerCase();
+
+    const findMatchingSubjectIndex = (existingSubjects, incomingSubject) =>
+      existingSubjects.findIndex((existingSubject) => {
+        const existingCodeIsPlaceholder = isPlaceholderValue(existingSubject.subjectCode);
+        const existingNameIsPlaceholder = isPlaceholderValue(existingSubject.subjectName);
+        const incomingCodeIsPlaceholder = isPlaceholderValue(incomingSubject.subjectCode);
+        const incomingNameIsPlaceholder = isPlaceholderValue(incomingSubject.subjectName);
+
+        const codesMatch =
+          !existingCodeIsPlaceholder &&
+          !incomingCodeIsPlaceholder &&
+          valuesMatch(existingSubject.subjectCode, incomingSubject.subjectCode);
+
+        if (codesMatch) {
+          return true;
+        }
+
+        const namesMatch =
+          !existingNameIsPlaceholder &&
+          !incomingNameIsPlaceholder &&
+          valuesMatch(existingSubject.subjectName, incomingSubject.subjectName);
+
+        if (namesMatch) {
+          return true;
+        }
+
+        const placeholderCodeWithMatchingName =
+          existingCodeIsPlaceholder &&
+          !existingNameIsPlaceholder &&
+          !incomingNameIsPlaceholder &&
+          valuesMatch(existingSubject.subjectName, incomingSubject.subjectName);
+
+        if (placeholderCodeWithMatchingName) {
+          return true;
+        }
+
+        const placeholderNameWithMatchingCode =
+          existingNameIsPlaceholder &&
+          !existingCodeIsPlaceholder &&
+          !incomingCodeIsPlaceholder &&
+          valuesMatch(existingSubject.subjectCode, incomingSubject.subjectCode);
+
+        return placeholderNameWithMatchingCode;
       });
+
+    const mergeSubjectRecords = (existingSubject, incomingSubject) => ({
+      subjectCode: isPlaceholderValue(incomingSubject.subjectCode)
+        ? existingSubject.subjectCode
+        : incomingSubject.subjectCode,
+      subjectName: isPlaceholderValue(incomingSubject.subjectName)
+        ? existingSubject.subjectName
+        : incomingSubject.subjectName,
+      attendedClasses: incomingSubject.attendedClasses,
+      totalClasses: incomingSubject.totalClasses,
+    });
+
+    const isPlaceholderSubject = (subject) =>
+      isPlaceholderValue(subject.subjectCode) || isPlaceholderValue(subject.subjectName);
 
     const calculateOverallAttendanceOrFail = async (attendanceSubjects) => {
       try {
@@ -293,18 +354,28 @@ export const submitAttendanceData = async (req, res) => {
           // Use the month at the found index
           const monthObj = semesterObj.months[monthIndex];
           
-          // Append month data while removing only exact duplicates.
+          // Overwrite the month's real subject rows with the latest upload.
+          // Only carry forward old placeholder rows when they still have no
+          // corresponding subject in the new upload.
           const existingSubjects = monthObj.subjects.filter(subject => !isInvalidSubject(subject));
-          const mergedSubjects = [...existingSubjects];
-          const seenSubjects = new Set(existingSubjects.map(getSubjectIdentity));
+          const placeholderSubjectsToKeep = existingSubjects.filter((existingSubject) =>
+            isPlaceholderSubject(existingSubject) &&
+            findMatchingSubjectIndex(formattedSubjects, existingSubject) === -1
+          );
+          const mergedSubjects = formattedSubjects.map((subject) => ({ ...subject }));
 
-          formattedSubjects.forEach((newSubject) => {
-            const subjectIdentity = getSubjectIdentity(newSubject);
+          placeholderSubjectsToKeep.forEach((placeholderSubject) => {
+            const existingSubjectIndex = findMatchingSubjectIndex(mergedSubjects, placeholderSubject);
 
-            if (!seenSubjects.has(subjectIdentity)) {
-              mergedSubjects.push(newSubject);
-              seenSubjects.add(subjectIdentity);
+            if (existingSubjectIndex === -1) {
+              mergedSubjects.push(placeholderSubject);
+              return;
             }
+
+            mergedSubjects[existingSubjectIndex] = mergeSubjectRecords(
+              mergedSubjects[existingSubjectIndex],
+              placeholderSubject
+            );
           });
 
           overallAttendance = await calculateOverallAttendanceOrFail(mergedSubjects);
@@ -324,6 +395,7 @@ export const submitAttendanceData = async (req, res) => {
 
           monthObj.subjects = mergedSubjects;
           monthObj.overallAttendance = overallAttendance;
+          attendance.markModified("semesters");
         }
       }
     }
