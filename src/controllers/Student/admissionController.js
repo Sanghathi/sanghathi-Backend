@@ -26,8 +26,12 @@ export const getAdmissionDetailsByUserId = catchAsync(async (req, res, next) => 
 
   const admissionDetails = await AdmissionDetails.findOne({ userId });
 
+  // Missing admission details are expected for first-time users.
   if (!admissionDetails) {
-    return next(new AppError('Admission details not found', 404));
+    return res.status(200).json({
+      status: 'success',
+      data: { admissionDetails: null }
+    });
   }
 
   res.status(200).json({

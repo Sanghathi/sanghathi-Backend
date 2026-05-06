@@ -58,11 +58,14 @@ import feedbackRoutes from "./routes/Feedback/feedbackRoutes.js";
 import ComplaintRoutes from "./routes/Complain/ComplaintRoutes.js";
 import formDraftRoutes from "./routes/formDraftRoutes.js";
 import uploadHistoryRoutes from "./routes/Admin/uploadHistoryRoutes.js";
+import morganMiddleware from "./utils/morganMiddleware.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+app.use(morganMiddleware);
 
 // Trust proxy - Add this before other middleware
 app.set('trust proxy', 1);

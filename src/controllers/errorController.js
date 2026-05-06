@@ -25,8 +25,19 @@ const handleJWTExpiredError = () =>
 const handleUnauthorizedError = () =>
   new AppError("Unauthorized access. Insufficient permissions.", 403);
 
-const sendErrorDev = (err, res) => {
-  logger.error(`ERROR 💥  ${err}`);
+const sendErrorDev = (err, req, res) => {
+  const logMeta = {
+    method: req.method,
+    url: req.originalUrl,
+    statusCode: err.statusCode,
+  };
+
+  if (err.isOperational && err.statusCode < 500) {
+    logger.warn(`REQUEST ISSUE ⚠️ ${err.message}`, logMeta);
+  } else {
+    logger.error(`ERROR 💥  ${err}`, logMeta);
+  }
+
   res.status(err.statusCode).json({
     status: err.status,
     message: err.message,
