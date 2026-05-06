@@ -124,7 +124,7 @@ export const createNewThread = catchAsync(async (req, res, next) => {
 
 export const getAllThreads = catchAsync(async (req, res, next) => {
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 10000);
   const skip = (page - 1) * limit;
 
   const filter = {};
@@ -269,7 +269,7 @@ export const getAllThreadsOfUser = catchAsync(async (req, res, next) => {
   const { id: userId } = req.params;
 
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 10000);
   const skip = (page - 1) * limit;
   const filter = { participants: userId };
 
