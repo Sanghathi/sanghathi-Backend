@@ -190,19 +190,20 @@ export const createUploadSession = catchAsync(async (req, res, next) => {
     return next(new AppError("Invalid tabType for upload session", 400));
   }
 
-  // Attach resolved collegeCode and department to metadata for scoping
+  const collegeCode = resolveCollegeCode({ body: req.body, user: req.user });
+  let scopedDept = null;
   try {
-    const collegeCode = resolveCollegeCode({ body: req.body, user: req.user });
     const { resolveScopedDepartment } = await import("../../utils/tenantContext.js");
-    const scopedDept = await resolveScopedDepartment(req);
-
-    // enrich metadata from request
-    const enrichedMetadata = Object.assign({}, metadata || {});
-    enrichedMetadata.collegeCode = collegeCode;
-    enrichedMetadata.department = enrichedMetadata.department || scopedDept || null;
+    scopedDept = await resolveScopedDepartment(req);
   } catch (err) {
-    // ignore metadata enrichment errors
+    scopedDept = null;
   }
+
+  const enrichedMetadata = {
+    ...(metadata && typeof metadata === "object" ? metadata : {}),
+    collegeCode,
+    department: (metadata && metadata.department) || scopedDept || null,
+  };
 
   const session = await AdminUploadSession.create({
     adminUserId: req.user._id,
@@ -221,7 +222,7 @@ export const createUploadSession = catchAsync(async (req, res, next) => {
     errors: Array.isArray(errors) ? errors.slice(0, 200) : [],
     affectedUserIds: toObjectIdList(affectedUserIds),
     createdUserIds: toObjectIdList(createdUserIds),
-    metadata: enrichedMetadata && typeof enrichedMetadata === "object" ? enrichedMetadata : {},
+    metadata: enrichedMetadata,
   });
 
   res.status(201).json({
