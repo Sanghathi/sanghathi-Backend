@@ -14,6 +14,7 @@ import { resolveCollegeCode } from "../utils/tenantContext.js";
 import { resolveDepartmentForCollege } from "../utils/departmentResolver.js";
 
 import logger from "../utils/logger.js";
+import mongoose from "mongoose";
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,

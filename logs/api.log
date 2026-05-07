@@ -31,3 +31,5 @@ GET /api/users?page=1&limit=200&fields=_id,name,email,phone,avatar,photo,role,ro
 GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 500 18.882 ms - 158
 GET /api/users/69fc15513c6f97086059dd82?includeProfiles=true&fields=_id,name,email,phone,avatar,photo,role,roleName,department,sem,usn,cabin,collegeCode 500 17.921 ms - 158
 GET /api/users?page=1&limit=200&fields=_id,name,email,phone,avatar,photo,role,roleName,profile,status,lastActivity,department,sem,usn,cabin&includeProfiles=true 500 18.077 ms - 158
+GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 500 31.657 ms - 158
+GET /api/users/69fc15513c6f97086059dd82?includeProfiles=true&fields=_id,name,email,phone,avatar,photo,role,roleName,department,sem,usn,cabin,collegeCode 500 25.950 ms - 158
