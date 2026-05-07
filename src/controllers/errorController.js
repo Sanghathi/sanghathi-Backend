@@ -85,11 +85,11 @@ export default (err, req, res, next) => {
   if (error.name === "UnauthorizedError") error = handleUnauthorizedError();
 
   if (process.env.NODE_ENV === "development") {
-    sendErrorDev(error, res);
+    sendErrorDev(error, req, res);
   } else if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "test") {
     sendErrorProd(error, res);
   } else {
     // Fallback if NODE_ENV is unset or something else
-    sendErrorDev(error, res);
+    sendErrorDev(error, req, res);
   }
 };
