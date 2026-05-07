@@ -2,15 +2,6 @@
 
 Thank you for contributing to Sanghathi Backend.
 
-## Current Contributors
-
-- shovan-mondal
-- monu564100
-- SUJAY-HK
-- vsuryacharan
-- Kulsum06
-- Sai-Emani25
-
 ## Contribution Workflow
 
 1. Fork the repository on GitHub.

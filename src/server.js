@@ -21,15 +21,37 @@ process.on("uncaughtException", (err) => {
 
 connectDB();
 
+const net = await import("net");
 const port = process.env.PORT || 3000;
-const server = app.listen(port, '0.0.0.0', () => {
+
+// Check port availability before attempting to listen to avoid uncaught exceptions
+const checkPortAvailable = (portToCheck, host = "0.0.0.0") =>
+  new Promise((resolve) => {
+    const tester = net.createServer()
+      .once("error", (err) => {
+        tester.close?.();
+        if (err && err.code === "EADDRINUSE") return resolve(false);
+        return resolve(false);
+      })
+      .once("listening", () => {
+        tester.close(() => resolve(true));
+      })
+      .listen(portToCheck, host);
+  });
+
+const portFree = await checkPortAvailable(port);
+if (!portFree) {
+  logger.error("Port already in use", { port });
+  console.error(`Port ${port} already in use. Please stop the existing process or choose a different PORT.`);
+  process.exit(1);
+}
+
+let server = app.listen(port, "0.0.0.0", () => {
   logger.info(`${process.env.NODE_ENV} Build 🔥`, {
     environment: process.env.NODE_ENV,
   });
   logger.info(`App running on port ${port}...`, { port });
 });
-
-
 
 const io = SocketManager.createServer(server, {
   cors: {

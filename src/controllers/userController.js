@@ -87,7 +87,8 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
 
   // If a role is provided in the query, filter by role
   if (role) {
-    const roleDoc = await Role.findOne({ name: role }).select("_id").lean();
+    // match role case-insensitively
+    const roleDoc = await Role.findOne({ name: new RegExp(`^${role}$`, "i") }).select("_id").lean();
 
     // If no valid role is found, throw an error
     if (!roleDoc) {
@@ -167,16 +168,30 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
 
     // If a role is provided, prefer restricting by role + department/profile membership
     if (role) {
-      const profileModel = role === "student" ? "StudentProfile" : role === "faculty" ? "FacultyProfile" : null;
-      if (profileModel) {
-        const profileUserIds = await mongoose
-          .model(profileModel)
-          .find(mergeCollegeScope({ department: deptRegex }, collegeCode))
-          .select("userId")
-          .lean();
+      // normalize role string for comparisons
+      const roleLower = (role || "").toString().toLowerCase();
+      const profileModel = roleLower === "student" ? "StudentProfile" : roleLower === "faculty" ? "FacultyProfile" : null;
 
-        filter._id = { $in: profileUserIds.map((profile) => profile.userId) };
-      } else {
+      if (profileModel) {
+          const profileUserIds = await mongoose
+            .model(profileModel)
+            .find(mergeCollegeScope({ department: deptRegex }, collegeCode))
+            .select("userId")
+            .lean();
+
+          const mappedIds = profileUserIds.map((profile) => profile.userId).filter(Boolean);
+          logger.info("[getAllUsers] profileUserIds mapped count for role", { role: roleLower, count: mappedIds.length });
+
+          if (mappedIds.length > 0) {
+            filter._id = { $in: mappedIds };
+          } else {
+            // Fallback: keep role filtering but do not block mentors entirely when no profile matches the admin's department
+            logger.warn("[getAllUsers] No department-matched profiles found; falling back to role-only faculty listing", {
+              role: roleLower,
+              scopedDepartment,
+            });
+          }
+        } else {
         // role provided but not student/faculty -> apply role filter and department/profile membership
         filter = { ...filter, $and: [allowedOrReferencedFilter] };
       }
