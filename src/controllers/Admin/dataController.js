@@ -80,7 +80,8 @@ export const uploadData = catchAsync(async (req, res, next) => {
     try {
       const fullName = (row[expected[0]] || row["Full Name"]).toString().trim();
       const email = (row[expected[1]] || row["Email Address"]).toString().trim().toLowerCase();
-      const phone = (row[expected[2]] || row["Phone Number"]).toString().trim();
+      const phoneRaw = (row[expected[2]] || row["Phone Number"]).toString().trim();
+      const phone = phoneRaw || null;
       const departmentRaw = (row["Department"] || "").toString().trim();
       const password = (row["Password"] || "admin1234").toString();
 
@@ -175,9 +176,20 @@ export const uploadData = catchAsync(async (req, res, next) => {
         sessionDoc.successCount += 1;
       }
     } catch (err) {
-      logger.error("Admin upload row error", { err: err?.message || err });
+      logger.error("Admin upload row error", { err: err?.message || err, email, fullName });
       sessionDoc.errorCount += 1;
-      sessionDoc.errors.push(err.message || String(err));
+      
+      // Format error message - handle MongoDB duplicate key errors
+      let errorMsg = err.message || String(err);
+      
+      // Parse MongoDB duplicate key error
+      if (err.code === 11000) {
+        const field = Object.keys(err.keyPattern || {})[0] || "field";
+        const value = err.keyValue?.[field] || err.keyPattern?.[field];
+        errorMsg = `Duplicate ${field}: ${value}`;
+      }
+      
+      sessionDoc.errors.push(`Row ${i + 2}: ${errorMsg}`);
     }
   }
 
