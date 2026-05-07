@@ -104,3 +104,7 @@ POST /api/users/signup 400 60.155 ms - 1726
 POST /api/users/signup 400 51.353 ms - 1718
 GET /api/career-counselling/career/69fcd6cccdb4264d66c4566a 404 56.840 ms - 736
 GET /api/students/iat/69fcd6cccdb4264d66c4566a 404 89.345 ms - 706
+GET /api/students/attendance/69fcd6cccdb4264d66c4566a 404 192.427 ms - 738
+GET /api/users?page=1&limit=500&fields=_id,name,email,roleName,avatar,photo&includeProfiles=true 403 78.439 ms - 3134
+GET /api/users?page=1&limit=500&fields=_id,name,email,roleName,avatar,photo&includeProfiles=true 403 46.480 ms - 3134
+GET /api/users?page=1&limit=200&fields=_id,name,email,phone,avatar,photo,role,roleName,profile,status,lastActivity,department,sem,usn,cabin&includeProfiles=true 403 73.048 ms - 3134
