@@ -185,8 +185,9 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
           if (mappedIds.length > 0) {
             filter._id = { $in: mappedIds };
           } else {
-            // Fallback: keep role filtering but do not block mentors entirely when no profile matches the admin's department
-            logger.warn("[getAllUsers] No department-matched profiles found; falling back to role-only faculty listing", {
+            // Strictly enforce department scoping - if no profiles found in the department, return none
+            filter._id = { $in: [] };
+            logger.info("[getAllUsers] No department-matched profiles found for scoped role", {
               role: roleLower,
               scopedDepartment,
             });
