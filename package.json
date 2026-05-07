@@ -23,7 +23,8 @@
     "db:enforce-one-to-one-unique-indexes": "node scripts/enforce-one-to-one-unique-indexes.mjs",
     "db:ingest-iat-local": "node scripts/ingest-iat-local.mjs",
     "db:rollback-iat-local": "node scripts/rollback-iat-local.mjs",
-    "db:seed-tenants": "node scripts/seed-tenants.mjs"
+    "db:seed-tenants": "node scripts/seed-tenants.mjs",
+    "db:backfill-department-ids": "node scripts/backfill-department-ids.mjs"
   },
   "repository": {
     "type": "git",

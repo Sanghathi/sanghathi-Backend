@@ -11,6 +11,14 @@ export const normalizeCollegeCode = (value) => {
   return value.toString().trim().toUpperCase();
 };
 
+export const normalizeDepartment = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  return value.toString().trim();
+};
+
 export const resolveCollegeCode = ({ body, query, user } = {}) => {
   const candidate =
     body?.collegeCode ||
@@ -40,6 +48,25 @@ export const getScopedCollegeCode = (req) => {
   }
 
   return req.user.collegeCode || null;
+};
+
+export const getScopedDepartment = (req) => {
+  if (!req?.user) {
+    return null;
+  }
+
+  const roleName = (req.user.role?.name || req.user.roleName || "").toLowerCase();
+  const isDeptScopedRole = ["admin", "director", "hod"].includes(roleName);
+
+  if (isSuperAdmin(req.user)) {
+    return normalizeDepartment(req?.query?.department) || null;
+  }
+
+  if (!isDeptScopedRole) {
+    return null;
+  }
+
+  return normalizeDepartment(req.user.department);
 };
 
 export const getCollegeScopeFilter = (

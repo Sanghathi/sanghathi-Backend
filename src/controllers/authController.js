@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Role from "../models/Role.js";
 import StudentProfile from "../models/Student/Profile.js";
+import Department from "../models/Department.js";
 import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 import sendEmail from "../utils/email.js";
@@ -10,6 +11,7 @@ import { compare } from "../utils/passwordHelper.js";
 import { createHash } from "crypto";
 import { buildPasswordResetEmailTemplate } from "../templates/passwordResetEmailTemplate.js";
 import { resolveCollegeCode } from "../utils/tenantContext.js";
+import { resolveDepartmentForCollege } from "../utils/departmentResolver.js";
 
 import logger from "../utils/logger.js";
 const signToken = (id) =>
@@ -117,8 +119,30 @@ export const signup = catchAsync(async (req, res, next) => {
       ...studentData
     };
 
-    if (departmentId) {
-      studentProfileData.departmentId = departmentId;
+    if (studentProfileData.department) {
+      const departmentDoc = await resolveDepartmentForCollege({
+        department: studentProfileData.department,
+        collegeCode: resolvedCollegeCode,
+      });
+
+      if (!departmentDoc) {
+        return next(new AppError("Invalid department for college", 400));
+      }
+
+      studentProfileData.department = departmentDoc.name;
+      studentProfileData.departmentId = departmentDoc._id;
+    } else if (departmentId) {
+      const departmentDoc = await Department.findOne({
+        _id: departmentId,
+        collegeCode: resolvedCollegeCode,
+      }).lean();
+
+      if (!departmentDoc) {
+        return next(new AppError("Invalid department for college", 400));
+      }
+
+      studentProfileData.department = departmentDoc.name;
+      studentProfileData.departmentId = departmentDoc._id;
     }
 
     await StudentProfile.create(studentProfileData);
@@ -196,6 +220,16 @@ export const protect = catchAsync(async (req, res, next) => {
 
   if (!currentUser.collegeCode) {
     currentUser.collegeCode = resolveCollegeCode({ user: currentUser });
+    await currentUser.save({ validateBeforeSave: false });
+  }
+
+  if (!currentUser.department) {
+    const [studentProfile, facultyProfile] = await Promise.all([
+      StudentProfile.findOne({ userId: currentUser._id }).select("department").lean(),
+      mongoose.model("FacultyProfile").findOne({ userId: currentUser._id }).select("department").lean(),
+    ]);
+
+    currentUser.department = studentProfile?.department || facultyProfile?.department || null;
     await currentUser.save({ validateBeforeSave: false });
   }
 

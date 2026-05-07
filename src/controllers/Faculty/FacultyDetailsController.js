@@ -3,12 +3,15 @@ import Role from "../../models/Role.js";
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 import FacultyProfile from "../../models/Faculty/FacultyDetails.js";
+import Department from "../../models/Department.js";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload.js";
 import {
   getScopedCollegeCode,
+  getScopedDepartment,
   mergeCollegeScope,
   resolveCollegeCode,
 } from "../../utils/tenantContext.js";
+import { resolveDepartmentForCollege } from "../../utils/departmentResolver.js";
 
 import fs from 'fs';
 import path from 'path';
@@ -59,6 +62,43 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
     user: req.user,
   });
 
+  const scopedDepartment = getScopedDepartment(req);
+  if (scopedDepartment && department && department !== scopedDepartment) {
+    return next(
+      new AppError("Department does not match your scoped department", 403)
+    );
+  }
+
+  const effectiveDepartment = department || scopedDepartment;
+  let resolvedDepartmentId = departmentId;
+  let normalizedDepartment = effectiveDepartment;
+
+  if (effectiveDepartment) {
+    const departmentDoc = await resolveDepartmentForCollege({
+      department: effectiveDepartment,
+      collegeCode: resolvedCollegeCode,
+    });
+
+    if (!departmentDoc) {
+      return next(new AppError("Invalid department for college", 400));
+    }
+
+    normalizedDepartment = departmentDoc.name;
+    resolvedDepartmentId = departmentDoc._id;
+  } else if (departmentId) {
+    const departmentDoc = await Department.findOne({
+      _id: departmentId,
+      collegeCode: resolvedCollegeCode,
+    }).lean();
+
+    if (!departmentDoc) {
+      return next(new AppError("Invalid department for college", 400));
+    }
+
+    normalizedDepartment = departmentDoc.name;
+    resolvedDepartmentId = departmentDoc._id;
+  }
+
   const profileData = {
     userId,
     fullName: {
@@ -66,8 +106,8 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
       middleName: fullName?.middleName,
       lastName: fullName?.lastName,
     },
-    department,
-    departmentId,
+    department: normalizedDepartment,
+    departmentId: resolvedDepartmentId,
     cabin,
     personalEmail,
     email,

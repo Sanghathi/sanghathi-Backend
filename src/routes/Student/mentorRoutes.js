@@ -6,6 +6,7 @@ import Mentorship from "../../models/Mentorship.js";
 import { protect } from "../../controllers/authController.js";
 import {
   getScopedCollegeCode,
+  getScopedDepartment,
   mergeCollegeScope,
 } from "../../utils/tenantContext.js";
 
@@ -19,6 +20,7 @@ router.get("/students", async (req, res) => {
   try {
     // First get all students
     const collegeCode = getScopedCollegeCode(req);
+    const scopedDepartment = getScopedDepartment(req);
     const studentFilter = mergeCollegeScope({ roleName: "student" }, collegeCode);
     const students = await User.find(studentFilter)
       .select("_id name email phone roleName avatar")
@@ -28,7 +30,10 @@ router.get("/students", async (req, res) => {
     const studentIds = students.map((student) => student._id);
     const StudentProfile = mongoose.model("StudentProfile");
     const profileFilter = mergeCollegeScope(
-      { userId: { $in: studentIds } },
+      {
+        userId: { $in: studentIds },
+        ...(scopedDepartment ? { department: scopedDepartment } : {}),
+      },
       collegeCode
     );
     const studentProfiles = await StudentProfile.find(profileFilter)
@@ -70,7 +75,11 @@ router.get("/students", async (req, res) => {
     });
     
     // Prepare response data
-    const enhancedStudents = students.map(student => {
+    const baseStudents = scopedDepartment
+      ? students.filter((student) => profileMap.has(student._id.toString()))
+      : students;
+
+    const enhancedStudents = baseStudents.map(student => {
       // Convert to plain object 
       const studentObj = {
         _id: student._id,
@@ -442,12 +451,17 @@ router.get("/allocation-students", async (req, res) => {
     const department = req.query.department;
     const sem = req.query.sem;
     const collegeCode = getScopedCollegeCode(req);
+    const scopedDepartment = getScopedDepartment(req);
 
     const StudentProfile = mongoose.model("StudentProfile");
     let profileFilter = {};
 
     if (department && department !== "all") {
       profileFilter.department = department;
+    }
+
+    if (!profileFilter.department && scopedDepartment) {
+      profileFilter.department = scopedDepartment;
     }
 
     if (sem && sem !== "all") {
@@ -642,6 +656,8 @@ router.get("/mentors-with-mentees", async (req, res) => {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
     const collegeCode = getScopedCollegeCode(req);
+    const scopedDepartment = getScopedDepartment(req);
+    const effectiveDepartment = scopedDepartment || department;
 
     const mentorships = await Mentorship.find()
       .select("mentorId menteeId")
@@ -685,8 +701,8 @@ router.get("/mentors-with-mentees", async (req, res) => {
       userId: { $in: mentorIds },
     };
 
-    if (department && department !== "all") {
-      facultyProfileFilter.department = department;
+    if (effectiveDepartment && effectiveDepartment !== "all") {
+      facultyProfileFilter.department = effectiveDepartment;
     }
 
     facultyProfileFilter = mergeCollegeScope(facultyProfileFilter, collegeCode);
@@ -700,7 +716,7 @@ router.get("/mentors-with-mentees", async (req, res) => {
     );
 
     const filteredMentorIds =
-      department && department !== "all"
+      effectiveDepartment && effectiveDepartment !== "all"
         ? facultyProfiles.map((profile) => profile.userId)
         : mentorIds;
 

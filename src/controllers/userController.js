@@ -9,6 +9,7 @@ import mongoose from "mongoose";
 import { createHash } from "crypto";
 import {
   getScopedCollegeCode,
+  getScopedDepartment,
   mergeCollegeScope,
   resolveCollegeCode,
 } from "../utils/tenantContext.js";
@@ -108,8 +109,43 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
     }
   }
 
-  // Get all users with profile data
   const collegeCode = getScopedCollegeCode(req);
+  const scopedDepartment = getScopedDepartment(req);
+
+  if (scopedDepartment) {
+    const profileFilters = [
+      mergeCollegeScope({ department: scopedDepartment }, collegeCode),
+      mergeCollegeScope({ department: scopedDepartment }, collegeCode),
+    ];
+
+    const [studentProfilesByDept, facultyProfilesByDept] = await Promise.all([
+      mongoose.model("StudentProfile").find(profileFilters[0]).select("userId").lean(),
+      mongoose.model("FacultyProfile").find(profileFilters[1]).select("userId").lean(),
+    ]);
+
+    const scopedUserIds = [
+      ...studentProfilesByDept.map((profile) => profile.userId),
+      ...facultyProfilesByDept.map((profile) => profile.userId),
+    ];
+
+    if (role) {
+      const profileModel = role === "student" ? "StudentProfile" : role === "faculty" ? "FacultyProfile" : null;
+      if (profileModel) {
+        const profileUserIds = await mongoose
+          .model(profileModel)
+          .find(mergeCollegeScope({ department: scopedDepartment }, collegeCode))
+          .select("userId")
+          .lean();
+        filter._id = { $in: profileUserIds.map((profile) => profile.userId) };
+      } else {
+        filter._id = { $in: scopedUserIds };
+      }
+    } else {
+      filter._id = { $in: scopedUserIds };
+    }
+  }
+
+  // Get all users with profile data
   const scopedFilter = mergeCollegeScope(filter, collegeCode);
 
   const [users, total] = await Promise.all([
@@ -277,6 +313,14 @@ export const getUser = catchAsync(async (req, res, next) => {
   const collegeCode = getScopedCollegeCode(req);
   if (collegeCode && user.collegeCode && user.collegeCode !== collegeCode) {
     return next(new AppError("Access denied for this college", 403));
+  }
+
+  const scopedDepartment = getScopedDepartment(req);
+  if (scopedDepartment) {
+    const profileDeptMatch = [user.department, user?.profile?.department].filter(Boolean);
+    if (profileDeptMatch.length && !profileDeptMatch.includes(scopedDepartment)) {
+      return next(new AppError("Access denied for this department", 403));
+    }
   }
 
   if (!includeProfiles) {
