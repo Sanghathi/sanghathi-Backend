@@ -470,8 +470,8 @@ export const updateUser = catchAsync(async (req, res, next) => {
   }
 
   // Update user details
-  const collegeCode = getScopedCollegeCode(req);
-  const updateFilter = mergeCollegeScope({ _id: userId }, collegeCode);
+  const scopedCollegeCode = getScopedCollegeCode(req);
+  const updateFilter = mergeCollegeScope({ _id: userId }, scopedCollegeCode);
   const updatedUser = await User.findOneAndUpdate(updateFilter, updateData, {
     runValidators: true,
     new: true,
