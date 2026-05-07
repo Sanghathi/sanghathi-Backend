@@ -102,3 +102,5 @@ POST /api/users/signup 400 53.376 ms - 1714
 POST /api/users/signup 400 53.951 ms - 1718
 POST /api/users/signup 400 60.155 ms - 1726
 POST /api/users/signup 400 51.353 ms - 1718
+GET /api/career-counselling/career/69fcd6cccdb4264d66c4566a 404 56.840 ms - 736
+GET /api/students/iat/69fcd6cccdb4264d66c4566a 404 89.345 ms - 706
