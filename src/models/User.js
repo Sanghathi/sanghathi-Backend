@@ -26,6 +26,11 @@ const userSchema = new Schema({
     uppercase: true,
     trim: true,
   },
+  department: {
+    type: String,
+    uppercase: true,
+    trim: true,
+  },
   phone: {
     type: String,
   },
