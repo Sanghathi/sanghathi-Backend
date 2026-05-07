@@ -19,6 +19,25 @@ export const normalizeDepartment = (value) => {
   return value.toString().trim();
 };
 
+const inferDepartmentFromEmail = (email) => {
+  if (!email || typeof email !== "string") {
+    return null;
+  }
+
+  const localPart = email.split("@")[0]?.toLowerCase() || "";
+  const segments = localPart.split(/[._-]+/).filter(Boolean);
+  if (segments.length < 2) {
+    return null;
+  }
+
+  const rolePrefixes = new Set(["admin", "hod", "director"]);
+  if (!rolePrefixes.has(segments[0])) {
+    return null;
+  }
+
+  return normalizeDepartment(segments.slice(1).join("-").toUpperCase()) || null;
+};
+
 export const resolveCollegeCode = ({ body, query, user } = {}) => {
   const candidate =
     body?.collegeCode ||
@@ -66,7 +85,7 @@ export const getScopedDepartment = (req) => {
     return null;
   }
 
-  return normalizeDepartment(req.user.department);
+  return normalizeDepartment(req.user.department) || inferDepartmentFromEmail(req.user.email);
 };
 
 import mongoose from "mongoose";
@@ -89,6 +108,9 @@ export const resolveScopedDepartment = async (req) => {
 
   // If department already present on user, return normalized value
   if (req.user.department) return normalizeDepartment(req.user.department);
+
+  const inferredDepartment = inferDepartmentFromEmail(req.user.email);
+  if (inferredDepartment) return inferredDepartment;
 
   // Otherwise try to resolve from related profiles
   try {
