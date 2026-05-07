@@ -4,6 +4,7 @@ import catchAsync from "../../utils/catchAsync.js";
 import AdminUploadSession from "../../models/AdminUploadSession.js";
 import User from "../../models/User.js";
 import StudentProfile from "../../models/Student/Profile.js";
+import FacultyProfile from "../../models/Faculty/FacultyDetails.js";
 import Attendance from "../../models/Student/Attendance.js";
 import Iat from "../../models/Admin/IatMarks.js";
 import External from "../../models/Admin/ExternalMarks.js";
@@ -105,15 +106,17 @@ const buildPreview = async (session) => {
   const userIds = resolveUserIdsForSession(session);
 
   if (session.tabType === "add-users") {
-    const [userDocs, profileDocs] = await Promise.all([
+    const [userDocs, profileDocs, facultyDocs] = await Promise.all([
       User.countDocuments({ _id: { $in: userIds } }),
       StudentProfile.countDocuments({ userId: { $in: userIds } }),
+      FacultyProfile.countDocuments({ userId: { $in: userIds } }),
     ]);
 
     return {
       tabType: session.tabType,
       usersToDelete: userDocs,
       studentProfilesToDelete: profileDocs,
+      facultyProfilesToDelete: facultyDocs,
       affectedUserIds: userIds,
     };
   }
@@ -146,8 +149,9 @@ const executeRestore = async (session) => {
   }
 
   if (session.tabType === "add-users") {
-    const [profilesResult, usersResult] = await Promise.all([
+    const [profilesResult, facultyResult, usersResult] = await Promise.all([
       StudentProfile.deleteMany({ userId: { $in: userIds } }),
+      FacultyProfile.deleteMany({ userId: { $in: userIds } }),
       User.deleteMany({ _id: { $in: userIds } }),
     ]);
 
@@ -155,6 +159,7 @@ const executeRestore = async (session) => {
       tabType: session.tabType,
       deletedUsers: usersResult.deletedCount || 0,
       deletedStudentProfiles: profilesResult.deletedCount || 0,
+      deletedFacultyProfiles: facultyResult.deletedCount || 0,
     };
   }
 
