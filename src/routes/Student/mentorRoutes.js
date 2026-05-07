@@ -701,12 +701,11 @@ router.get("/mentors-with-mentees", async (req, res) => {
     );
 
     const FacultyProfile = mongoose.model("FacultyProfile");
-    let facultyProfileFilter = {
-      userId: { $in: mentorIds },
-    };
-
+    let facultyProfileFilter = {};
     if (effectiveDepartment && effectiveDepartment !== "all") {
       facultyProfileFilter.department = effectiveDepartment;
+    } else {
+      facultyProfileFilter.userId = { $in: mentorIds };
     }
 
     facultyProfileFilter = mergeCollegeScope(facultyProfileFilter, collegeCode);
