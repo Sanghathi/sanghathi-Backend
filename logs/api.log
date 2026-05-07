@@ -34,3 +34,7 @@ GET /api/users?page=1&limit=200&fields=_id,name,email,phone,avatar,photo,role,ro
 GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 500 31.657 ms - 158
 GET /api/users/69fc15513c6f97086059dd82?includeProfiles=true&fields=_id,name,email,phone,avatar,photo,role,roleName,department,sem,usn,cabin,collegeCode 500 25.950 ms - 158
 GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 401 1.456 ms - 222
+POST /api/admin/upload-history 500 136.017 ms - 174
+POST /api/admin/upload-history 500 119.189 ms - 174
+POST /api/users/signup 500 58.477 ms - 1765
+POST /api/admin/upload-history 500 146.997 ms - 174
