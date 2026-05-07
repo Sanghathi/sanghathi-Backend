@@ -4,6 +4,11 @@ import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 import StudentProfile from "../../models/Student/Profile.js";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload.js";
+import {
+  getScopedCollegeCode,
+  mergeCollegeScope,
+  resolveCollegeCode,
+} from "../../utils/tenantContext.js";
 
 import fs from 'fs';
 import path from 'path';
@@ -23,6 +28,7 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
     userId,
     fullName,
     department,
+    departmentId,
     sem,
     personalEmail,
     email,
@@ -44,6 +50,7 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
     sportsLevel,
     defenceOrExServiceman,
     photo,
+    collegeCode,
   } = req.body;
 
   // Initialize photoUrl
@@ -64,6 +71,11 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
     logger.info('Using existing photo URL:', photoUrl);
   }
 
+  const resolvedCollegeCode = resolveCollegeCode({
+    body: { collegeCode },
+    user: req.user,
+  });
+
   const profileData = {
     userId,
     fullName: {
@@ -72,6 +84,7 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
       lastName: fullName?.lastName,
     },
     department,
+    departmentId,
     sem,
     personalEmail,
     email,
@@ -93,6 +106,7 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
     sportsLevel,
     defenceOrExServiceman,
     photo: photoUrl, // Store the Cloudinary URL
+    collegeCode: resolvedCollegeCode,
   };
 
   try {
@@ -156,9 +170,12 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
   }
 
   // Use aggregation pipeline to get students with mentor information
+  const collegeCode = getScopedCollegeCode(req);
+  const matchFilter = mergeCollegeScope({ role: studentRole._id }, collegeCode);
+
   const students = await User.aggregate([
     {
-      $match: { role: studentRole._id }
+      $match: matchFilter
     },
     {
       $lookup: {
@@ -214,7 +231,9 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
 export const getStudentProfileById = catchAsync(async (req, res, next) => {
   const { id } = req.params;
 
-  const studentProfile = await StudentProfile.findOne({ userId: id });
+  const collegeCode = getScopedCollegeCode(req);
+  const profileFilter = mergeCollegeScope({ userId: id }, collegeCode);
+  const studentProfile = await StudentProfile.findOne(profileFilter);
 
   if (!studentProfile) {
     return next(new AppError("Student profile not found", 404));

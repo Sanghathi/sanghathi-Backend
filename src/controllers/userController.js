@@ -7,6 +7,11 @@ import bcrypt from "bcrypt";
 import { encrypt, compare } from "../utils/passwordHelper.js";
 import mongoose from "mongoose";
 import { createHash } from "crypto";
+import {
+  getScopedCollegeCode,
+  mergeCollegeScope,
+  resolveCollegeCode,
+} from "../utils/tenantContext.js";
 
 const parseBoolean = (value, defaultValue = true) => {
   if (value === undefined) {
@@ -50,7 +55,7 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 500);
   const skip = (page - 1) * limit;
 
-  const fallbackUserFields = "name email phone avatar role roleName profile status lastActivity";
+  const fallbackUserFields = "name email phone avatar role roleName profile status lastActivity collegeCode";
   const allowedUserFields = new Set([
     "_id",
     "name",
@@ -63,6 +68,7 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
     "profile",
     "status",
     "lastActivity",
+    "collegeCode",
     "department",
     "sem",
     "usn",
@@ -103,15 +109,18 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   }
 
   // Get all users with profile data
+  const collegeCode = getScopedCollegeCode(req);
+  const scopedFilter = mergeCollegeScope(filter, collegeCode);
+
   const [users, total] = await Promise.all([
-    User.find(filter)
+    User.find(scopedFilter)
       .select(selectedUserFields)
       .sort({ name: 1, _id: 1 })
       .skip(skip)
       .limit(limit)
       .populate({ path: "role", select: "name permissions" })
       .lean(),
-    User.countDocuments(filter),
+    User.countDocuments(scopedFilter),
   ]);
 
   if (users.length === 0) {
@@ -150,14 +159,19 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   const userIds = users.map(user => user._id);
   
   // Fetch student profiles
-  const studentProfiles = await mongoose.model('StudentProfile').find({ 
-    userId: { $in: userIds } 
-  }).select("userId department sem usn photo").lean();
+  const collegeScope = mergeCollegeScope({ userId: { $in: userIds } }, collegeCode);
+  const studentProfiles = await mongoose
+    .model("StudentProfile")
+    .find(collegeScope)
+    .select("userId department sem usn photo")
+    .lean();
   
   // Fetch faculty profiles
-  const facultyProfiles = await mongoose.model('FacultyProfile').find({ 
-    userId: { $in: userIds } 
-  }).select("userId department cabin photo").lean();
+  const facultyProfiles = await mongoose
+    .model("FacultyProfile")
+    .find(collegeScope)
+    .select("userId department cabin photo")
+    .lean();
   
   // Create maps for quick lookup
   const studentProfileMap = {};
@@ -225,7 +239,7 @@ export const getUser = catchAsync(async (req, res, next) => {
     true
   );
 
-  const fallbackUserFields = "name email phone avatar role roleName profile status lastActivity";
+  const fallbackUserFields = "name email phone avatar role roleName profile status lastActivity collegeCode";
   const allowedUserFields = new Set([
     "_id",
     "name",
@@ -238,6 +252,7 @@ export const getUser = catchAsync(async (req, res, next) => {
     "profile",
     "status",
     "lastActivity",
+    "collegeCode",
     "department",
     "sem",
     "usn",
@@ -259,6 +274,11 @@ export const getUser = catchAsync(async (req, res, next) => {
     return next(new AppError("User not found", 404));
   }
 
+  const collegeCode = getScopedCollegeCode(req);
+  if (collegeCode && user.collegeCode && user.collegeCode !== collegeCode) {
+    return next(new AppError("Access denied for this college", 403));
+  }
+
   if (!includeProfiles) {
     return res.status(200).json({
       status: "success",
@@ -268,15 +288,17 @@ export const getUser = catchAsync(async (req, res, next) => {
     });
   }
 
+  const profileFilter = mergeCollegeScope({ userId: user._id }, collegeCode);
+
   const [studentProfile, facultyProfile] = await Promise.all([
     mongoose
       .model("StudentProfile")
-      .findOne({ userId: user._id })
+      .findOne(profileFilter)
       .select("department sem usn photo")
       .lean(),
     mongoose
       .model("FacultyProfile")
-      .findOne({ userId: user._id })
+      .findOne(profileFilter)
       .select("department cabin photo")
       .lean(),
   ]);
@@ -319,7 +341,18 @@ export async function createUser(req, res, next) {
   try {
     logger.info("Received Data:", req.body); // Debugging log
 
-    const { name, email, phone, avatar, role, roleName, profile, password, passwordConfirm } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      avatar,
+      role,
+      roleName,
+      profile,
+      password,
+      passwordConfirm,
+      collegeCode,
+    } = req.body;
 
     if (!roleName) {
       return next(new AppError("roleName is required but not provided", 400));
@@ -329,6 +362,11 @@ export async function createUser(req, res, next) {
     if (!roleDoc) {
       return next(new AppError("Invalid role ID", 400));
     }
+
+    const resolvedCollegeCode = resolveCollegeCode({
+      body: { collegeCode },
+      user: req.user,
+    });
 
     const newUser = await User.create({
       name,
@@ -340,6 +378,7 @@ export async function createUser(req, res, next) {
       profile,
       password,
       passwordConfirm,
+      collegeCode: resolvedCollegeCode,
     });
 
     // Ensure password is not sent in the response
@@ -361,7 +400,7 @@ export async function createUser(req, res, next) {
 // Update user details
 export const updateUser = catchAsync(async (req, res, next) => {
   const { id: userId } = req.params;
-  const { role, profileId } = req.body; // Extract profileId
+  const { role, profileId, collegeCode } = req.body; // Extract profileId
 
   let updateData = { ...req.body };
 
@@ -379,8 +418,17 @@ export const updateUser = catchAsync(async (req, res, next) => {
     updateData.profile = profileId;
   }
 
+  if (Object.prototype.hasOwnProperty.call(req.body, "collegeCode")) {
+    updateData.collegeCode = resolveCollegeCode({
+      body: { collegeCode },
+      user: req.user,
+    });
+  }
+
   // Update user details
-  const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+  const collegeCode = getScopedCollegeCode(req);
+  const updateFilter = mergeCollegeScope({ _id: userId }, collegeCode);
+  const updatedUser = await User.findOneAndUpdate(updateFilter, updateData, {
     runValidators: true,
     new: true,
   });
@@ -403,7 +451,9 @@ export const deleteUser = catchAsync(async (req, res, next) => {
   const { id: userId } = req.params;
 
   // Delete the user by ID
-  const deletedUser = await User.findByIdAndDelete(userId);
+  const collegeCode = getScopedCollegeCode(req);
+  const deleteFilter = mergeCollegeScope({ _id: userId }, collegeCode);
+  const deletedUser = await User.findOneAndDelete(deleteFilter);
 
   if (!deletedUser) {
     return next(new AppError("User not found", 404));
@@ -425,7 +475,10 @@ export const getUserByUSN = async (req, res) => {
     
     // First, find the student profile with this USN
     const StudentProfile = mongoose.model("StudentProfile");
-    const studentProfile = await StudentProfile.findOne({ usn })
+    const collegeCode = getScopedCollegeCode(req);
+    const profileFilter = mergeCollegeScope({ usn }, collegeCode);
+
+    const studentProfile = await StudentProfile.findOne(profileFilter)
       .select("userId")
       .lean();
     

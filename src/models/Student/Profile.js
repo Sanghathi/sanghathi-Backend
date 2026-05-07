@@ -8,6 +8,11 @@ const studentProfileSchema = new Schema({
     ref: "User",
     required: false,
   },
+  collegeCode: {
+    type: String,
+    uppercase: true,
+    trim: true,
+  },
   fullName: {
     firstName: { 
       type: String, 
@@ -24,6 +29,10 @@ const studentProfileSchema = new Schema({
   department: {
     type: String,
     required: true,
+  },
+  departmentId: {
+    type: Schema.Types.ObjectId,
+    ref: "Department",
   },
   sem: {
     type: Number,
@@ -99,6 +108,10 @@ const studentProfileSchema = new Schema({
 
 studentProfileSchema.index({ userId: 1 });
 studentProfileSchema.index({ usn: 1 });
+studentProfileSchema.index({ collegeCode: 1, userId: 1 });
+studentProfileSchema.index({ collegeCode: 1, department: 1 });
+studentProfileSchema.index({ collegeCode: 1, departmentId: 1 });
+studentProfileSchema.index({ collegeCode: 1, usn: 1 });
 
 const StudentProfile = model("StudentProfile", studentProfileSchema);
 

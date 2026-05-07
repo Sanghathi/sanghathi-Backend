@@ -4,6 +4,11 @@ import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 import FacultyProfile from "../../models/Faculty/FacultyDetails.js";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload.js";
+import {
+  getScopedCollegeCode,
+  mergeCollegeScope,
+  resolveCollegeCode,
+} from "../../utils/tenantContext.js";
 
 import fs from 'fs';
 import path from 'path';
@@ -18,6 +23,7 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
     userId,
     fullName,
     department,
+    departmentId,
     cabin,
     personalEmail,
     email,
@@ -34,6 +40,7 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
     physicallyChallenged,
     isForeigner,
     photo,
+    collegeCode,
   } = req.body;
 
   let photoUrl = photo;
@@ -47,6 +54,11 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
     }
   }
 
+  const resolvedCollegeCode = resolveCollegeCode({
+    body: { collegeCode },
+    user: req.user,
+  });
+
   const profileData = {
     userId,
     fullName: {
@@ -55,6 +67,7 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
       lastName: fullName?.lastName,
     },
     department,
+    departmentId,
     cabin,
     personalEmail,
     email,
@@ -71,11 +84,13 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
     physicallyChallenged,
     isForeigner,
     photo: photoUrl,
+    collegeCode: resolvedCollegeCode,
   };
 
   try {
+    const collegeScope = mergeCollegeScope({ userId }, resolvedCollegeCode);
     const updatedProfile = await FacultyProfile.findOneAndUpdate(
-      { userId }, 
+      collegeScope,
       { $set: profileData },
       { upsert: true, new: true }
     );
@@ -97,7 +112,9 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
 export const getFacultyProfileById = catchAsync(async (req, res, next) => {
   const { id } = req.params;
 
-  const facultyProfile = await FacultyProfile.findOne({ userId: id });
+  const collegeCode = getScopedCollegeCode(req);
+  const filter = mergeCollegeScope({ userId: id }, collegeCode);
+  const facultyProfile = await FacultyProfile.findOne(filter);
 
   if (!facultyProfile) {
     return next(new AppError("Faculty profile not found", 404));
@@ -133,7 +150,9 @@ export const Faculty = catchAsync(async (req, res, next) => {
 export const deleteFacultyProfileById = catchAsync(async (req, res, next) => {
   const { id } = req.params;
 
-  const deletedProfile = await FacultyProfile.findOneAndDelete({ userId: id });
+  const collegeCode = getScopedCollegeCode(req);
+  const filter = mergeCollegeScope({ userId: id }, collegeCode);
+  const deletedProfile = await FacultyProfile.findOneAndDelete(filter);
 
   if (!deletedProfile) {
     return next(new AppError("Faculty profile not found for deletion", 404));

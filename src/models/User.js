@@ -21,6 +21,11 @@ const userSchema = new Schema({
     unique: true,
     lowercase: true,
   },
+  collegeCode: {
+    type: String,
+    uppercase: true,
+    trim: true,
+  },
   phone: {
     type: String,
   },
@@ -66,6 +71,7 @@ const userSchema = new Schema({
 });
 
 userSchema.index({ roleName: 1, status: 1 });
+userSchema.index({ collegeCode: 1, roleName: 1, status: 1 });
 userSchema.index({ lastActivity: -1 });
 
 // 🔑 Hash password before save

@@ -14,8 +14,12 @@ async function seedRoles() {
       }
     );
 
-    // Seed the roles
-    await Role.create([
+    const roles = [
+      {
+        id: 0,
+        name: "super-admin",
+        permissions: ["*"]
+      },
       {
         id: 1,
         name: "admin",
@@ -36,7 +40,23 @@ async function seedRoles() {
         name: "student",
         permissions: ["read:users"],
       },
-    ]);
+      {
+        id: 4,
+        name: "hod",
+        permissions: ["read:users", "create:users", "update:users"],
+      },
+      {
+        id: 5,
+        name: "director",
+        permissions: ["read:users", "create:users", "update:users"],
+      },
+    ];
+
+    await Promise.all(
+      roles.map((role) =>
+        Role.updateOne({ name: role.name }, { $set: role }, { upsert: true })
+      )
+    );
 
     logger.info("Roles seeded successfully");
   } catch (error) {

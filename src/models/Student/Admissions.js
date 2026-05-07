@@ -31,13 +31,16 @@ const admissionDetailsSchema = new mongoose.Schema({
   },
   usn: {
     type: String,
-    required: true,
-    unique: true
+    required: true
+  },
+  collegeCode: {
+    type: String,
+    uppercase: true,
+    trim: true
   },
   collegeId: {
     type: String,
-    required: true,
-    unique: true
+    required: true
   },
   branchChange: {
     year: String,
@@ -50,6 +53,10 @@ const admissionDetailsSchema = new mongoose.Schema({
     enum: ["SSLC/X Marks Card", "PUC/XII Marks Card", "Caste Certificate", "Migration Certificate"]
   }]
 }, { timestamps: true });
+
+admissionDetailsSchema.index({ collegeCode: 1, branch: 1 });
+admissionDetailsSchema.index({ collegeCode: 1, admissionYear: 1, semester: 1 });
+admissionDetailsSchema.index({ collegeCode: 1, usn: 1 });
 
 const AdmissionDetails = mongoose.model("AdmissionDetails", admissionDetailsSchema);
 export default AdmissionDetails;

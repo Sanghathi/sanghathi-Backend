@@ -59,6 +59,8 @@ import ComplaintRoutes from "./routes/Complain/ComplaintRoutes.js";
 import formDraftRoutes from "./routes/formDraftRoutes.js";
 import uploadHistoryRoutes from "./routes/Admin/uploadHistoryRoutes.js";
 import morganMiddleware from "./utils/morganMiddleware.js";
+import collegeRoutes from "./routes/collegeRoutes.js";
+import departmentRoutes from "./routes/departmentRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -166,6 +168,8 @@ app.use("/api/feedback",feedbackRoutes);
 app.use("/api/complaint", ComplaintRoutes);
 app.use("/api/forms", formDraftRoutes);
 app.use("/api/admin", uploadHistoryRoutes);
+app.use("/api", collegeRoutes);
+app.use("/api", departmentRoutes);
 
 if (process.env.NODE_ENV !== "production") {
   app.use("/api/test-summary", testSummaryRoutes);
