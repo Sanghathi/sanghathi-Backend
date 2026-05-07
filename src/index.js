@@ -58,6 +58,7 @@ import feedbackRoutes from "./routes/Feedback/feedbackRoutes.js";
 import ComplaintRoutes from "./routes/Complain/ComplaintRoutes.js";
 import formDraftRoutes from "./routes/formDraftRoutes.js";
 import uploadHistoryRoutes from "./routes/Admin/uploadHistoryRoutes.js";
+import dataRoutes from "./routes/Admin/dataRoutes.js";
 import morganMiddleware from "./utils/morganMiddleware.js";
 import collegeRoutes from "./routes/collegeRoutes.js";
 import departmentRoutes from "./routes/departmentRoutes.js";
@@ -168,6 +169,7 @@ app.use("/api/feedback",feedbackRoutes);
 app.use("/api/complaint", ComplaintRoutes);
 app.use("/api/forms", formDraftRoutes);
 app.use("/api/admin", uploadHistoryRoutes);
+app.use("/api/admin", dataRoutes);
 app.use("/api", collegeRoutes);
 app.use("/api", departmentRoutes);
 
