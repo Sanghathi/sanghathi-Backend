@@ -78,3 +78,15 @@ POST /api/users/signup 400 49.135 ms - 1684
 POST /api/users/signup 400 48.504 ms - 1684
 POST /api/users/signup 400 48.291 ms - 1684
 POST /api/users/signup 400 48.464 ms - 1684
+POST /api/users/signup 400 63.859 ms - 1718
+POST /api/users/signup 400 59.627 ms - 1720
+POST /api/users/signup 400 48.937 ms - 1720
+POST /api/users/signup 400 50.226 ms - 1728
+POST /api/users/signup 400 53.237 ms - 1730
+POST /api/users/signup 400 49.468 ms - 1728
+POST /api/users/signup 400 48.463 ms - 1722
+POST /api/users/signup 400 48.213 ms - 1718
+POST /api/users/signup 400 51.503 ms - 1714
+POST /api/users/signup 400 83.344 ms - 1718
+POST /api/users/signup 400 66.627 ms - 1726
+POST /api/users/signup 400 51.504 ms - 1718

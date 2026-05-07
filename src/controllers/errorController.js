@@ -13,7 +13,10 @@ const handleValidationErrorDB = (err) => {
 };
 
 const handleDuplicateFieldsDB = (err) => {
-  const message = `Duplicate field value : ${err.keyValue.name}. Please use another value!`;
+  // err.keyValue could have different keys (email, phone, etc.)
+  const key = err.keyValue && Object.keys(err.keyValue)[0];
+  const val = key ? err.keyValue[key] : undefined;
+  const message = `Duplicate field value : ${key || "field"}: ${val || "undefined"}. Please use another value!`;
   return new AppError(message, 400);
 };
 
