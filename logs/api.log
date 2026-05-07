@@ -17,3 +17,17 @@ GET /api/users?page=1&limit=200&fields=_id,name,email,phone,avatar,photo,role,ro
 GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 500 18.100 ms - 158
 GET /api/users/69fc15513c6f97086059dd82?includeProfiles=true&fields=_id,name,email,phone,avatar,photo,role,roleName,department,sem,usn,cabin,collegeCode 500 17.941 ms - 158
 GET /api/users?page=1&limit=200&fields=_id,name,email,phone,avatar,photo,role,roleName,profile,status,lastActivity,department,sem,usn,cabin&includeProfiles=true 500 17.863 ms - 158
+GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 500 27.332 ms - 158
+GET /api/users/69fc15513c6f97086059dd82?includeProfiles=true&fields=_id,name,email,phone,avatar,photo,role,roleName,department,sem,usn,cabin,collegeCode 500 24.105 ms - 158
+GET /api/forms/drafts/auto_admin_add_user?scopeId=69fc15513c6f97086059dd82 500 19.597 ms - 158
+GET /api/departments?collegeCode=CMRIT&status=active 500 19.006 ms - 158
+GET /api/roles/student 500 21.701 ms - 158
+GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 500 18.458 ms - 158
+GET /api/users/69fc15513c6f97086059dd82?includeProfiles=true&fields=_id,name,email,phone,avatar,photo,role,roleName,department,sem,usn,cabin,collegeCode 500 18.070 ms - 158
+GET /api/forms/drafts/auto_admin_add_user?scopeId=69fc15513c6f97086059dd82 500 19.245 ms - 158
+GET /api/roles/student 500 18.984 ms - 158
+GET /api/departments?collegeCode=CMRIT&status=active 500 19.336 ms - 158
+GET /api/users?page=1&limit=200&fields=_id,name,email,phone,avatar,photo,role,roleName,profile,status,lastActivity,department,sem,usn,cabin&includeProfiles=true 500 18.499 ms - 158
+GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 500 18.882 ms - 158
+GET /api/users/69fc15513c6f97086059dd82?includeProfiles=true&fields=_id,name,email,phone,avatar,photo,role,roleName,department,sem,usn,cabin,collegeCode 500 17.921 ms - 158
+GET /api/users?page=1&limit=200&fields=_id,name,email,phone,avatar,photo,role,roleName,profile,status,lastActivity,department,sem,usn,cabin&includeProfiles=true 500 18.077 ms - 158

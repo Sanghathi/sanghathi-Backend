@@ -128,6 +128,18 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
       ...facultyProfilesByDept.map((profile) => profile.userId),
     ];
 
+    // Also include department-scoped admin/director/hod users from the same department
+    if (scopedDepartment) {
+      const deptScopedAdmins = await User.find(
+        mergeCollegeScope(
+          { roleName: { $in: ["admin", "director", "hod"] }, department: scopedDepartment },
+          collegeCode
+        )
+      ).select("_id").lean();
+
+      scopedUserIds.push(...deptScopedAdmins.map((user) => user._id));
+    }
+
     if (role) {
       const profileModel = role === "student" ? "StudentProfile" : role === "faculty" ? "FacultyProfile" : null;
       if (profileModel) {
