@@ -8,6 +8,7 @@ import { uploadToCloudinary } from "../../utils/cloudinaryUpload.js";
 import {
   getScopedCollegeCode,
   getScopedDepartment,
+  resolveScopedDepartment,
   mergeCollegeScope,
   resolveCollegeCode,
 } from "../../utils/tenantContext.js";
@@ -211,7 +212,7 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
 
   // Use aggregation pipeline to get students with mentor information
   const collegeCode = getScopedCollegeCode(req);
-  const scopedDepartment = getScopedDepartment(req);
+  const scopedDepartment = await resolveScopedDepartment(req);
   const matchFilter = mergeCollegeScope({ role: studentRole._id }, collegeCode);
 
   const pipeline = [
@@ -235,12 +236,19 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
   ];
 
   if (scopedDepartment) {
+    // Match department case-insensitively to avoid mismatches due to casing/whitespace
     pipeline.push({
       $match: {
-        "profile.department": scopedDepartment,
+        "profile.department": { $regex: `^${scopedDepartment}$`, $options: "i" },
       },
     });
   }
+
+  // Debug: log scopedDepartment and number of pipeline stages so we can inspect runtime behavior
+  logger.debug("[getAllStudents] scopedDepartment and pipeline stage count:", {
+    scopedDepartment,
+    pipelineStageCount: pipeline.length,
+  });
 
   pipeline.push(
     {

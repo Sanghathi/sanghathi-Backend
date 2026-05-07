@@ -10,6 +10,7 @@ import { createHash } from "crypto";
 import {
   getScopedCollegeCode,
   getScopedDepartment,
+  resolveScopedDepartment,
   mergeCollegeScope,
   resolveCollegeCode,
 } from "../utils/tenantContext.js";
@@ -110,55 +111,84 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   }
 
   const collegeCode = getScopedCollegeCode(req);
-  const scopedDepartment = getScopedDepartment(req);
+  const scopedDepartment = await resolveScopedDepartment(req);
+
+  // Debug logs to inspect scoping behaviour for department-scoped admins
+  logger.debug("[getAllUsers] resolved req.user summary:", {
+    id: req.user?._id,
+    email: req.user?.email,
+    roleName: req.user?.roleName,
+  });
+  logger.debug("[getAllUsers] scopedDepartment, collegeCode:", {
+    scopedDepartment,
+    collegeCode,
+  });
+  logger.debug("[getAllUsers] initial filter before dept scoping:", filter);
 
   if (scopedDepartment) {
-    const profileFilters = [
-      mergeCollegeScope({ department: scopedDepartment }, collegeCode),
-      mergeCollegeScope({ department: scopedDepartment }, collegeCode),
-    ];
+    // Use a case-insensitive regex for department to avoid casing/whitespace mismatches
+    const deptRegex = new RegExp(`^${escapeRegex(scopedDepartment)}$`, "i");
+
+    // Find profiles that belong to the scoped department (students + faculty)
+    const profileFilterForDept = mergeCollegeScope({ department: deptRegex }, collegeCode);
 
     const [studentProfilesByDept, facultyProfilesByDept] = await Promise.all([
-      mongoose.model("StudentProfile").find(profileFilters[0]).select("userId").lean(),
-      mongoose.model("FacultyProfile").find(profileFilters[1]).select("userId").lean(),
+      mongoose.model("StudentProfile").find(profileFilterForDept).select("userId").lean(),
+      mongoose.model("FacultyProfile").find(profileFilterForDept).select("userId").lean(),
     ]);
 
-    const scopedUserIds = [
+    const scopedProfileUserIds = [
       ...studentProfilesByDept.map((profile) => profile.userId),
       ...facultyProfilesByDept.map((profile) => profile.userId),
     ];
 
     // Also include department-scoped admin/director/hod users from the same department
-    if (scopedDepartment) {
-      const deptScopedAdmins = await User.find(
-        mergeCollegeScope(
-          { roleName: { $in: ["admin", "director", "hod"] }, department: scopedDepartment },
-          collegeCode
-        )
-      ).select("_id").lean();
+    const deptScopedAdmins = await User.find(
+      mergeCollegeScope(
+        { roleName: { $in: ["admin", "director", "hod"] }, department: deptRegex },
+        collegeCode
+      )
+    ).select("_id").lean();
 
-      scopedUserIds.push(...deptScopedAdmins.map((user) => user._id));
-    }
+    const deptAdminIds = deptScopedAdmins.map((user) => user._id);
 
+    const allowedOrReferencedFilter = {
+      $or: [
+        { department: deptRegex },
+        { _id: { $in: [...scopedProfileUserIds, ...deptAdminIds] } },
+      ],
+    };
+
+    logger.debug("[getAllUsers] scopedProfileUserIds count, deptAdminIds count:", {
+      scopedProfileUserIds: scopedProfileUserIds.length,
+      deptAdminIds: deptAdminIds.length,
+    });
+    logger.debug("[getAllUsers] allowedOrReferencedFilter:", allowedOrReferencedFilter);
+
+    // If a role is provided, prefer restricting by role + department/profile membership
     if (role) {
       const profileModel = role === "student" ? "StudentProfile" : role === "faculty" ? "FacultyProfile" : null;
       if (profileModel) {
         const profileUserIds = await mongoose
           .model(profileModel)
-          .find(mergeCollegeScope({ department: scopedDepartment }, collegeCode))
+          .find(mergeCollegeScope({ department: deptRegex }, collegeCode))
           .select("userId")
           .lean();
+
         filter._id = { $in: profileUserIds.map((profile) => profile.userId) };
       } else {
-        filter._id = { $in: scopedUserIds };
+        // role provided but not student/faculty -> apply role filter and department/profile membership
+        filter = { ...filter, $and: [allowedOrReferencedFilter] };
       }
     } else {
-      filter._id = { $in: scopedUserIds };
+      // No explicit role filter: restrict results to the scoped department and related users
+      filter = { ...filter, $and: [allowedOrReferencedFilter] };
     }
   }
 
   // Get all users with profile data
   const scopedFilter = mergeCollegeScope(filter, collegeCode);
+  logger.debug("[getAllUsers] scopedFilter to be used for DB query:", scopedFilter);
 
   const [users, total] = await Promise.all([
     User.find(scopedFilter)
@@ -329,8 +359,12 @@ export const getUser = catchAsync(async (req, res, next) => {
 
   const scopedDepartment = getScopedDepartment(req);
   if (scopedDepartment) {
-    const profileDeptMatch = [user.department, user?.profile?.department].filter(Boolean);
-    if (profileDeptMatch.length && !profileDeptMatch.includes(scopedDepartment)) {
+    const normalizedScoped = scopedDepartment?.trim().toLowerCase();
+    const profileDeptMatch = [user.department, user?.profile?.department]
+      .filter(Boolean)
+      .map((d) => (typeof d === "string" ? d.trim().toLowerCase() : d));
+
+    if (profileDeptMatch.length && !profileDeptMatch.includes(normalizedScoped)) {
       return next(new AppError("Access denied for this department", 403));
     }
   }

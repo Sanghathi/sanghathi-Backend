@@ -69,6 +69,60 @@ export const getScopedDepartment = (req) => {
   return normalizeDepartment(req.user.department);
 };
 
+import mongoose from "mongoose";
+
+/**
+ * Async resolver for scoped department. Use this when `req.user.department` may be missing
+ * and a lookup against StudentProfile/FacultyProfile is required.
+ */
+export const resolveScopedDepartment = async (req) => {
+  if (!req?.user) return null;
+
+  const roleName = (req.user.role?.name || req.user.roleName || "").toLowerCase();
+  const isDeptScopedRole = ["admin", "director", "hod"].includes(roleName);
+
+  if (isSuperAdmin(req.user)) {
+    return normalizeDepartment(req?.query?.department) || null;
+  }
+
+  if (!isDeptScopedRole) return null;
+
+  // If department already present on user, return normalized value
+  if (req.user.department) return normalizeDepartment(req.user.department);
+
+  // Otherwise try to resolve from related profiles
+  try {
+    const collegeCode = normalizeCollegeCode(req.user.collegeCode) || DEFAULT_COLLEGE_CODE;
+
+    const [studentProfile, facultyProfile] = await Promise.all([
+      mongoose
+        .model("StudentProfile")
+        .findOne({ userId: req.user._id, collegeCode })
+        .select("department")
+        .lean(),
+      mongoose
+        .model("FacultyProfile")
+        .findOne({ userId: req.user._id, collegeCode })
+        .select("department")
+        .lean(),
+    ]);
+
+    const dept = studentProfile?.department || facultyProfile?.department || null;
+    if (dept) return normalizeDepartment(dept);
+
+    // Final fallback: read department from User document in DB (in case req.user wasn't populated)
+    try {
+      const userDoc = await mongoose.model("User").findById(req.user._id).select("department").lean();
+      return normalizeDepartment(userDoc?.department);
+    } catch (errUser) {
+      return null;
+    }
+  } catch (err) {
+    // On any error, return null to avoid breaking callers
+    return null;
+  }
+};
+
 export const getCollegeScopeFilter = (
   collegeCode,
   { includeLegacy = true } = {}
