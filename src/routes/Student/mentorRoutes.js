@@ -7,6 +7,7 @@ import { protect } from "../../controllers/authController.js";
 import {
   getScopedCollegeCode,
   getScopedDepartment,
+  resolveScopedDepartment,
   mergeCollegeScope,
 } from "../../utils/tenantContext.js";
 
@@ -20,7 +21,7 @@ router.get("/students", async (req, res) => {
   try {
     // First get all students
     const collegeCode = getScopedCollegeCode(req);
-    const scopedDepartment = getScopedDepartment(req);
+    const scopedDepartment = await resolveScopedDepartment(req);
     const studentFilter = mergeCollegeScope({ roleName: "student" }, collegeCode);
     const students = await User.find(studentFilter)
       .select("_id name email phone roleName avatar")
@@ -32,7 +33,9 @@ router.get("/students", async (req, res) => {
     const profileFilter = mergeCollegeScope(
       {
         userId: { $in: studentIds },
-        ...(scopedDepartment ? { department: scopedDepartment } : {}),
+        ...(scopedDepartment
+          ? { department: { $regex: `^${scopedDepartment}$`, $options: "i" } }
+          : {}),
       },
       collegeCode
     );
@@ -45,7 +48,8 @@ router.get("/students", async (req, res) => {
     );
     
     // Get all mentorships
-    const mentorships = await Mentorship.find()
+    // Only consider mentorships for the students in the current college/scope
+    const mentorships = await Mentorship.find({ menteeId: { $in: studentIds } })
       .select("mentorId menteeId")
       .lean();
     logger.info(`Fetched ${mentorships.length} mentorships`);

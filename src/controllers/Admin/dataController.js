@@ -8,7 +8,7 @@ import Role from "../../models/Role.js";
 import StudentProfile from "../../models/Student/Profile.js";
 import FacultyProfile from "../../models/Faculty/FacultyDetails.js";
 import AdminUploadSession from "../../models/AdminUploadSession.js";
-import { resolveCollegeCode, getScopedCollegeCode } from "../../utils/tenantContext.js";
+import { resolveCollegeCode, getScopedCollegeCode, resolveScopedDepartment } from "../../utils/tenantContext.js";
 import { resolveDepartmentForCollege } from "../../utils/departmentResolver.js";
 
 const storage = multer.memoryStorage();
@@ -59,6 +59,7 @@ export const uploadData = catchAsync(async (req, res, next) => {
   }
 
   const collegeCode = resolveCollegeCode({ body: req.body, user: req.user });
+  const scopedDepartment = await resolveScopedDepartment(req);
 
   const sessionDoc = {
     adminUserId: req.user?._id || null,
@@ -71,7 +72,7 @@ export const uploadData = catchAsync(async (req, res, next) => {
     errors: [],
     createdUserIds: [],
     affectedUserIds: [],
-    metadata: { type, preview: [] },
+    metadata: { type, preview: [], collegeCode, department: scopedDepartment || null },
   };
 
   for (let i = 0; i < rows.length; i++) {
@@ -88,6 +89,12 @@ export const uploadData = catchAsync(async (req, res, next) => {
         collegeCode,
       });
 
+      // If the current admin is department-scoped, prevent uploads for other departments
+      if (scopedDepartment && departmentDoc && departmentDoc.name.toLowerCase() !== scopedDepartment.toLowerCase()) {
+        throw new Error(
+          `Row ${i + 2}: You are scoped to department '${scopedDepartment}' and cannot upload data for '${departmentDoc.name}'`
+        );
+      }
       if (!departmentDoc) {
         throw new Error(`Row ${i + 2}: Department '${departmentRaw}' not found for college ${collegeCode}`);
       }

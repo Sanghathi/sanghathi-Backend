@@ -10,6 +10,7 @@ import External from "../../models/Admin/ExternalMarks.js";
 import TYLScores from "../../models/TYLScores.js";
 import MoocData from "../../models/CareerReview/Mooc.js";
 import MiniProjectData from "../../models/CareerReview/MiniProject.js";
+import { resolveCollegeCode } from "../../utils/tenantContext.js";
 
 const VALID_TAB_TYPES = new Set([
   "add-users",
@@ -189,6 +190,20 @@ export const createUploadSession = catchAsync(async (req, res, next) => {
     return next(new AppError("Invalid tabType for upload session", 400));
   }
 
+  // Attach resolved collegeCode and department to metadata for scoping
+  try {
+    const collegeCode = resolveCollegeCode({ body: req.body, user: req.user });
+    const { resolveScopedDepartment } = await import("../../utils/tenantContext.js");
+    const scopedDept = await resolveScopedDepartment(req);
+
+    // enrich metadata from request
+    const enrichedMetadata = Object.assign({}, metadata || {});
+    enrichedMetadata.collegeCode = collegeCode;
+    enrichedMetadata.department = enrichedMetadata.department || scopedDept || null;
+  } catch (err) {
+    // ignore metadata enrichment errors
+  }
+
   const session = await AdminUploadSession.create({
     adminUserId: req.user._id,
     source: VALID_SOURCES.has(source) ? source : "dashboard-ui",
@@ -206,7 +221,7 @@ export const createUploadSession = catchAsync(async (req, res, next) => {
     errors: Array.isArray(errors) ? errors.slice(0, 200) : [],
     affectedUserIds: toObjectIdList(affectedUserIds),
     createdUserIds: toObjectIdList(createdUserIds),
-    metadata: metadata && typeof metadata === "object" ? metadata : {},
+    metadata: enrichedMetadata && typeof enrichedMetadata === "object" ? enrichedMetadata : {},
   });
 
   res.status(201).json({
@@ -233,6 +248,41 @@ export const listUploadSessions = catchAsync(async (req, res) => {
 
   if (req.query.source && VALID_SOURCES.has(req.query.source)) {
     filter.source = req.query.source;
+  }
+
+  // Apply college + department scoping to upload sessions
+  try {
+    const { getScopedCollegeCode, resolveScopedDepartment, getCollegeScopeFilter } = await import("../../utils/tenantContext.js");
+    const collegeCode = getScopedCollegeCode(req);
+    const scopedDept = await resolveScopedDepartment(req);
+
+    if (collegeCode) {
+      const collegeScope = getCollegeScopeFilter(collegeCode);
+      // translate college scope to metadata.collegeCode presence
+      const collegeMetaScope = {
+        $or: [
+          { "metadata.collegeCode": collegeCode },
+          { "metadata.collegeCode": { $exists: false } },
+          { "metadata.collegeCode": null },
+        ],
+      };
+
+      filter.$and = filter.$and || [];
+      filter.$and.push(collegeMetaScope);
+    }
+
+    if (scopedDept) {
+      const deptRegex = { $regex: `^${scopedDept}$`, $options: "i" };
+      // Show sessions that target this department OR sessions created by the current user
+      const deptFilter = {
+        $or: [{ "metadata.department": deptRegex }, { adminUserId: req.user._id }],
+      };
+
+      filter.$and = filter.$and || [];
+      filter.$and.push(deptFilter);
+    }
+  } catch (err) {
+    // ignore scoping errors
   }
 
   const [sessions, total] = await Promise.all([
@@ -263,6 +313,22 @@ export const listUploadSessions = catchAsync(async (req, res) => {
 
 export const getUploadSessionById = catchAsync(async (req, res) => {
   const session = await ensureSession(req.params.sessionId);
+  // Enforce department scoping: department-scoped admins can only view sessions for their department
+  try {
+    const { resolveScopedDepartment } = await import("../../utils/tenantContext.js");
+    const scopedDept = await resolveScopedDepartment(req);
+    if (scopedDept) {
+      const metaDept = session.metadata?.department || null;
+      if (!metaDept || metaDept.toString().trim().toLowerCase() !== scopedDept.toString().trim().toLowerCase()) {
+        // allow if this user created the session
+        if (!session.adminUserId || session.adminUserId.toString() !== req.user._id.toString()) {
+          throw new AppError("Access denied for this upload session", 403);
+        }
+      }
+    }
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+  }
 
   res.status(200).json({
     status: "success",
@@ -277,6 +343,22 @@ export const previewUploadRestore = catchAsync(async (req, res, next) => {
 
   if (session.restored) {
     return next(new AppError("This upload session has already been restored", 400));
+  }
+
+  // Enforce department scoping for preview
+  try {
+    const { resolveScopedDepartment } = await import("../../utils/tenantContext.js");
+    const scopedDept = await resolveScopedDepartment(req);
+    if (scopedDept) {
+      const metaDept = session.metadata?.department || null;
+      if (!metaDept || metaDept.toString().trim().toLowerCase() !== scopedDept.toString().trim().toLowerCase()) {
+        if (!session.adminUserId || session.adminUserId.toString() !== req.user._id.toString()) {
+          return next(new AppError("Access denied for this upload session", 403));
+        }
+      }
+    }
+  } catch (err) {
+    // ignore
   }
 
   const preview = await buildPreview(session);
@@ -294,6 +376,22 @@ export const restoreUploadSession = catchAsync(async (req, res, next) => {
 
   if (session.restored) {
     return next(new AppError("This upload session has already been restored", 400));
+  }
+
+  // Enforce department scoping for restore
+  try {
+    const { resolveScopedDepartment } = await import("../../utils/tenantContext.js");
+    const scopedDept = await resolveScopedDepartment(req);
+    if (scopedDept) {
+      const metaDept = session.metadata?.department || null;
+      if (!metaDept || metaDept.toString().trim().toLowerCase() !== scopedDept.toString().trim().toLowerCase()) {
+        if (!session.adminUserId || session.adminUserId.toString() !== req.user._id.toString()) {
+          return next(new AppError("Access denied for this upload session", 403));
+        }
+      }
+    }
+  } catch (err) {
+    // ignore
   }
 
   const restoreSummary = await executeRestore(session);
