@@ -150,3 +150,6 @@ fly.toml.*
 !pull_request_template.md
 /scripts
 /logs
+
+public/data/
+logs/
