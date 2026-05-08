@@ -3,6 +3,7 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import User from "../../models/User.js";
 import Mentorship from "../../models/Mentorship.js";
+import Thread from "../../models/Thread.js";
 import { protect } from "../../controllers/authController.js";
 import {
   getScopedCollegeCode,
@@ -308,21 +309,30 @@ router.get("/:mentorId/mentees-with-profiles", async (req, res) => {
       profiles.map((profile) => [profile.userId.toString(), profile])
     );
 
-    const menteesWithProfiles = mentees.map((mentee) => {
-      const profile = profileMap.get(mentee._id.toString());
-      return {
-        ...mentee,
-        avatar: profile?.photo || mentee.avatar || null,
-        profile: profile
-          ? {
-              department: profile.department,
-              sem: profile.sem,
-              usn: profile.usn,
-              photo: profile.photo || null,
-            }
-          : null,
-      };
-    });
+    const menteesWithProfiles = await Promise.all(
+      mentees.map(async (mentee) => {
+        const profile = profileMap.get(mentee._id.toString());
+        
+        // Count threads between this mentor and mentee
+        const threadCount = await Thread.countDocuments({
+          participants: { $all: [mentorId, mentee._id] }
+        });
+
+        return {
+          ...mentee,
+          avatar: profile?.photo || mentee.avatar || null,
+          threadCount,
+          profile: profile
+            ? {
+                department: profile.department,
+                sem: profile.sem,
+                usn: profile.usn,
+                photo: profile.photo || null,
+              }
+            : null,
+        };
+      })
+    );
 
     res.status(200).json({
       mentees: menteesWithProfiles,

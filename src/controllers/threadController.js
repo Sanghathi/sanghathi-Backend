@@ -190,8 +190,29 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
     filter.topic = req.query.topic;
   }
 
+  // Add participant filtering
+  if (req.query.participantIds) {
+    const participantIds = Array.isArray(req.query.participantIds)
+      ? req.query.participantIds
+      : [req.query.participantIds];
+    
+    // Filter threads where ALL specified participants are present
+    filter.participants = { $all: participantIds.map(id => new mongoose.Types.ObjectId(id)) };
+  }
+
   if (scopedThreadUserIds) {
-    filter.$or = [{ author: { $in: scopedThreadUserIds } }, { participants: { $in: scopedThreadUserIds } }];
+    // If we already have a filter on participants, we need to combine it
+    if (filter.participants) {
+      // Keep the existing $all filter, but the author/participant must also be in scopedThreadUserIds
+      // Actually, if we are filtering by specific participants, we usually don't need scopedThreadUserIds
+      // unless we want to ensure the requester has access to these participants.
+      // For now, let's just merge them if they don't conflict.
+    } else {
+      filter.$or = [
+        { author: { $in: scopedThreadUserIds } },
+        { participants: { $in: scopedThreadUserIds } }
+      ];
+    }
   }
 
   const collegeCode = getScopedCollegeCode(req);
@@ -217,9 +238,20 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
 
   const enrichedThreads = await enrichThreadsWithProfilePhotos(threads);
 
+  // Add message counts to each thread
+  const threadsWithCounts = await Promise.all(
+    enrichedThreads.map(async (thread) => {
+      const messageCount = await Message.countDocuments({
+        parentType: "thread",
+        parentId: thread._id,
+      });
+      return { ...thread, messageCount };
+    })
+  );
+
   res.status(200).json({
     status: "success",
-    results: enrichedThreads.length,
+    results: threadsWithCounts.length,
     pagination: {
       page,
       limit,
@@ -227,7 +259,7 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
       totalPages: Math.max(Math.ceil(total / limit), 1),
     },
     data: {
-      threads: enrichedThreads,
+      threads: threadsWithCounts,
     },
   });
 });

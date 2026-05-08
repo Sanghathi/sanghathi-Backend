@@ -62,6 +62,7 @@ import dataRoutes from "./routes/Admin/dataRoutes.js";
 import morganMiddleware from "./utils/morganMiddleware.js";
 import collegeRoutes from "./routes/collegeRoutes.js";
 import departmentRoutes from "./routes/departmentRoutes.js";
+import hodRoutes from "./routes/hodRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -108,7 +109,8 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "script-src": ["'self'", "static.cloudflareinsights.com"],
+        "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'", "static.cloudflareinsights.com", "www.googletagmanager.com", "https://www.googletagmanager.com"],
+        "connect-src": ["'self'", "https://region1.google-analytics.com", "https://www.google-analytics.com", "https://*.google-analytics.com"]
       },
     },
   })
@@ -160,6 +162,7 @@ app.use("/api/v1/admissions", admissionRoutes);
 app.use("/api/v1/contact-details", contactDetailsRoutes);
 app.use("/api/parent-details", parentDetailsRoutes);
 app.use("/api/faculty", facultyRouter);
+app.use("/api/hod", hodRoutes);
 app.use("/api/career-counselling", CareerCounsellingRoutes);
 app.use("/api/proffessional-body", ProffessionalBodyRoutes);
 app.use("/api/mooc-data", MoocRoutes);
