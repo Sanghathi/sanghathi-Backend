@@ -24,6 +24,14 @@ const FeedbackWindowSchema = new Schema(
       default: 1,
       enum: [1, 2],
     },
+    enrolledStudentCount: {
+      type: Number,
+      default: 0,
+    },
+    enrollmentLastUpdated: {
+      type: Date,
+      default: null,
+    },
     updatedBy: {
       type: Schema.Types.ObjectId,
       ref: "User",

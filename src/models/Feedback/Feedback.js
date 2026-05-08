@@ -19,17 +19,91 @@ const FeedbackDetailsSchema = new Schema(
       required: true,
       enum: [1, 2],
     },
-    issues: {
+    department: {
       type: String,
+      required: true,
+      trim: true,
     },
-    features: {
-      type: String,
+    // 9 Rating Fields (1-5 scale)
+    mentorAccessibility: {
+      type: Number,
+      min: 1,
+      max: 5,
+      required: true,
     },
-    performance: {
-      type: String,
+    mentorInteraction: {
+      type: Number,
+      min: 1,
+      max: 5,
+      required: true,
     },
-    feedback: {
+    academicHelp: {
+      type: Number,
+      min: 1,
+      max: 5,
+      required: true,
+    },
+    mentorConcern: {
+      type: Number,
+      min: 1,
+      max: 5,
+      required: true,
+    },
+    listeningSkills: {
+      type: Number,
+      min: 1,
+      max: 5,
+      required: true,
+    },
+    professionalMotivation: {
+      type: Number,
+      min: 1,
+      max: 5,
+      required: true,
+    },
+    barrierResolution: {
+      type: Number,
+      min: 1,
+      max: 5,
+      required: true,
+    },
+    systemEffectiveness: {
+      type: Number,
+      min: 1,
+      max: 5,
+      required: true,
+    },
+    continuationWillingness: {
+      type: Number,
+      min: 1,
+      max: 5,
+      required: true,
+    },
+    // Yes/No Questions
+    awareOfPST: {
+      type: Boolean,
+      default: false,
+    },
+    awareOfPLT: {
+      type: Boolean,
+      default: false,
+    },
+    // Text Field
+    remarks: {
       type: String,
+      default: "",
+    },
+    // Calculated Average Score
+    averageScore: {
+      type: Number,
+      min: 1,
+      max: 5,
+      default: null,
+    },
+    // Submission timestamp
+    submittedAt: {
+      type: Date,
+      default: Date.now,
     },
   },
   { timestamps: true }
