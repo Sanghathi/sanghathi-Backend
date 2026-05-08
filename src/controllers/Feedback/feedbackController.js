@@ -54,7 +54,7 @@ const normalizeRound = (value) => {
   return [1, 2].includes(numericValue) ? numericValue : null;
 };
 
-const buildFeedbackFilter = ({ userId, semester, feedbackRound }) => {
+const buildFeedbackFilter = ({ userId, semester, feedbackRound, department, college }) => {
   const filter = {};
 
   if (userId) {
@@ -63,6 +63,14 @@ const buildFeedbackFilter = ({ userId, semester, feedbackRound }) => {
 
   if (semester) {
     filter.semester = semester;
+  }
+
+  if (department) {
+    filter.department = department;
+  }
+
+  if (college) {
+    filter.college = college;
   }
 
   const normalizedRound = normalizeRound(feedbackRound);
@@ -275,11 +283,13 @@ export const getFeedbackByUserId = catchAsync(async (req, res, next) => {
 
 export const getFeedbackOverview = catchAsync(async (req, res) => {
   const activeWindow = await ensureFeedbackWindow();
-  const { semester, feedbackRound, userId } = req.query;
+  const { semester, feedbackRound, userId, department, college } = req.query;
   const feedbackFilter = buildFeedbackFilter({
     semester: semester || activeWindow.semester,
     feedbackRound: feedbackRound || activeWindow.feedbackRound,
     userId,
+    department,
+    college
   });
 
   const [feedbacks, totalCount, roundCounts, semesterCounts] = await Promise.all([
