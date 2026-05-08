@@ -376,10 +376,16 @@ export const getFeedbackStats = catchAsync(async (req, res, next) => {
 
   const averageScoreOverall = statsAgg[0]?.averageScoreOverall || 0;
 
-  // Get total enrolled students from FeedbackWindow
-  const window = await FeedbackWindow.findOne({ key: WINDOW_KEY });
-  const totalEnrolled = window?.enrolledStudentCount || 0;
+  // Get total enrolled students dynamically from User model
+  const enrollmentFilter = { roleName: "student" };
+  if (semester) {
+    enrollmentFilter.sem = Number(semester);
+  }
+  if (department) {
+    enrollmentFilter.department = department;
+  }
 
+  const totalEnrolled = await User.countDocuments(enrollmentFilter);
   const responseRate = totalEnrolled > 0 ? ((respondedCount / totalEnrolled) * 100).toFixed(2) : 0;
 
   res.status(200).json({
