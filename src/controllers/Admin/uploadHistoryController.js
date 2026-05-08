@@ -83,6 +83,43 @@ const resolveUserIdsForSession = (session) => {
   return toObjectIdList(session.affectedUserIds);
 };
 
+const getSessionEntries = (session) => (Array.isArray(session.metadata?.entries) ? session.metadata.entries : []);
+
+const cloneValue = (value) => {
+  if (value === undefined || value === null) {
+    return value;
+  }
+
+  return JSON.parse(JSON.stringify(value));
+};
+
+const normalizeSemester = (value) => {
+  const semester = Number.parseInt(value, 10);
+  return Number.isFinite(semester) && semester > 0 ? semester : null;
+};
+
+const resolveIatRestoreTargets = (session) => {
+  const entries = Array.isArray(session.metadata?.entries) ? session.metadata.entries : [];
+  const targetsByUser = new Map();
+
+  for (const entry of entries) {
+    const userId = entry?.userId ? String(entry.userId) : "";
+    const semester = normalizeSemester(entry?.semester);
+
+    if (!userId || !semester) {
+      continue;
+    }
+
+    if (!targetsByUser.has(userId)) {
+      targetsByUser.set(userId, new Set());
+    }
+
+    targetsByUser.get(userId).add(semester);
+  }
+
+  return targetsByUser;
+};
+
 const getRestoreModelForTab = (tabType) => {
   switch (tabType) {
     case "add-attendance":
@@ -126,6 +163,81 @@ const buildPreview = async (session) => {
     throw new AppError("Restore is not supported for this tab", 400);
   }
 
+  const entries = getSessionEntries(session);
+
+  if (["add-attendance", "add-iat-marks", "add-external-marks", "add-tyl-marks", "add-mooc-details", "add-mini-project-details"].includes(session.tabType)) {
+    if (entries.length === 0) {
+      throw new AppError("This upload session does not include restore metadata and cannot be restored safely.", 400);
+    }
+
+    if (session.tabType === "add-attendance") {
+      const restoreTargets = entries
+        .map((entry) => ({
+          userId: entry?.userId ? String(entry.userId) : "",
+          semester: normalizeSemester(entry?.semester),
+          month: normalizeSemester(entry?.month),
+        }))
+        .filter((entry) => entry.userId && entry.semester && entry.month);
+
+      return {
+        tabType: session.tabType,
+        usersToUpdate: new Set(restoreTargets.map((entry) => entry.userId)).size,
+        monthsToRestore: restoreTargets.length,
+        restoreTargets,
+        affectedUserIds: userIds,
+      };
+    }
+
+    if (["add-iat-marks", "add-external-marks", "add-tyl-marks"].includes(session.tabType)) {
+      const restoreTargets = entries
+        .map((entry) => ({
+          userId: entry?.userId ? String(entry.userId) : "",
+          semester: normalizeSemester(entry?.semester),
+        }))
+        .filter((entry) => entry.userId && entry.semester);
+
+      return {
+        tabType: session.tabType,
+        usersToUpdate: new Set(restoreTargets.map((entry) => entry.userId)).size,
+        semestersToRestore: restoreTargets.length,
+        restoreTargets,
+        affectedUserIds: userIds,
+      };
+    }
+
+    if (session.tabType === "add-mooc-details") {
+      const restoreTargets = entries
+        .map((entry) => ({
+          userId: entry?.userId ? String(entry.userId) : "",
+          hasSnapshot: Object.prototype.hasOwnProperty.call(entry || {}, "previousMooc"),
+        }))
+        .filter((entry) => entry.userId && entry.hasSnapshot);
+
+      return {
+        tabType: session.tabType,
+        usersToUpdate: restoreTargets.length,
+        restoreTargets,
+        affectedUserIds: userIds,
+      };
+    }
+
+    if (session.tabType === "add-mini-project-details") {
+      const restoreTargets = entries
+        .map((entry) => ({
+          userId: entry?.userId ? String(entry.userId) : "",
+          hasSnapshot: Object.prototype.hasOwnProperty.call(entry || {}, "previousMiniProject"),
+        }))
+        .filter((entry) => entry.userId && entry.hasSnapshot);
+
+      return {
+        tabType: session.tabType,
+        usersToUpdate: restoreTargets.length,
+        restoreTargets,
+        affectedUserIds: userIds,
+      };
+    }
+  }
+
   const documentsToDelete = await model.countDocuments({ userId: { $in: userIds } });
 
   return {
@@ -163,6 +275,187 @@ const executeRestore = async (session) => {
     };
   }
 
+  const entries = getSessionEntries(session);
+
+  const restoreSemesterRecord = async ({ model, fieldName, userId, semester, snapshot }) => {
+    const document = await model.findOne({ userId });
+
+    if (!document) {
+      if (snapshot !== undefined) {
+        const createPayload = { userId };
+        createPayload[fieldName] = snapshot === null ? [] : [cloneValue(snapshot)];
+        await model.create(createPayload);
+        return { updated: true, deleted: false };
+      }
+
+      return { updated: false, deleted: false };
+    }
+
+    const records = Array.isArray(document[fieldName]) ? [...document[fieldName]] : [];
+    const recordIndex = records.findIndex((entry) => Number(entry.semester) === semester);
+
+    if (snapshot === undefined) {
+      return { updated: false, deleted: false };
+    }
+
+    if (snapshot === null) {
+      if (recordIndex !== -1) {
+        records.splice(recordIndex, 1);
+      }
+    } else if (recordIndex === -1) {
+      records.push(cloneValue(snapshot));
+    } else {
+      records[recordIndex] = cloneValue(snapshot);
+    }
+
+    if (records.length === 0) {
+      await model.deleteOne({ _id: document._id });
+      return { updated: true, deleted: true };
+    }
+
+    document[fieldName] = records;
+    await document.save();
+    return { updated: true, deleted: false };
+  };
+
+  if (session.tabType === "add-attendance") {
+    if (entries.length === 0) {
+      throw new AppError("This upload session does not include restore metadata and cannot be restored safely.", 400);
+    }
+
+    let updatedCount = 0;
+    let deletedDocuments = 0;
+
+    for (const entry of entries) {
+      const userId = entry?.userId ? String(entry.userId) : "";
+      const semester = normalizeSemester(entry?.semester);
+      const month = normalizeSemester(entry?.month);
+      const previousMonth = Object.prototype.hasOwnProperty.call(entry || {}, "previousMonth") ? entry.previousMonth : undefined;
+
+      if (!userId || !semester || !month) continue;
+
+      const attendance = await Attendance.findOne({ userId });
+      if (!attendance) continue;
+
+      const semesterIndex = attendance.semesters.findIndex((item) => Number(item.semester) === semester);
+      if (semesterIndex === -1) continue;
+
+      const semesterDoc = attendance.semesters[semesterIndex];
+      const monthIndex = semesterDoc.months.findIndex((item) => Number(item.month) === month);
+
+      if (previousMonth === undefined) {
+        continue;
+      }
+
+      if (previousMonth === null) {
+        if (monthIndex !== -1) {
+          semesterDoc.months.splice(monthIndex, 1);
+        }
+      } else if (monthIndex === -1) {
+        semesterDoc.months.push(cloneValue(previousMonth));
+      } else {
+        semesterDoc.months[monthIndex] = cloneValue(previousMonth);
+      }
+
+      if (semesterDoc.months.length === 0) {
+        attendance.semesters.splice(semesterIndex, 1);
+      }
+
+      if (attendance.semesters.length === 0) {
+        await Attendance.deleteOne({ _id: attendance._id });
+        deletedDocuments += 1;
+      } else {
+        await attendance.save();
+      }
+
+      updatedCount += 1;
+    }
+
+    return {
+      tabType: session.tabType,
+      updatedCount,
+      deletedDocuments,
+      restoreTargets: entries,
+    };
+  }
+
+  if (["add-iat-marks", "add-external-marks", "add-tyl-marks"].includes(session.tabType)) {
+    if (entries.length === 0) {
+      throw new AppError("This upload session does not include restore metadata and cannot be restored safely.", 400);
+    }
+
+    const model = session.tabType === "add-iat-marks" ? Iat : session.tabType === "add-external-marks" ? External : TYLScores;
+    const fieldName = "semesters";
+    const snapshotField = session.tabType === "add-tyl-marks" ? "previousSemester" : "previousSemester";
+
+    let updatedCount = 0;
+    let deletedDocuments = 0;
+
+    for (const entry of entries) {
+      const userId = entry?.userId ? String(entry.userId) : "";
+      const semester = normalizeSemester(entry?.semester);
+      const snapshot = Object.prototype.hasOwnProperty.call(entry || {}, snapshotField) ? entry[snapshotField] : undefined;
+
+      if (!userId || !semester) continue;
+
+      const result = await restoreSemesterRecord({ model, fieldName, userId, semester, snapshot });
+      if (result.updated) {
+        updatedCount += 1;
+      }
+      if (result.deleted) {
+        deletedDocuments += 1;
+      }
+    }
+
+    return {
+      tabType: session.tabType,
+      updatedCount,
+      deletedDocuments,
+      restoreTargets: entries,
+    };
+  }
+
+  if (["add-mooc-details", "add-mini-project-details"].includes(session.tabType)) {
+    if (entries.length === 0) {
+      throw new AppError("This upload session does not include restore metadata and cannot be restored safely.", 400);
+    }
+
+    const model = session.tabType === "add-mooc-details" ? MoocData : MiniProjectData;
+    const fieldName = session.tabType === "add-mooc-details" ? "mooc" : "miniproject";
+
+    let updatedCount = 0;
+    let deletedDocuments = 0;
+
+    for (const entry of entries) {
+      const userId = entry?.userId ? String(entry.userId) : "";
+      const snapshotField = session.tabType === "add-mooc-details" ? "previousMooc" : "previousMiniProject";
+      const snapshot = Object.prototype.hasOwnProperty.call(entry || {}, snapshotField) ? entry[snapshotField] : undefined;
+
+      if (!userId || snapshot === undefined) continue;
+
+      if (snapshot === null) {
+        const result = await model.deleteOne({ userId });
+        deletedDocuments += result.deletedCount || 0;
+        updatedCount += 1;
+        continue;
+      }
+
+      await model.findOneAndUpdate(
+        { userId },
+        { [fieldName]: cloneValue(snapshot) },
+        { new: true, upsert: true }
+      );
+      updatedCount += 1;
+    }
+
+    return {
+      tabType: session.tabType,
+      updatedCount,
+      deletedDocuments,
+      restoreTargets: entries,
+    };
+  }
+
   const model = getRestoreModelForTab(session.tabType);
   if (!model) {
     throw new AppError("Restore is not supported for this tab", 400);
@@ -173,6 +466,7 @@ const executeRestore = async (session) => {
   return {
     tabType: session.tabType,
     deletedDocuments: result.deletedCount || 0,
+    deletedUsers: userIds.length,
   };
 };
 

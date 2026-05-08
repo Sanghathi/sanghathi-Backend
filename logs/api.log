@@ -138,3 +138,15 @@ GET /api/students/iat/69fcd6cccdb4264d66c4566a 404 381.653 ms - 706
 POST /api/users/login 401 130.643 ms - 698
 GET /api/faculty/profile/69fc15513c6f97086059dd82 404 298.712 ms - 726
 GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 401 2.061 ms - 3236
+GET /api/users?page=1&limit=500&fields=_id,name,email,roleName,avatar,photo&includeProfiles=true 403 245.522 ms - 3134
+GET /api/career-counselling/career/69fcd6cccdb4264d66c4566a 404 389.925 ms - 736
+GET /api/career-counselling/career/69fcd6cccdb4264d66c4566a 404 479.069 ms - 736
+GET /api/students/iat/69fcd6cccdb4264d66c4566a 404 642.570 ms - 706
+GET /api/students/external/69fcd6cccdb4264d66c4566a 404 633.618 ms - 770
+GET /api/users?page=1&limit=500&fields=_id,name,email,roleName,avatar,photo&includeProfiles=true 403 281.217 ms - 3134
+POST /api/admin/upload-history/69fd88ab80eaece523b4cbd4/restore-preview 400 403.944 ms - 800
+POST /api/faculty/profile 400 459.225 ms - 982
+POST /api/faculty/profile 400 377.216 ms - 998
+POST /api/faculty/profile 400 511.289 ms - 970
+POST /api/faculty/profile 400 3713.684 ms - 998
+GET /api/users?page=1&limit=500&fields=_id,name,email,roleName,avatar,photo&includeProfiles=true 403 171.647 ms - 3134
