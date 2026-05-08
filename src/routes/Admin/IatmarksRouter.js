@@ -9,10 +9,13 @@ import {
 const router = Router();
 
 router.use(protect);
-router.use(restrictTo("admin", "hod", "director"));
 
-router.route("/:userId").post(submitIatData).delete(deleteAllIat);
+// Allow all authenticated users to GET their IAT data.
+// Restrict create/delete operations to admin/hod/director only.
+router.route('/:userId')
+  .post(restrictTo('admin', 'hod', 'director'), submitIatData)
+  .delete(restrictTo('admin', 'hod', 'director'), deleteAllIat);
 
-router.get("/:id", getIatById);
+router.get('/:id', getIatById);
 
 export default router;
