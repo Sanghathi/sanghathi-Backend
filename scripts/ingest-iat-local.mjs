@@ -655,9 +655,28 @@ const buildPlan = async ({ db, records, targetSemester }) => {
         return semesterRecord;
       }
 
+      // Merge subjects by subjectCode: update only provided fields, keep existing otherwise
+      const existingSubjects = Array.isArray(semesterRecord.subjects) ? semesterRecord.subjects : [];
+      const existingByCode = new Map(
+        existingSubjects.map((es) => [String(es.subjectCode).toUpperCase(), es])
+      );
+
+      for (const s of record.subjects) {
+        const code = String(s.subjectCode).toUpperCase();
+        const existing = existingByCode.get(code);
+        if (existing) {
+          if (s.subjectName !== undefined) existing.subjectName = s.subjectName;
+          if (s.iat1 !== undefined) existing.iat1 = s.iat1;
+          if (s.iat2 !== undefined) existing.iat2 = s.iat2;
+          if (s.avg !== undefined) existing.avg = s.avg;
+        } else {
+          existingSubjects.push(s);
+        }
+      }
+
       return {
         semester: targetSemester,
-        subjects: record.subjects,
+        subjects: existingSubjects,
       };
     });
 

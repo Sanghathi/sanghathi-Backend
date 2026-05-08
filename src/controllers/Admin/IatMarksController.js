@@ -39,12 +39,47 @@ export const submitIatData = async (req, res) => {
 
     if (semesterIndex === -1) {
       // Add a new semester if it doesn't exist
-      iat.semesters.push({ semester, subjects });
+      // Ensure stored marks are strings where appropriate
+      const normalizedSubjects = subjects.map((s) => ({
+        subjectCode: s.subjectCode,
+        subjectName: s.subjectName,
+        iat1: s.iat1 !== undefined ? String(s.iat1) : undefined,
+        iat2: s.iat2 !== undefined ? String(s.iat2) : undefined,
+        avg: s.avg !== undefined ? String(s.avg) : undefined,
+      }));
+
+      iat.semesters.push({ semester, subjects: normalizedSubjects });
       logger.info(`New semester ${semester} added for user ${userId}`);
     } else {
-      // Update the subjects for the existing semester (FIXED: No duplication)
-      iat.semesters[semesterIndex].subjects = subjects;
-      logger.info(`Semester ${semester} updated for user ${userId}`);
+      // Merge incoming subjects into existing semester subjects:
+      const existingSubjects = iat.semesters[semesterIndex].subjects || [];
+      const existingByCode = new Map(
+        existingSubjects.map((es) => [String(es.subjectCode).toUpperCase(), es])
+      );
+
+      for (const s of subjects) {
+        const code = String(s.subjectCode).toUpperCase();
+        const existing = existingByCode.get(code);
+        if (existing) {
+          // Update only provided fields
+          if (s.subjectName !== undefined) existing.subjectName = s.subjectName;
+          if (s.iat1 !== undefined) existing.iat1 = String(s.iat1);
+          if (s.iat2 !== undefined) existing.iat2 = String(s.iat2);
+          if (s.avg !== undefined) existing.avg = String(s.avg);
+        } else {
+          // Add new subject
+          existingSubjects.push({
+            subjectCode: s.subjectCode,
+            subjectName: s.subjectName,
+            iat1: s.iat1 !== undefined ? String(s.iat1) : undefined,
+            iat2: s.iat2 !== undefined ? String(s.iat2) : undefined,
+            avg: s.avg !== undefined ? String(s.avg) : undefined,
+          });
+        }
+      }
+
+      iat.semesters[semesterIndex].subjects = existingSubjects;
+      logger.info(`Semester ${semester} merged for user ${userId}`);
     }
 
     await iat.save();

@@ -112,3 +112,4 @@ GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 401 3.278 ms - 3236
 GET /api/career-counselling/career/69fcd6cccdb4264d66c4566a 404 352.223 ms - 736
 GET /api/students/iat/69fcd6cccdb4264d66c4566a 403 253.904 ms - 2520
 GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 401 11.716 ms - 3236
+GET /api/students/external/69fcd6cccdb4264d66c4566a 404 534.957 ms - 770
