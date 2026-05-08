@@ -204,6 +204,15 @@ if (process.env.NODE_ENV !== "production") {
 
 swaggerDocs(app);
 
+// Basic landing route for direct browser access to the backend.
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "success",
+    message: "Sanghathi backend is running",
+    docs: "/api-docs",
+  });
+});
+
 // Handle non-existing routes
 app.all("*", (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));

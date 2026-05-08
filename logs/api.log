@@ -136,3 +136,5 @@ GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 401 5.307 ms - 3236
 GET / 404 1.699 ms - 3050
 GET /api/students/iat/69fcd6cccdb4264d66c4566a 404 381.653 ms - 706
 POST /api/users/login 401 130.643 ms - 698
+GET /api/faculty/profile/69fc15513c6f97086059dd82 404 298.712 ms - 726
+GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 401 2.061 ms - 3236
