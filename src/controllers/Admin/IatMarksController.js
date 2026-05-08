@@ -55,58 +55,20 @@ export const submitIatData = async (req, res) => {
     // Find the index of the existing semester
     const semesterIndex = iat.semesters.findIndex((s) => s.semester === semester);
 
-    if (semesterIndex === -1) {
-      // Add a new semester if it doesn't exist
-      // Ensure stored marks are strings where appropriate
-      const normalizedSubjects = subjects.map((s) => ({
-        subjectCode: s.subjectCode,
-        subjectName: s.subjectName,
-        iat1: s.iat1 !== undefined ? String(s.iat1) : undefined,
-        iat2: s.iat2 !== undefined ? String(s.iat2) : undefined,
-        avg: computeAverage(s),
-      }));
+    const normalizedSubjects = subjects.map((s) => ({
+      subjectCode: s.subjectCode,
+      subjectName: s.subjectName,
+      iat1: s.iat1 !== undefined ? String(s.iat1) : undefined,
+      iat2: s.iat2 !== undefined ? String(s.iat2) : undefined,
+      avg: computeAverage(s),
+    }));
 
+    if (semesterIndex === -1) {
       iat.semesters.push({ semester, subjects: normalizedSubjects });
       logger.info(`New semester ${semester} added for user ${userId}`);
     } else {
-      // Merge incoming subjects into existing semester subjects:
-      const existingSubjects = iat.semesters[semesterIndex].subjects || [];
-      const existingByCode = new Map(
-        existingSubjects.map((es) => [String(es.subjectCode).toUpperCase(), es])
-      );
-
-      for (const s of subjects) {
-        const code = String(s.subjectCode).toUpperCase();
-        const existing = existingByCode.get(code);
-        if (existing) {
-          // Update only provided fields
-          if (s.subjectName !== undefined) existing.subjectName = s.subjectName;
-          if (s.iat1 !== undefined) existing.iat1 = String(s.iat1);
-          if (s.iat2 !== undefined) existing.iat2 = String(s.iat2);
-          if (s.avg !== undefined) {
-            existing.avg = String(s.avg);
-          } else {
-            const computedAvg = computeAverage({
-              iat1: s.iat1 !== undefined ? s.iat1 : existing.iat1,
-              iat2: s.iat2 !== undefined ? s.iat2 : existing.iat2,
-              avg: existing.avg,
-            });
-            if (computedAvg !== undefined) existing.avg = computedAvg;
-          }
-        } else {
-          // Add new subject
-          existingSubjects.push({
-            subjectCode: s.subjectCode,
-            subjectName: s.subjectName,
-            iat1: s.iat1 !== undefined ? String(s.iat1) : undefined,
-            iat2: s.iat2 !== undefined ? String(s.iat2) : undefined,
-            avg: computeAverage(s),
-          });
-        }
-      }
-
-      iat.semesters[semesterIndex].subjects = existingSubjects;
-      logger.info(`Semester ${semester} merged for user ${userId}`);
+      iat.semesters[semesterIndex].subjects = normalizedSubjects;
+      logger.info(`Semester ${semester} overwritten for user ${userId}`);
     }
 
     await iat.save();

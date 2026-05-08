@@ -114,3 +114,5 @@ GET /api/students/iat/69fcd6cccdb4264d66c4566a 403 253.904 ms - 2520
 GET /api/notifications/6440827f7b7d9337a2202d16?unread=true 401 11.716 ms - 3236
 GET /api/students/external/69fcd6cccdb4264d66c4566a 404 534.957 ms - 770
 GET /api/v1/academics/69fcd6cccdb4264d66c4566a 404 358.769 ms - 718
+POST /api/admin/upload-history/69fd76b4d59c9f7328f0691b/restore-preview 400 267.175 ms - 800
+GET /api/students/iat/69fcd6cccdb4264d66c4566a 404 401.744 ms - 706
