@@ -8,6 +8,24 @@ export const submitIatData = async (req, res) => {
     const { semester, subjects } = req.body;
     const userId = req.params.userId;
 
+    const computeAverage = (subject) => {
+      if (subject.avg !== undefined && subject.avg !== null && subject.avg !== "") {
+        return String(subject.avg);
+      }
+
+      const iat1 = Number(subject.iat1);
+      const iat2 = Number(subject.iat2);
+      const values = [iat1, iat2].filter((value) => Number.isFinite(value));
+
+      if (!values.length) {
+        return undefined;
+      }
+
+      const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+      const rounded = Math.round(average * 100) / 100;
+      return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+    };
+
     if (!semester || !subjects || !Array.isArray(subjects)) {
       return res.status(400).json({ message: "Missing or invalid required fields (semester, subjects)" });
     }
@@ -45,7 +63,7 @@ export const submitIatData = async (req, res) => {
         subjectName: s.subjectName,
         iat1: s.iat1 !== undefined ? String(s.iat1) : undefined,
         iat2: s.iat2 !== undefined ? String(s.iat2) : undefined,
-        avg: s.avg !== undefined ? String(s.avg) : undefined,
+        avg: computeAverage(s),
       }));
 
       iat.semesters.push({ semester, subjects: normalizedSubjects });
@@ -65,7 +83,16 @@ export const submitIatData = async (req, res) => {
           if (s.subjectName !== undefined) existing.subjectName = s.subjectName;
           if (s.iat1 !== undefined) existing.iat1 = String(s.iat1);
           if (s.iat2 !== undefined) existing.iat2 = String(s.iat2);
-          if (s.avg !== undefined) existing.avg = String(s.avg);
+          if (s.avg !== undefined) {
+            existing.avg = String(s.avg);
+          } else {
+            const computedAvg = computeAverage({
+              iat1: s.iat1 !== undefined ? s.iat1 : existing.iat1,
+              iat2: s.iat2 !== undefined ? s.iat2 : existing.iat2,
+              avg: existing.avg,
+            });
+            if (computedAvg !== undefined) existing.avg = computedAvg;
+          }
         } else {
           // Add new subject
           existingSubjects.push({
@@ -73,7 +100,7 @@ export const submitIatData = async (req, res) => {
             subjectName: s.subjectName,
             iat1: s.iat1 !== undefined ? String(s.iat1) : undefined,
             iat2: s.iat2 !== undefined ? String(s.iat2) : undefined,
-            avg: s.avg !== undefined ? String(s.avg) : undefined,
+            avg: computeAverage(s),
           });
         }
       }

@@ -135,6 +135,24 @@ const parseMarkValue = (value) => {
   return raw;
 };
 
+const formatAverage = (subject) => {
+  if (subject.avg !== undefined && subject.avg !== null && subject.avg !== "") {
+    return String(subject.avg);
+  }
+
+  const iat1 = Number(subject.iat1);
+  const iat2 = Number(subject.iat2);
+  const values = [iat1, iat2].filter((value) => Number.isFinite(value));
+
+  if (!values.length) {
+    return undefined;
+  }
+
+  const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const rounded = Math.round(average * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+};
+
 const detectHeaderRowIndex = (rows) => {
   const maxRowsToInspect = Math.min(rows.length, 30);
 
@@ -254,9 +272,7 @@ const extractSubjectFromGroup = (row, group, rowNumber) => {
   if (iat2 !== undefined) {
     subject.iat2 = iat2;
   }
-  if (avg !== undefined) {
-    subject.avg = avg;
-  }
+  subject.avg = avg !== undefined ? avg : formatAverage(subject);
 
   return { subject, error: null };
 };
