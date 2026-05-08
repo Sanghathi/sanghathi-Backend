@@ -55,7 +55,15 @@ let server = app.listen(port, "0.0.0.0", () => {
 
 const io = SocketManager.createServer(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:3000", "https://sanghathi.com"],
+    origin: process.env.NODE_ENV === "development" 
+      ? [
+          "http://localhost:3000",
+          "http://localhost:5173",
+          /^http:\/\/(\d+\.\d+\.\d+\.\d+):3000$/,
+          /^http:\/\/(\d+\.\d+\.\d+\.\d+):5173$/,
+          "https://sanghathi.com"
+        ]
+      : ["https://sanghathi.com"],
     methods: ["GET", "POST"],
     credentials: true
   },

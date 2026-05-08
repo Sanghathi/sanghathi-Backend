@@ -75,12 +75,25 @@ app.set('trust proxy', 1);
 
 //1) GLOBAL MIDDLEWARE
 // Configure CORS to allow requests from any origin during development
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://sanghathi.com",
+];
+
+// Add all local IP patterns for development
+if (process.env.NODE_ENV === "development") {
+  allowedOrigins.push(
+    /^http:\/\/(\d+\.\d+\.\d+\.\d+):3000$/, // Allow any IP on port 3000
+    /^http:\/\/(\d+\.\d+\.\d+\.\d+):5173$/, // Allow any IP on port 5173
+    /^http:\/\/127\.0\.0\.1/,
+    /^http:\/\/\[::1\]/ // IPv6 localhost
+  );
+}
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://sanghathi.com",
-    ],
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
