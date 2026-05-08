@@ -16,9 +16,26 @@ export const createOrUpdateMiniProject = catchAsync(async (req, res, next) => {
     }
 
     try {
+        const sanitized = miniproject.map((p) => {
+            const semRaw = p.semester;
+            let sem = null;
+            if (semRaw !== undefined && semRaw !== null && semRaw !== "") {
+                const parsed = Number(semRaw);
+                if (!Number.isNaN(parsed) && parsed >= 1 && parsed <= 8) sem = parsed;
+            }
+
+            return {
+                title: p.title || "",
+                semester: sem,
+                manHours: p.manHours !== undefined && p.manHours !== null ? Number(p.manHours) : null,
+                startDate: p.startDate || null,
+                completedDate: p.completedDate || null,
+            };
+        });
+
         const updatedMiniProject = await MiniProjectData.findOneAndUpdate(
             { userId },
-            { miniproject: miniproject },
+            { miniproject: sanitized },
             { new: true, upsert: true }
         );
 

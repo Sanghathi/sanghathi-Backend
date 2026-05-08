@@ -11,12 +11,13 @@ const MoocSchema = new mongoose.Schema({
     },
     mooc: [
         {
-            portal: String, 
-            title: String, 
-            startDate: Date, 
-            completedDate: Date, 
+            portal: String,
+            title: String,
+            semester: { type: Number, min: 1, max: 8 },
+            startDate: Date,
+            completedDate: Date,
             score: { type: Number, min: 0, max: 100 },
-            certificateLink: String
+            certificateLink: String,
         },
     ],
 });

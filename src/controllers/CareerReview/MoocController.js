@@ -16,9 +16,29 @@ export const createOrUpdateMooc = catchAsync(async (req, res, next) => {
     }
 
     try {
+        // sanitize incoming semester values: accept numeric 1-8 or null
+        const sanitized = mooc.map((m) => {
+            const semRaw = m.semester;
+            let sem = null;
+            if (semRaw !== undefined && semRaw !== null && semRaw !== "") {
+                const parsed = Number(semRaw);
+                if (!Number.isNaN(parsed) && parsed >= 1 && parsed <= 8) sem = parsed;
+            }
+
+            return {
+                portal: m.portal || m.Platform || "",
+                title: m.title || m.CourseName || "",
+                semester: sem,
+                startDate: m.startDate || m.StartDate || null,
+                completedDate: m.completedDate || m.completedDate || m.EndDate || null,
+                score: m.score || null,
+                certificateLink: m.certificateLink || m.CertificateLink || "",
+            };
+        });
+
         const updatedMooc = await MoocData.findOneAndUpdate(
             { userId },
-            { mooc: mooc },
+            { mooc: sanitized },
             { new: true, upsert: true }
         );
 
