@@ -2,8 +2,10 @@ import Feedback from "../../models/Feedback/Feedback.js";
 import FeedbackWindow from "../../models/Feedback/FeedbackWindow.js";
 import User from "../../models/User.js";
 import Mentorship from "../../models/Mentorship.js";
+import mongoose from "mongoose";
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
+import { resolveScopedDepartment } from "../../utils/tenantContext.js";
 
 const WINDOW_KEY = "global";
 
@@ -66,11 +68,8 @@ const buildFeedbackFilter = ({ userId, semester, feedbackRound, department, coll
   }
 
   if (department) {
-    filter.department = department;
-  }
-
-  if (college) {
-    filter.college = college;
+    // Use case-insensitive regex for department matching
+    filter.department = { $regex: new RegExp(`^${department}$`, 'i') };
   }
 
   const normalizedRound = normalizeRound(feedbackRound);
@@ -200,10 +199,22 @@ export const createOrUpdateFeedback = catchAsync(async (req, res, next) => {
     return next(new AppError("Feedback round is not configured", 400));
   }
 
-  // Fetch user to get department
-  const userDoc = await User.findById(userId).select("department");
+  // Fetch user to get department - try User first, then StudentProfile
+  let studentDept = "N/A";
+  const userDoc = await User.findById(userId).select("department collegeCode");
   if (!userDoc) {
     return next(new AppError("User not found", 404));
+  }
+
+  if (userDoc.department) {
+    studentDept = userDoc.department;
+  } else {
+    // Try to resolve from StudentProfile
+    const StudentProfile = mongoose.model("StudentProfile");
+    const profile = await StudentProfile.findOne({ userId: userDoc._id }).select("department").lean();
+    if (profile?.department) {
+      studentDept = profile.department;
+    }
   }
 
   // Calculate average score
@@ -220,7 +231,7 @@ export const createOrUpdateFeedback = catchAsync(async (req, res, next) => {
         userId,
         semester: activeWindow.semester,
         feedbackRound,
-        department: userDoc.department || "N/A",
+        department: studentDept,
         mentorAccessibility,
         mentorInteraction,
         academicHelp,
@@ -284,12 +295,16 @@ export const getFeedbackByUserId = catchAsync(async (req, res, next) => {
 export const getFeedbackOverview = catchAsync(async (req, res) => {
   const activeWindow = await ensureFeedbackWindow();
   const { semester, feedbackRound, userId, department, college } = req.query;
+  const scopedDepartment = await resolveScopedDepartment(req);
+  
   const feedbackFilter = buildFeedbackFilter({
     semester: semester || activeWindow.semester,
     feedbackRound: feedbackRound || activeWindow.feedbackRound,
     userId,
-    department,
-    college
+    department: (req.user.roleName === 'hod' || req.user.roleName === 'director') 
+      ? (scopedDepartment || department) 
+      : department,
+    college: college || req.user.collegeCode
   });
 
   const [feedbacks, totalCount, roundCounts, semesterCounts] = await Promise.all([
@@ -361,13 +376,18 @@ export const getFeedbackStats = catchAsync(async (req, res, next) => {
     return next(new AppError("round must be 1 or 2", 400));
   }
 
+  const scopedDepartment = await resolveScopedDepartment(req);
+  const activeDepartment = (req.user.roleName === 'hod' || req.user.roleName === 'director')
+    ? (scopedDepartment || department)
+    : (department || scopedDepartment);
+
   const filter = {
     semester,
     feedbackRound: normalizedRound,
   };
 
-  if (department) {
-    filter.department = department;
+  if (activeDepartment) {
+    filter.department = activeDepartment;
   }
 
   // Count total students and responded count

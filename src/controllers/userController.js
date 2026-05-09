@@ -325,7 +325,7 @@ export const getUser = catchAsync(async (req, res, next) => {
   const { id: userId } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(userId)) {
-    return next(new AppError("Invalid user ID", 400));
+    return next(new AppError(`Invalid user ID: ${userId}`, 400));
   }
 
   const includeProfiles = parseBoolean(
@@ -370,17 +370,32 @@ export const getUser = catchAsync(async (req, res, next) => {
 
   const collegeCode = getScopedCollegeCode(req);
   if (collegeCode && user.collegeCode && user.collegeCode !== collegeCode) {
+    logger.warn("[getUser] College mismatch access denied", {
+      requestedId: userId,
+      userCollege: user.collegeCode,
+      scopedCollege: collegeCode,
+    });
     return next(new AppError("Access denied for this college", 403));
   }
 
-  const scopedDepartment = getScopedDepartment(req);
+  // Use the async resolver for department scoping if applicable
+  const scopedDepartment = await resolveScopedDepartment(req);
   if (scopedDepartment) {
-    const normalizedScoped = scopedDepartment?.trim().toLowerCase();
-    const profileDeptMatch = [user.department, user?.profile?.department]
+    const normalizedScoped = (scopedDepartment || "").trim().toLowerCase();
+    
+    // Check both User-level department and potential profile-level department
+    const profileDeptMatch = [user.department]
       .filter(Boolean)
-      .map((d) => (typeof d === "string" ? d.trim().toLowerCase() : d));
+      .map((d) => d.trim().toLowerCase());
 
+    // We only restrict if the user ALREADY has a department field and it doesn't match
+    // If they don't have it yet, we'll check again after fetching profiles
     if (profileDeptMatch.length && !profileDeptMatch.includes(normalizedScoped)) {
+      logger.warn("[getUser] Department mismatch access denied", {
+        requestedId: userId,
+        userDept: user.department,
+        scopedDept: normalizedScoped,
+      });
       return next(new AppError("Access denied for this department", 403));
     }
   }
@@ -400,18 +415,18 @@ export const getUser = catchAsync(async (req, res, next) => {
     mongoose
       .model("StudentProfile")
       .findOne(profileFilter)
-      .select("department sem usn photo")
       .lean(),
     mongoose
       .model("FacultyProfile")
       .findOne(profileFilter)
-      .select("department cabin photo")
       .lean(),
   ]);
 
   const enhancedUser = { ...user };
-
+  
+  // Attach profiles for components that expect them (like ViewingContextHeader)
   if (studentProfile) {
+    enhancedUser.studentProfile = studentProfile;
     enhancedUser.department = studentProfile.department;
     enhancedUser.sem = studentProfile.sem;
     enhancedUser.usn = studentProfile.usn;
@@ -422,6 +437,7 @@ export const getUser = catchAsync(async (req, res, next) => {
   }
 
   if (facultyProfile) {
+    enhancedUser.facultyProfile = facultyProfile;
     if (!enhancedUser.department) {
       enhancedUser.department = facultyProfile.department;
     }
@@ -432,6 +448,19 @@ export const getUser = catchAsync(async (req, res, next) => {
     if (facultyProfile.photo) {
       enhancedUser.avatar = facultyProfile.photo;
     }
+  }
+
+  // Final department scoping check if it was deferred
+  if (scopedDepartment && enhancedUser.department) {
+     const normalizedScoped = (scopedDepartment || "").trim().toLowerCase();
+     if (enhancedUser.department.trim().toLowerCase() !== normalizedScoped) {
+        logger.warn("[getUser] Defered department mismatch access denied", {
+            requestedId: userId,
+            resolvedDept: enhancedUser.department,
+            scopedDept: normalizedScoped
+        });
+        return next(new AppError("Access denied for this department", 403));
+     }
   }
 
   return res.status(200).json({
