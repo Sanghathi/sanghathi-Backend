@@ -7,6 +7,7 @@ import {
   deleteUser,
   getUserByUSN,
   resetPassword,
+  setStrCoordinatorDepartment,
 } from "../controllers/userController.js";
 import {
   signup,
@@ -145,6 +146,30 @@ router.use(protect);
 
 /**
  * @swagger
+ * /api/users/set-department:
+ *   patch:
+ *     summary: Set department for STR Coordinator
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               department:
+ *                 type: string
+ *                 example: "CSE"
+ *     responses:
+ *       200:
+ *         description: Department set successfully
+ *       403:
+ *         description: User is not a STR Coordinator
+ */
+router.patch("/set-department", setStrCoordinatorDepartment);
+
+/**
+ * @swagger
  * /api/users/usn/{usn}:
  *   get:
  *     summary: Get user by USN
@@ -160,7 +185,7 @@ router.use(protect);
  *       200:
  *         description: User details
  */
-router.get("/usn/:usn", restrictTo("admin", "faculty", "hod", "director"), getUserByUSN);
+router.get("/usn/:usn", restrictTo("admin", "faculty", "hod", "director", "strcoordinator"), getUserByUSN);
 
 /**
  * @swagger
@@ -192,7 +217,7 @@ router.get("/usn/:usn", restrictTo("admin", "faculty", "hod", "director"), getUs
  *         description: User created successfully
  */
 router.route("/")
-  .get(restrictTo("admin", "faculty", "hod", "director"), getAllUsers)
+  .get(restrictTo("admin", "faculty", "hod", "director", "strcoordinator"), getAllUsers)
   .post(restrictTo("admin", "hod", "director"), createUser);
 
 /**

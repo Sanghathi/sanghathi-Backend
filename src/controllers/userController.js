@@ -697,3 +697,38 @@ export const resetPasswordWithToken = catchAsync(async (req, res, next) => {
     message: "Password reset successful",
   });
 });
+
+// STR Coordinator / Director - Set selected department
+export const setStrCoordinatorDepartment = catchAsync(async (req, res, next) => {
+  const { department } = req.body;
+  const userId = req.user._id;
+
+  // Verify that the user is a strcoordinator or director
+  if (req.user.roleName !== "strcoordinator" && req.user.roleName !== "director") {
+    return next(
+      new AppError("Only STR Coordinators and Directors can select a department", 403)
+    );
+  }
+
+  if (!department) {
+    return next(new AppError("Department is required", 400));
+  }
+
+  // Update the user's department
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    { department: department.trim().toUpperCase() },
+    { runValidators: true, new: true }
+  );
+
+  if (!updatedUser) {
+    return next(new AppError("User not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      user: updatedUser,
+    },
+  });
+});
