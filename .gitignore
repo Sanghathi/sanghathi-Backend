@@ -153,3 +153,7 @@ fly.toml.*
 
 public/data/
 logs/
+# Backend data folder
+data/
+public/data/
+logs/
