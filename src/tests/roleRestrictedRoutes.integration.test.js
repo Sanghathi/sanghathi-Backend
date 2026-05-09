@@ -132,9 +132,9 @@ describe("role restricted routes integration", () => {
     expect(payload.message.toLowerCase()).toContain("log in");
   });
 
-  it("returns 403 for faculty role on IAT route", async () => {
+  it("returns 403 for faculty role on IAT create route", async () => {
     const response = await doRequest({
-      method: "GET",
+      method: "POST",
       path: "/api/students/Iat/test-user-id",
       role: "faculty",
     });
