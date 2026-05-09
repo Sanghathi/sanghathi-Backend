@@ -1,8 +1,35 @@
 import MiniProjectData from "../../models/CareerReview/MiniProject.js";
+import StudentProfile from "../../models/Student/Profile.js";
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 
 import logger from "../../utils/logger.js";
+
+const parseSemesterValue = (value, fallback = null) => {
+    const semesterValue = value !== undefined && value !== null && `${value}`.trim() !== ""
+        ? Number(value)
+        : Number(fallback);
+
+    if (Number.isInteger(semesterValue) && semesterValue >= 1 && semesterValue <= 8) {
+        return semesterValue;
+    }
+
+    return null;
+};
+
+const normalizeDateValue = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime()) || parsedDate.getTime() > Date.now()) {
+        return null;
+    }
+
+    return parsedDate;
+};
+
 export const createOrUpdateMiniProject = catchAsync(async (req, res, next) => {
     const { userId, miniproject } = req.body;
 
@@ -16,20 +43,16 @@ export const createOrUpdateMiniProject = catchAsync(async (req, res, next) => {
     }
 
     try {
-        const sanitized = miniproject.map((p) => {
-            const semRaw = p.semester;
-            let sem = null;
-            if (semRaw !== undefined && semRaw !== null && semRaw !== "") {
-                const parsed = Number(semRaw);
-                if (!Number.isNaN(parsed) && parsed >= 1 && parsed <= 8) sem = parsed;
-            }
+        const studentProfile = await StudentProfile.findOne({ userId }).select("sem").lean();
+        const fallbackSemester = studentProfile?.sem ?? null;
 
+        const sanitized = miniproject.map((p) => {
             return {
                 title: p.title || "",
-                semester: sem,
+                semester: parseSemesterValue(p.semester, fallbackSemester),
                 manHours: p.manHours !== undefined && p.manHours !== null ? Number(p.manHours) : null,
-                startDate: p.startDate || null,
-                completedDate: p.completedDate || null,
+                startDate: normalizeDateValue(p.startDate),
+                completedDate: normalizeDateValue(p.completedDate),
             };
         });
 
