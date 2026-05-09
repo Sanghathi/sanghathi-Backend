@@ -51,6 +51,10 @@ const ensureFeedbackWindow = async () => {
   );
 };
 
+const findFeedbackWindow = async () => {
+  return FeedbackWindow.findOne({ key: WINDOW_KEY });
+};
+
 const normalizeRound = (value) => {
   const numericValue = Number(value);
   return [1, 2].includes(numericValue) ? numericValue : null;
@@ -99,7 +103,7 @@ const serializeFeedbackWindow = (windowDoc) => {
 };
 
 export const getFeedbackWindow = catchAsync(async (_req, res) => {
-  const windowDoc = await ensureFeedbackWindow();
+  const windowDoc = await findFeedbackWindow();
 
   res.status(200).json({
     status: "success",
@@ -185,9 +189,13 @@ export const createOrUpdateFeedback = catchAsync(async (req, res, next) => {
     }
   }
 
-  const activeWindow = await ensureFeedbackWindow();
+  const activeWindow = await findFeedbackWindow();
+  if (!activeWindow) {
+    return next(new AppError("No feedback window has been created", 404));
+  }
+
   if (!activeWindow.isEnabled) {
-    return next(new AppError("Feedback is currently disabled", 403));
+    return next(new AppError("Feedback window is closed", 403));
   }
 
   if (!activeWindow.semester) {
@@ -268,12 +276,14 @@ export const getFeedbackByUserId = catchAsync(async (req, res, next) => {
     return next(new AppError("userId param is required", 400));
   }
 
-  const activeWindow = await ensureFeedbackWindow();
+  const activeWindow = await findFeedbackWindow();
+  const semesterScope = semester || activeWindow?.semester;
+  const roundScope = feedbackRound || activeWindow?.feedbackRound;
   const feedbackDoc = await Feedback.findOne(
     buildFeedbackFilter({
       userId,
-      semester: semester || activeWindow.semester,
-      feedbackRound: feedbackRound || activeWindow.feedbackRound,
+      semester: semesterScope,
+      feedbackRound: roundScope,
     })
   )
     .sort({ createdAt: -1 })
@@ -293,13 +303,15 @@ export const getFeedbackByUserId = catchAsync(async (req, res, next) => {
 });
 
 export const getFeedbackOverview = catchAsync(async (req, res) => {
-  const activeWindow = await ensureFeedbackWindow();
+  const activeWindow = await findFeedbackWindow();
   const { semester, feedbackRound, userId, department, college } = req.query;
   const scopedDepartment = await resolveScopedDepartment(req);
+  const semesterScope = semester || activeWindow?.semester;
+  const roundScope = feedbackRound || activeWindow?.feedbackRound;
   
   const feedbackFilter = buildFeedbackFilter({
-    semester: semester || activeWindow.semester,
-    feedbackRound: feedbackRound || activeWindow.feedbackRound,
+    semester: semesterScope,
+    feedbackRound: roundScope,
     userId,
     department: (req.user.roleName === 'hod' || req.user.roleName === 'director') 
       ? (scopedDepartment || department) 
@@ -325,10 +337,24 @@ export const getFeedbackOverview = catchAsync(async (req, res) => {
     ]),
   ]);
 
+  const latestFeedback = feedbacks[0] || null;
+  const selection = activeWindow
+    ? {
+        semester: activeWindow.semester,
+        feedbackRound: activeWindow.feedbackRound,
+      }
+    : latestFeedback
+      ? {
+          semester: latestFeedback.semester,
+          feedbackRound: latestFeedback.feedbackRound,
+        }
+      : null;
+
   res.status(200).json({
     status: "success",
     data: {
       window: serializeFeedbackWindow(activeWindow),
+      selection,
       summary: {
         totalCount,
         roundCounts,
