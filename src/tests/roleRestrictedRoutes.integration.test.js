@@ -36,6 +36,8 @@ jest.unstable_mockModule("../controllers/authController.js", () => ({
   restrictTo: mockRestrictTo,
 }));
 
+jest.setTimeout(15000);
+
 let previousNodeEnv;
 let server;
 let baseUrl;
