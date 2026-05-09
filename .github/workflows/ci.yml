@@ -10,6 +10,18 @@ jobs:
     strategy:
       matrix:
         node-version: [20, 22]
+    env:
+      MONGODB_URI: mongodb://localhost:27017/sanghathi-test
+    services:
+      mongo:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --quiet --eval \"db.adminCommand('ping')\" || exit 1"
+          --health-interval=5s
+          --health-timeout=2s
+          --health-retries=5
     steps:
       - uses: actions/checkout@v5
 
@@ -20,6 +32,10 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Wait for MongoDB to be ready
+        run: |
+          node -e "const { MongoClient } = require('mongodb'); (async ()=>{for(let i=0;i<30;i++){try{const c=new MongoClient(process.env.MONGODB_URI); await c.connect(); await c.db('admin').command({ping:1}); await c.close(); console.log('mongo ready'); process.exit(0);}catch(e){console.log('waiting for mongo',i); await new Promise(r=>setTimeout(r,2000));}} console.error('mongo not ready'); process.exit(1);})();"
 
       - name: Security Audit
         run: npm audit --audit-level=high
