@@ -309,13 +309,15 @@ export const getFeedbackOverview = catchAsync(async (req, res) => {
   const semesterScope = semester || activeWindow?.semester;
   const roundScope = feedbackRound || activeWindow?.feedbackRound;
   
+  const isDeptScopedRole = ["hod", "director", "strcoordinator"].includes(
+    req.user.roleName
+  );
+
   const feedbackFilter = buildFeedbackFilter({
     semester: semesterScope,
     feedbackRound: roundScope,
     userId,
-    department: (req.user.roleName === 'hod' || req.user.roleName === 'director') 
-      ? (scopedDepartment || department) 
-      : department,
+    department: isDeptScopedRole ? (scopedDepartment || department) : department,
     college: college || req.user.collegeCode
   });
 
@@ -403,7 +405,11 @@ export const getFeedbackStats = catchAsync(async (req, res, next) => {
   }
 
   const scopedDepartment = await resolveScopedDepartment(req);
-  const activeDepartment = (req.user.roleName === 'hod' || req.user.roleName === 'director')
+  const isDeptScopedRole = ["hod", "director", "strcoordinator"].includes(
+    req.user.roleName
+  );
+
+  const activeDepartment = isDeptScopedRole
     ? (scopedDepartment || department)
     : (department || scopedDepartment);
 
@@ -437,8 +443,8 @@ export const getFeedbackStats = catchAsync(async (req, res, next) => {
   if (semester) {
     enrollmentFilter.sem = Number(semester);
   }
-  if (department) {
-    enrollmentFilter.department = department;
+  if (activeDepartment) {
+    enrollmentFilter.department = activeDepartment;
   }
 
   const totalEnrolled = await User.countDocuments(enrollmentFilter);
@@ -492,8 +498,11 @@ export const getFeedbackByMentor = catchAsync(async (req, res, next) => {
     }
   }
 
-  if (department) {
-    feedbackFilter.department = department;
+  const scopedDepartment = await resolveScopedDepartment(req);
+  const activeDepartment = scopedDepartment || department;
+
+  if (activeDepartment) {
+    feedbackFilter.department = activeDepartment;
   }
 
   // Fetch mentor and feedback data
