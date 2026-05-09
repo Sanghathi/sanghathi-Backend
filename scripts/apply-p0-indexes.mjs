@@ -9,6 +9,61 @@ dotenv.config({ path: path.join(process.cwd(), ".env") });
 
 const INDEX_SPECS = [
   {
+    collection: "users",
+    key: { collegeCode: 1, roleName: 1, status: 1 },
+    options: { name: "idx_users_college_role_status" },
+  },
+  {
+    collection: "studentprofiles",
+    key: { collegeCode: 1, userId: 1 },
+    options: { name: "idx_studentprofiles_college_user" },
+  },
+  {
+    collection: "studentprofiles",
+    key: { collegeCode: 1, department: 1 },
+    options: { name: "idx_studentprofiles_college_department" },
+  },
+  {
+    collection: "studentprofiles",
+    key: { collegeCode: 1, departmentId: 1 },
+    options: { name: "idx_studentprofiles_college_departmentId" },
+  },
+  {
+    collection: "studentprofiles",
+    key: { collegeCode: 1, usn: 1 },
+    options: { name: "idx_studentprofiles_college_usn" },
+  },
+  {
+    collection: "facultyprofiles",
+    key: { collegeCode: 1, userId: 1 },
+    options: { name: "idx_facultyprofiles_college_user" },
+  },
+  {
+    collection: "facultyprofiles",
+    key: { collegeCode: 1, department: 1 },
+    options: { name: "idx_facultyprofiles_college_department" },
+  },
+  {
+    collection: "facultyprofiles",
+    key: { collegeCode: 1, departmentId: 1 },
+    options: { name: "idx_facultyprofiles_college_departmentId" },
+  },
+  {
+    collection: "admissiondetails",
+    key: { collegeCode: 1, branch: 1 },
+    options: { name: "idx_admissiondetails_college_branch" },
+  },
+  {
+    collection: "admissiondetails",
+    key: { collegeCode: 1, admissionYear: 1, semester: 1 },
+    options: { name: "idx_admissiondetails_college_year_sem" },
+  },
+  {
+    collection: "admissiondetails",
+    key: { collegeCode: 1, usn: 1 },
+    options: { name: "idx_admissiondetails_college_usn" },
+  },
+  {
     collection: "attendances",
     key: { userId: 1 },
     options: { name: "idx_attendances_userId" },

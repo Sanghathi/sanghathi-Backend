@@ -1,5 +1,6 @@
 import StudentProfile from "../../models/Student/Profile.js"; 
 import asyncHandler from "express-async-handler"; 
+import { getScopedCollegeCode, mergeCollegeScope } from "../../utils/tenantContext.js";
 
 export const getStudentProfile = asyncHandler(async (req, res) => {
   const { userId } = req.params;
@@ -9,7 +10,9 @@ export const getStudentProfile = asyncHandler(async (req, res) => {
   }
 
   try {
-    const studentProfile = await StudentProfile.findOne({ userId });
+    const collegeCode = getScopedCollegeCode(req);
+    const profileFilter = mergeCollegeScope({ userId }, collegeCode);
+    const studentProfile = await StudentProfile.findOne(profileFilter);
 
     if (!studentProfile) {
       return res.status(404).json({ message: "Student profile not found" });

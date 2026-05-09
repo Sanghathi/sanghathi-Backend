@@ -3,7 +3,14 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import User from "../../models/User.js";
 import Mentorship from "../../models/Mentorship.js";
+import Thread from "../../models/Thread.js";
 import { protect } from "../../controllers/authController.js";
+import {
+  getScopedCollegeCode,
+  getScopedDepartment,
+  resolveScopedDepartment,
+  mergeCollegeScope,
+} from "../../utils/tenantContext.js";
 
 import logger from "../../utils/logger.js";
 const router = Router();
@@ -14,16 +21,26 @@ router.use(protect);
 router.get("/students", async (req, res) => {
   try {
     // First get all students
-    const students = await User.find({ roleName: "student" })
+    const collegeCode = getScopedCollegeCode(req);
+    const scopedDepartment = await resolveScopedDepartment(req);
+    const studentFilter = mergeCollegeScope({ roleName: "student" }, collegeCode);
+    const students = await User.find(studentFilter)
       .select("_id name email phone roleName avatar")
       .lean();
     logger.info(`Fetched ${students.length} students`);
 
     const studentIds = students.map((student) => student._id);
     const StudentProfile = mongoose.model("StudentProfile");
-    const studentProfiles = await StudentProfile.find({
-      userId: { $in: studentIds },
-    })
+    const profileFilter = mergeCollegeScope(
+      {
+        userId: { $in: studentIds },
+        ...(scopedDepartment
+          ? { department: { $regex: `^${scopedDepartment}$`, $options: "i" } }
+          : {}),
+      },
+      collegeCode
+    );
+    const studentProfiles = await StudentProfile.find(profileFilter)
       .select("userId department sem usn photo")
       .lean();
 
@@ -32,7 +49,8 @@ router.get("/students", async (req, res) => {
     );
     
     // Get all mentorships
-    const mentorships = await Mentorship.find()
+    // Only consider mentorships for the students in the current college/scope
+    const mentorships = await Mentorship.find({ menteeId: { $in: studentIds } })
       .select("mentorId menteeId")
       .lean();
     logger.info(`Fetched ${mentorships.length} mentorships`);
@@ -47,9 +65,11 @@ router.get("/students", async (req, res) => {
     const mentorIds = [...new Set(mentorships.map(m => m.mentorId.toString()))];
     
     // Fetch all mentors in a single query
-    const mentors = await User.find({ 
-      _id: { $in: mentorIds.map(id => new mongoose.Types.ObjectId(id)) } 
-    })
+    const mentorFilter = mergeCollegeScope(
+      { _id: { $in: mentorIds.map(id => new mongoose.Types.ObjectId(id)) } },
+      collegeCode
+    );
+    const mentors = await User.find(mentorFilter)
       .select("_id name email avatar")
       .lean();
     
@@ -60,7 +80,11 @@ router.get("/students", async (req, res) => {
     });
     
     // Prepare response data
-    const enhancedStudents = students.map(student => {
+    const baseStudents = scopedDepartment
+      ? students.filter((student) => profileMap.has(student._id.toString()))
+      : students;
+
+    const enhancedStudents = baseStudents.map(student => {
       // Convert to plain object 
       const studentObj = {
         _id: student._id,
@@ -127,6 +151,7 @@ router.get("/debug-profiles", async (req, res) => {
 router.post("/batch", async (req, res) => {
   try {
     const { mentorId, menteeIds, startDate } = req.body;
+    const collegeCode = getScopedCollegeCode(req);
     if (!mongoose.Types.ObjectId.isValid(mentorId)) {
       return res.status(400).json({ message: "Invalid mentor ID" });
     }
@@ -136,11 +161,27 @@ router.post("/batch", async (req, res) => {
       return res.status(400).json({ message: "Invalid mentor" });
     }
 
+    if (collegeCode && mentor.collegeCode && mentor.collegeCode !== collegeCode) {
+      return res.status(403).json({ message: "Mentor is not in this college" });
+    }
+
     const results = await Promise.all(
       menteeIds.map(async (menteeId) => {
         if (!mongoose.Types.ObjectId.isValid(menteeId)) return null;
         const mentee = await User.findById(menteeId);
         if (!mentee || mentee.roleName !== "student") return null;
+
+        if (collegeCode && mentee.collegeCode && mentee.collegeCode !== collegeCode) {
+          return null;
+        }
+
+        if (
+          mentor.collegeCode &&
+          mentee.collegeCode &&
+          mentor.collegeCode !== mentee.collegeCode
+        ) {
+          return null;
+        }
 
         return await Mentorship.findOneAndUpdate(
           { menteeId },
@@ -150,9 +191,11 @@ router.post("/batch", async (req, res) => {
       })
     );
 
+    const createdMentorships = results.filter(Boolean);
+
     res.status(201).json({
       message: "Mentorships created successfully",
-      count: results.length,
+      count: createdMentorships.length,
     });
   } catch (error) {
     logger.error(error);
@@ -266,21 +309,30 @@ router.get("/:mentorId/mentees-with-profiles", async (req, res) => {
       profiles.map((profile) => [profile.userId.toString(), profile])
     );
 
-    const menteesWithProfiles = mentees.map((mentee) => {
-      const profile = profileMap.get(mentee._id.toString());
-      return {
-        ...mentee,
-        avatar: profile?.photo || mentee.avatar || null,
-        profile: profile
-          ? {
-              department: profile.department,
-              sem: profile.sem,
-              usn: profile.usn,
-              photo: profile.photo || null,
-            }
-          : null,
-      };
-    });
+    const menteesWithProfiles = await Promise.all(
+      mentees.map(async (mentee) => {
+        const profile = profileMap.get(mentee._id.toString());
+        
+        // Count threads between this mentor and mentee
+        const threadCount = await Thread.countDocuments({
+          participants: { $all: [mentorId, mentee._id] }
+        });
+
+        return {
+          ...mentee,
+          avatar: profile?.photo || mentee.avatar || null,
+          threadCount,
+          profile: profile
+            ? {
+                department: profile.department,
+                sem: profile.sem,
+                usn: profile.usn,
+                photo: profile.photo || null,
+              }
+            : null,
+        };
+      })
+    );
 
     res.status(200).json({
       mentees: menteesWithProfiles,
@@ -412,17 +464,25 @@ router.get("/allocation-students", async (req, res) => {
     const skip = (page - 1) * limit;
     const department = req.query.department;
     const sem = req.query.sem;
+    const collegeCode = getScopedCollegeCode(req);
+    const scopedDepartment = getScopedDepartment(req);
 
     const StudentProfile = mongoose.model("StudentProfile");
-    const profileFilter = {};
+    let profileFilter = {};
 
     if (department && department !== "all") {
       profileFilter.department = department;
     }
 
+    if (!profileFilter.department && scopedDepartment) {
+      profileFilter.department = scopedDepartment;
+    }
+
     if (sem && sem !== "all") {
       profileFilter.sem = sem;
     }
+
+    profileFilter = mergeCollegeScope(profileFilter, collegeCode);
 
     let filteredProfileUserIds = null;
     if (Object.keys(profileFilter).length) {
@@ -445,10 +505,11 @@ router.get("/allocation-students", async (req, res) => {
       }
     }
 
-    const studentFilter = { roleName: "student" };
+    let studentFilter = { roleName: "student" };
     if (filteredProfileUserIds) {
       studentFilter._id = { $in: filteredProfileUserIds };
     }
+    studentFilter = mergeCollegeScope(studentFilter, collegeCode);
 
     const [students, totalStudents] = await Promise.all([
       User.find(studentFilter)
@@ -475,9 +536,9 @@ router.get("/allocation-students", async (req, res) => {
 
     const studentIds = students.map((student) => student._id);
 
-    const studentProfiles = await StudentProfile.find({
-      userId: { $in: studentIds },
-    })
+    const studentProfiles = await StudentProfile.find(
+      mergeCollegeScope({ userId: { $in: studentIds } }, collegeCode)
+    )
       .select("userId usn department sem photo")
       .lean();
     logger.info(`Found ${studentProfiles.length} student profiles for current page`);
@@ -499,9 +560,12 @@ router.get("/allocation-students", async (req, res) => {
     logger.info(`Found ${mentorIds.length} unique mentor IDs`);
     
     // Fetch all mentors
-    const mentors = await User.find({ 
-      _id: { $in: mentorIds.map(id => new mongoose.Types.ObjectId(id)) } 
-    })
+    const mentors = await User.find(
+      mergeCollegeScope(
+        { _id: { $in: mentorIds.map(id => new mongoose.Types.ObjectId(id)) } },
+        collegeCode
+      )
+    )
       .select("_id name email avatar")
       .lean();
     logger.info(`Found ${mentors.length} mentors`);
@@ -605,6 +669,9 @@ router.get("/mentors-with-mentees", async (req, res) => {
     const { department } = req.query;
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
+    const collegeCode = getScopedCollegeCode(req);
+    const scopedDepartment = getScopedDepartment(req);
+    const effectiveDepartment = scopedDepartment || department;
 
     const mentorships = await Mentorship.find()
       .select("mentorId menteeId")
@@ -644,13 +711,14 @@ router.get("/mentors-with-mentees", async (req, res) => {
     );
 
     const FacultyProfile = mongoose.model("FacultyProfile");
-    const facultyProfileFilter = {
-      userId: { $in: mentorIds },
-    };
-
-    if (department && department !== "all") {
-      facultyProfileFilter.department = department;
+    let facultyProfileFilter = {};
+    if (effectiveDepartment && effectiveDepartment !== "all") {
+      facultyProfileFilter.department = effectiveDepartment;
+    } else {
+      facultyProfileFilter.userId = { $in: mentorIds };
     }
+
+    facultyProfileFilter = mergeCollegeScope(facultyProfileFilter, collegeCode);
 
     const facultyProfiles = await FacultyProfile.find(facultyProfileFilter)
       .select("userId department cabin photo")
@@ -661,7 +729,7 @@ router.get("/mentors-with-mentees", async (req, res) => {
     );
 
     const filteredMentorIds =
-      department && department !== "all"
+      effectiveDepartment && effectiveDepartment !== "all"
         ? facultyProfiles.map((profile) => profile.userId)
         : mentorIds;
 
@@ -704,10 +772,12 @@ router.get("/mentors-with-mentees", async (req, res) => {
       menteeUsers.map((mentee) => [mentee._id.toString(), mentee.name])
     );
 
-    const mentors = await User.find({
-      _id: { $in: filteredMentorIds },
-      roleName: "faculty",
-    })
+    const mentors = await User.find(
+      mergeCollegeScope(
+        { _id: { $in: filteredMentorIds }, roleName: "faculty" },
+        collegeCode
+      )
+    )
       .select("_id name email phone department roleName avatar")
       .lean();
 

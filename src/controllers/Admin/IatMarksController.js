@@ -8,6 +8,24 @@ export const submitIatData = async (req, res) => {
     const { semester, subjects } = req.body;
     const userId = req.params.userId;
 
+    const computeAverage = (subject) => {
+      if (subject.avg !== undefined && subject.avg !== null && subject.avg !== "") {
+        return String(subject.avg);
+      }
+
+      const iat1 = Number(subject.iat1);
+      const iat2 = Number(subject.iat2);
+      const values = [iat1, iat2].filter((value) => Number.isFinite(value));
+
+      if (!values.length) {
+        return undefined;
+      }
+
+      const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+      const rounded = Math.round(average * 100) / 100;
+      return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+    };
+
     if (!semester || !subjects || !Array.isArray(subjects)) {
       return res.status(400).json({ message: "Missing or invalid required fields (semester, subjects)" });
     }
@@ -37,14 +55,20 @@ export const submitIatData = async (req, res) => {
     // Find the index of the existing semester
     const semesterIndex = iat.semesters.findIndex((s) => s.semester === semester);
 
+    const normalizedSubjects = subjects.map((s) => ({
+      subjectCode: s.subjectCode,
+      subjectName: s.subjectName,
+      iat1: s.iat1 !== undefined ? String(s.iat1) : undefined,
+      iat2: s.iat2 !== undefined ? String(s.iat2) : undefined,
+      avg: computeAverage(s),
+    }));
+
     if (semesterIndex === -1) {
-      // Add a new semester if it doesn't exist
-      iat.semesters.push({ semester, subjects });
+      iat.semesters.push({ semester, subjects: normalizedSubjects });
       logger.info(`New semester ${semester} added for user ${userId}`);
     } else {
-      // Update the subjects for the existing semester (FIXED: No duplication)
-      iat.semesters[semesterIndex].subjects = subjects;
-      logger.info(`Semester ${semester} updated for user ${userId}`);
+      iat.semesters[semesterIndex].subjects = normalizedSubjects;
+      logger.info(`Semester ${semester} overwritten for user ${userId}`);
     }
 
     await iat.save();

@@ -3,7 +3,16 @@ import Role from "../../models/Role.js";
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 import StudentProfile from "../../models/Student/Profile.js";
+import Department from "../../models/Department.js";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload.js";
+import {
+  getScopedCollegeCode,
+  getScopedDepartment,
+  resolveScopedDepartment,
+  mergeCollegeScope,
+  resolveCollegeCode,
+} from "../../utils/tenantContext.js";
+import { resolveDepartmentForCollege } from "../../utils/departmentResolver.js";
 
 import fs from 'fs';
 import path from 'path';
@@ -23,6 +32,7 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
     userId,
     fullName,
     department,
+    departmentId,
     sem,
     personalEmail,
     email,
@@ -44,6 +54,7 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
     sportsLevel,
     defenceOrExServiceman,
     photo,
+    collegeCode,
   } = req.body;
 
   // Initialize photoUrl
@@ -64,6 +75,48 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
     logger.info('Using existing photo URL:', photoUrl);
   }
 
+  const resolvedCollegeCode = resolveCollegeCode({
+    body: { collegeCode },
+    user: req.user,
+  });
+
+  const scopedDepartment = getScopedDepartment(req);
+  if (scopedDepartment && department && department !== scopedDepartment) {
+    return next(
+      new AppError("Department does not match your scoped department", 403)
+    );
+  }
+
+  const effectiveDepartment = department || scopedDepartment;
+  let resolvedDepartmentId = departmentId;
+  let normalizedDepartment = effectiveDepartment;
+
+  if (effectiveDepartment) {
+    const departmentDoc = await resolveDepartmentForCollege({
+      department: effectiveDepartment,
+      collegeCode: resolvedCollegeCode,
+    });
+
+    if (!departmentDoc) {
+      return next(new AppError("Invalid department for college", 400));
+    }
+
+    normalizedDepartment = departmentDoc.name;
+    resolvedDepartmentId = departmentDoc._id;
+  } else if (departmentId) {
+    const departmentDoc = await Department.findOne({
+      _id: departmentId,
+      collegeCode: resolvedCollegeCode,
+    }).lean();
+
+    if (!departmentDoc) {
+      return next(new AppError("Invalid department for college", 400));
+    }
+
+    normalizedDepartment = departmentDoc.name;
+    resolvedDepartmentId = departmentDoc._id;
+  }
+
   const profileData = {
     userId,
     fullName: {
@@ -71,7 +124,8 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
       middleName: fullName?.middleName,
       lastName: fullName?.lastName,
     },
-    department,
+    department: normalizedDepartment,
+    departmentId: resolvedDepartmentId,
     sem,
     personalEmail,
     email,
@@ -93,6 +147,7 @@ export const createOrUpdateStudentProfile = catchAsync(async (req, res, next) =>
     sportsLevel,
     defenceOrExServiceman,
     photo: photoUrl, // Store the Cloudinary URL
+    collegeCode: resolvedCollegeCode,
   };
 
   try {
@@ -156,9 +211,13 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
   }
 
   // Use aggregation pipeline to get students with mentor information
-  const students = await User.aggregate([
+  const collegeCode = getScopedCollegeCode(req);
+  const scopedDepartment = await resolveScopedDepartment(req);
+  const matchFilter = mergeCollegeScope({ role: studentRole._id }, collegeCode);
+
+  const pipeline = [
     {
-      $match: { role: studentRole._id }
+      $match: matchFilter
     },
     {
       $lookup: {
@@ -174,6 +233,24 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
         preserveNullAndEmptyArrays: true
       }
     },
+  ];
+
+  if (scopedDepartment) {
+    // Match department case-insensitively to avoid mismatches due to casing/whitespace
+    pipeline.push({
+      $match: {
+        "profile.department": { $regex: `^${scopedDepartment}$`, $options: "i" },
+      },
+    });
+  }
+
+  // Debug: log scopedDepartment and number of pipeline stages so we can inspect runtime behavior
+  logger.debug("[getAllStudents] scopedDepartment and pipeline stage count:", {
+    scopedDepartment,
+    pipelineStageCount: pipeline.length,
+  });
+
+  pipeline.push(
     {
       $project: {
         _id: 1,
@@ -188,7 +265,9 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
         "profile.alternatePhoneNumber": 1
       }
     }
-  ]);
+  );
+
+  const students = await User.aggregate(pipeline);
 
   // Transform the data to match the expected format
   const transformedStudents = students.map(student => ({
@@ -214,7 +293,9 @@ export const getAllStudents = catchAsync(async (req, res, next) => {
 export const getStudentProfileById = catchAsync(async (req, res, next) => {
   const { id } = req.params;
 
-  const studentProfile = await StudentProfile.findOne({ userId: id });
+  const collegeCode = getScopedCollegeCode(req);
+  const profileFilter = mergeCollegeScope({ userId: id }, collegeCode);
+  const studentProfile = await StudentProfile.findOne(profileFilter);
 
   if (!studentProfile) {
     return next(new AppError("Student profile not found", 404));

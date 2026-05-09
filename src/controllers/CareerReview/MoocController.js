@@ -1,8 +1,35 @@
 import MoocData from "../../models/CareerReview/Mooc.js";
+import StudentProfile from "../../models/Student/Profile.js";
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 
 import logger from "../../utils/logger.js";
+
+const parseSemesterValue = (value, fallback = null) => {
+    const semesterValue = value !== undefined && value !== null && `${value}`.trim() !== ""
+        ? Number(value)
+        : Number(fallback);
+
+    if (Number.isInteger(semesterValue) && semesterValue >= 1 && semesterValue <= 8) {
+        return semesterValue;
+    }
+
+    return null;
+};
+
+const normalizeDateValue = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime()) || parsedDate.getTime() > Date.now()) {
+        return null;
+    }
+
+    return parsedDate;
+};
+
 export const createOrUpdateMooc = catchAsync(async (req, res, next) => {
     const { userId, mooc } = req.body;
 
@@ -16,9 +43,25 @@ export const createOrUpdateMooc = catchAsync(async (req, res, next) => {
     }
 
     try {
+        const studentProfile = await StudentProfile.findOne({ userId }).select("sem").lean();
+        const fallbackSemester = studentProfile?.sem ?? null;
+
+        // sanitize incoming semester values: accept numeric 1-8 or null
+        const sanitized = mooc.map((m) => {
+            return {
+                portal: m.portal || m.Platform || "",
+                title: m.title || m.CourseName || "",
+                semester: parseSemesterValue(m.semester, fallbackSemester),
+                startDate: normalizeDateValue(m.startDate || m.StartDate),
+                completedDate: normalizeDateValue(m.completedDate || m.EndDate),
+                score: m.score || null,
+                certificateLink: m.certificateLink || m.CertificateLink || "",
+            };
+        });
+
         const updatedMooc = await MoocData.findOneAndUpdate(
             { userId },
-            { mooc: mooc },
+            { mooc: sanitized },
             { new: true, upsert: true }
         );
 

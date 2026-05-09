@@ -7,6 +7,13 @@ import bcrypt from "bcrypt";
 import { encrypt, compare } from "../utils/passwordHelper.js";
 import mongoose from "mongoose";
 import { createHash } from "crypto";
+import {
+  getScopedCollegeCode,
+  getScopedDepartment,
+  resolveScopedDepartment,
+  mergeCollegeScope,
+  resolveCollegeCode,
+} from "../utils/tenantContext.js";
 
 const parseBoolean = (value, defaultValue = true) => {
   if (value === undefined) {
@@ -50,7 +57,7 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 500);
   const skip = (page - 1) * limit;
 
-  const fallbackUserFields = "name email phone avatar role roleName profile status lastActivity";
+  const fallbackUserFields = "name email phone avatar role roleName profile status lastActivity collegeCode";
   const allowedUserFields = new Set([
     "_id",
     "name",
@@ -63,6 +70,7 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
     "profile",
     "status",
     "lastActivity",
+    "collegeCode",
     "department",
     "sem",
     "usn",
@@ -79,7 +87,8 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
 
   // If a role is provided in the query, filter by role
   if (role) {
-    const roleDoc = await Role.findOne({ name: role }).select("_id").lean();
+    // match role case-insensitively
+    const roleDoc = await Role.findOne({ name: new RegExp(`^${role}$`, "i") }).select("_id").lean();
 
     // If no valid role is found, throw an error
     if (!roleDoc) {
@@ -102,16 +111,110 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
     }
   }
 
+  const collegeCode = getScopedCollegeCode(req);
+  const scopedDepartment = await resolveScopedDepartment(req);
+
+  // Debug logs to inspect scoping behaviour for department-scoped admins
+  logger.debug("[getAllUsers] resolved req.user summary:", {
+    id: req.user?._id,
+    email: req.user?.email,
+    roleName: req.user?.roleName,
+  });
+  logger.debug("[getAllUsers] scopedDepartment, collegeCode:", {
+    scopedDepartment,
+    collegeCode,
+  });
+  logger.debug("[getAllUsers] initial filter before dept scoping:", filter);
+
+  if (scopedDepartment) {
+    // Use a case-insensitive regex for department to avoid casing/whitespace mismatches
+    const deptRegex = new RegExp(`^${escapeRegex(scopedDepartment)}$`, "i");
+
+    // Find profiles that belong to the scoped department (students + faculty)
+    const profileFilterForDept = mergeCollegeScope({ department: deptRegex }, collegeCode);
+
+    const [studentProfilesByDept, facultyProfilesByDept] = await Promise.all([
+      mongoose.model("StudentProfile").find(profileFilterForDept).select("userId").lean(),
+      mongoose.model("FacultyProfile").find(profileFilterForDept).select("userId").lean(),
+    ]);
+
+    const scopedProfileUserIds = [
+      ...studentProfilesByDept.map((profile) => profile.userId),
+      ...facultyProfilesByDept.map((profile) => profile.userId),
+    ];
+
+    // Also include department-scoped admin/director/hod users from the same department
+    const deptScopedAdmins = await User.find(
+      mergeCollegeScope(
+        { roleName: { $in: ["admin", "director", "hod"] }, department: deptRegex },
+        collegeCode
+      )
+    ).select("_id").lean();
+
+    const deptAdminIds = deptScopedAdmins.map((user) => user._id);
+
+    const allowedOrReferencedFilter = {
+      $or: [
+        { department: deptRegex },
+        { _id: { $in: [...scopedProfileUserIds, ...deptAdminIds] } },
+      ],
+    };
+
+    logger.debug("[getAllUsers] scopedProfileUserIds count, deptAdminIds count:", {
+      scopedProfileUserIds: scopedProfileUserIds.length,
+      deptAdminIds: deptAdminIds.length,
+    });
+    logger.debug("[getAllUsers] allowedOrReferencedFilter:", allowedOrReferencedFilter);
+
+    // If a role is provided, prefer restricting by role + department/profile membership
+    if (role) {
+      // normalize role string for comparisons
+      const roleLower = (role || "").toString().toLowerCase();
+      const profileModel = roleLower === "student" ? "StudentProfile" : roleLower === "faculty" ? "FacultyProfile" : null;
+
+      if (profileModel) {
+          const profileUserIds = await mongoose
+            .model(profileModel)
+            .find(mergeCollegeScope({ department: deptRegex }, collegeCode))
+            .select("userId")
+            .lean();
+
+          const mappedIds = profileUserIds.map((profile) => profile.userId).filter(Boolean);
+          logger.info("[getAllUsers] profileUserIds mapped count for role", { role: roleLower, count: mappedIds.length });
+
+          if (mappedIds.length > 0) {
+            filter._id = { $in: mappedIds };
+          } else {
+            // Strictly enforce department scoping - if no profiles found in the department, return none
+            filter._id = { $in: [] };
+            logger.info("[getAllUsers] No department-matched profiles found for scoped role", {
+              role: roleLower,
+              scopedDepartment,
+            });
+          }
+        } else {
+        // role provided but not student/faculty -> apply role filter and department/profile membership
+        filter = { ...filter, $and: [allowedOrReferencedFilter] };
+      }
+    } else {
+      // No explicit role filter: restrict results to the scoped department and related users
+      filter = { ...filter, $and: [allowedOrReferencedFilter] };
+    }
+  }
+
   // Get all users with profile data
+  const scopedFilter = mergeCollegeScope(filter, collegeCode);
+  logger.debug("[getAllUsers] scopedFilter to be used for DB query:", scopedFilter);
+
   const [users, total] = await Promise.all([
-    User.find(filter)
+    User.find(scopedFilter)
       .select(selectedUserFields)
       .sort({ name: 1, _id: 1 })
       .skip(skip)
       .limit(limit)
       .populate({ path: "role", select: "name permissions" })
       .lean(),
-    User.countDocuments(filter),
+    User.countDocuments(scopedFilter),
   ]);
 
   if (users.length === 0) {
@@ -150,14 +253,19 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   const userIds = users.map(user => user._id);
   
   // Fetch student profiles
-  const studentProfiles = await mongoose.model('StudentProfile').find({ 
-    userId: { $in: userIds } 
-  }).select("userId department sem usn photo").lean();
+  const collegeScope = mergeCollegeScope({ userId: { $in: userIds } }, collegeCode);
+  const studentProfiles = await mongoose
+    .model("StudentProfile")
+    .find(collegeScope)
+    .select("userId department sem usn photo")
+    .lean();
   
   // Fetch faculty profiles
-  const facultyProfiles = await mongoose.model('FacultyProfile').find({ 
-    userId: { $in: userIds } 
-  }).select("userId department cabin photo").lean();
+  const facultyProfiles = await mongoose
+    .model("FacultyProfile")
+    .find(collegeScope)
+    .select("userId department cabin photo")
+    .lean();
   
   // Create maps for quick lookup
   const studentProfileMap = {};
@@ -217,7 +325,7 @@ export const getUser = catchAsync(async (req, res, next) => {
   const { id: userId } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(userId)) {
-    return next(new AppError("Invalid user ID", 400));
+    return next(new AppError(`Invalid user ID: ${userId}`, 400));
   }
 
   const includeProfiles = parseBoolean(
@@ -225,7 +333,7 @@ export const getUser = catchAsync(async (req, res, next) => {
     true
   );
 
-  const fallbackUserFields = "name email phone avatar role roleName profile status lastActivity";
+  const fallbackUserFields = "name email phone avatar role roleName profile status lastActivity collegeCode";
   const allowedUserFields = new Set([
     "_id",
     "name",
@@ -238,6 +346,7 @@ export const getUser = catchAsync(async (req, res, next) => {
     "profile",
     "status",
     "lastActivity",
+    "collegeCode",
     "department",
     "sem",
     "usn",
@@ -259,6 +368,38 @@ export const getUser = catchAsync(async (req, res, next) => {
     return next(new AppError("User not found", 404));
   }
 
+  const collegeCode = getScopedCollegeCode(req);
+  if (collegeCode && user.collegeCode && user.collegeCode !== collegeCode) {
+    logger.warn("[getUser] College mismatch access denied", {
+      requestedId: userId,
+      userCollege: user.collegeCode,
+      scopedCollege: collegeCode,
+    });
+    return next(new AppError("Access denied for this college", 403));
+  }
+
+  // Use the async resolver for department scoping if applicable
+  const scopedDepartment = await resolveScopedDepartment(req);
+  if (scopedDepartment) {
+    const normalizedScoped = (scopedDepartment || "").trim().toLowerCase();
+    
+    // Check both User-level department and potential profile-level department
+    const profileDeptMatch = [user.department]
+      .filter(Boolean)
+      .map((d) => d.trim().toLowerCase());
+
+    // We only restrict if the user ALREADY has a department field and it doesn't match
+    // If they don't have it yet, we'll check again after fetching profiles
+    if (profileDeptMatch.length && !profileDeptMatch.includes(normalizedScoped)) {
+      logger.warn("[getUser] Department mismatch access denied", {
+        requestedId: userId,
+        userDept: user.department,
+        scopedDept: normalizedScoped,
+      });
+      return next(new AppError("Access denied for this department", 403));
+    }
+  }
+
   if (!includeProfiles) {
     return res.status(200).json({
       status: "success",
@@ -268,22 +409,24 @@ export const getUser = catchAsync(async (req, res, next) => {
     });
   }
 
+  const profileFilter = mergeCollegeScope({ userId: user._id }, collegeCode);
+
   const [studentProfile, facultyProfile] = await Promise.all([
     mongoose
       .model("StudentProfile")
-      .findOne({ userId: user._id })
-      .select("department sem usn photo")
+      .findOne(profileFilter)
       .lean(),
     mongoose
       .model("FacultyProfile")
-      .findOne({ userId: user._id })
-      .select("department cabin photo")
+      .findOne(profileFilter)
       .lean(),
   ]);
 
   const enhancedUser = { ...user };
-
+  
+  // Attach profiles for components that expect them (like ViewingContextHeader)
   if (studentProfile) {
+    enhancedUser.studentProfile = studentProfile;
     enhancedUser.department = studentProfile.department;
     enhancedUser.sem = studentProfile.sem;
     enhancedUser.usn = studentProfile.usn;
@@ -294,6 +437,7 @@ export const getUser = catchAsync(async (req, res, next) => {
   }
 
   if (facultyProfile) {
+    enhancedUser.facultyProfile = facultyProfile;
     if (!enhancedUser.department) {
       enhancedUser.department = facultyProfile.department;
     }
@@ -304,6 +448,19 @@ export const getUser = catchAsync(async (req, res, next) => {
     if (facultyProfile.photo) {
       enhancedUser.avatar = facultyProfile.photo;
     }
+  }
+
+  // Final department scoping check if it was deferred
+  if (scopedDepartment && enhancedUser.department) {
+     const normalizedScoped = (scopedDepartment || "").trim().toLowerCase();
+     if (enhancedUser.department.trim().toLowerCase() !== normalizedScoped) {
+        logger.warn("[getUser] Defered department mismatch access denied", {
+            requestedId: userId,
+            resolvedDept: enhancedUser.department,
+            scopedDept: normalizedScoped
+        });
+        return next(new AppError("Access denied for this department", 403));
+     }
   }
 
   return res.status(200).json({
@@ -319,7 +476,18 @@ export async function createUser(req, res, next) {
   try {
     logger.info("Received Data:", req.body); // Debugging log
 
-    const { name, email, phone, avatar, role, roleName, profile, password, passwordConfirm } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      avatar,
+      role,
+      roleName,
+      profile,
+      password,
+      passwordConfirm,
+      collegeCode,
+    } = req.body;
 
     if (!roleName) {
       return next(new AppError("roleName is required but not provided", 400));
@@ -329,6 +497,11 @@ export async function createUser(req, res, next) {
     if (!roleDoc) {
       return next(new AppError("Invalid role ID", 400));
     }
+
+    const resolvedCollegeCode = resolveCollegeCode({
+      body: { collegeCode },
+      user: req.user,
+    });
 
     const newUser = await User.create({
       name,
@@ -340,6 +513,7 @@ export async function createUser(req, res, next) {
       profile,
       password,
       passwordConfirm,
+      collegeCode: resolvedCollegeCode,
     });
 
     // Ensure password is not sent in the response
@@ -361,7 +535,7 @@ export async function createUser(req, res, next) {
 // Update user details
 export const updateUser = catchAsync(async (req, res, next) => {
   const { id: userId } = req.params;
-  const { role, profileId } = req.body; // Extract profileId
+  const { role, profileId, collegeCode } = req.body; // Extract profileId
 
   let updateData = { ...req.body };
 
@@ -379,8 +553,17 @@ export const updateUser = catchAsync(async (req, res, next) => {
     updateData.profile = profileId;
   }
 
+  if (Object.prototype.hasOwnProperty.call(req.body, "collegeCode")) {
+    updateData.collegeCode = resolveCollegeCode({
+      body: { collegeCode },
+      user: req.user,
+    });
+  }
+
   // Update user details
-  const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+  const scopedCollegeCode = getScopedCollegeCode(req);
+  const updateFilter = mergeCollegeScope({ _id: userId }, scopedCollegeCode);
+  const updatedUser = await User.findOneAndUpdate(updateFilter, updateData, {
     runValidators: true,
     new: true,
   });
@@ -403,7 +586,9 @@ export const deleteUser = catchAsync(async (req, res, next) => {
   const { id: userId } = req.params;
 
   // Delete the user by ID
-  const deletedUser = await User.findByIdAndDelete(userId);
+  const collegeCode = getScopedCollegeCode(req);
+  const deleteFilter = mergeCollegeScope({ _id: userId }, collegeCode);
+  const deletedUser = await User.findOneAndDelete(deleteFilter);
 
   if (!deletedUser) {
     return next(new AppError("User not found", 404));
@@ -425,7 +610,10 @@ export const getUserByUSN = async (req, res) => {
     
     // First, find the student profile with this USN
     const StudentProfile = mongoose.model("StudentProfile");
-    const studentProfile = await StudentProfile.findOne({ usn })
+    const collegeCode = getScopedCollegeCode(req);
+    const profileFilter = mergeCollegeScope({ usn }, collegeCode);
+
+    const studentProfile = await StudentProfile.findOne(profileFilter)
       .select("userId")
       .lean();
     

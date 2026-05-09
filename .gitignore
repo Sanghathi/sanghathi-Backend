@@ -77,14 +77,14 @@ typings/
 /data
 # parcel-bundler cache (https://parceljs.org/)
 .cache
-
+,
 # Next.js build output
 .next
 
 # Nuxt.js build / generate output
 .nuxt
 dist
-
+.data
 # Gatsby files
 .cache/
 # Comment in the public line in if your project uses Gatsby and *not* Next.js
@@ -150,3 +150,10 @@ fly.toml.*
 !pull_request_template.md
 /scripts
 /logs
+
+public/data/
+logs/
+# Backend data folder
+data/
+public/data/
+logs/

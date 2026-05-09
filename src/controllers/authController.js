@@ -3,14 +3,18 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Role from "../models/Role.js";
 import StudentProfile from "../models/Student/Profile.js";
+import Department from "../models/Department.js";
 import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 import sendEmail from "../utils/email.js";
 import { compare } from "../utils/passwordHelper.js";
 import { createHash } from "crypto";
 import { buildPasswordResetEmailTemplate } from "../templates/passwordResetEmailTemplate.js";
+import { resolveCollegeCode } from "../utils/tenantContext.js";
+import { resolveDepartmentForCollege } from "../utils/departmentResolver.js";
 
 import logger from "../utils/logger.js";
+import mongoose from "mongoose";
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
@@ -47,7 +51,22 @@ const createSendToken = (user, statusCode, res) => {
 
 // Signup
 export const signup = catchAsync(async (req, res, next) => {
-  const { name, email, password, passwordConfirm, roleName, phone, semester, firstName, lastName, ...studentData } = req.body;
+  const {
+    name,
+    email,
+    password,
+    passwordConfirm,
+    roleName,
+    phone,
+    semester,
+    firstName,
+    lastName,
+    departmentId,
+    collegeCode,
+    ...studentData
+  } = req.body;
+
+  const resolvedCollegeCode = resolveCollegeCode({ body: { collegeCode } });
 
   // Validate roleName is provided
   if (!roleName) {
@@ -67,7 +86,8 @@ export const signup = catchAsync(async (req, res, next) => {
     passwordConfirm,
     role: role._id,
     roleName: role.name, // Use the exact role name from the database
-    phone // Add phone number to User model
+    phone, // Add phone number to User model
+    collegeCode: resolvedCollegeCode,
   });
 
   // If the user is a student, create a student profile
@@ -96,8 +116,35 @@ export const signup = catchAsync(async (req, res, next) => {
       email: email,
       sem: semester,
       mobileNumber: phone, // Add phone number to StudentProfile model
+      collegeCode: resolvedCollegeCode,
       ...studentData
     };
+
+    if (studentProfileData.department) {
+      const departmentDoc = await resolveDepartmentForCollege({
+        department: studentProfileData.department,
+        collegeCode: resolvedCollegeCode,
+      });
+
+      if (!departmentDoc) {
+        return next(new AppError("Invalid department for college", 400));
+      }
+
+      studentProfileData.department = departmentDoc.name;
+      studentProfileData.departmentId = departmentDoc._id;
+    } else if (departmentId) {
+      const departmentDoc = await Department.findOne({
+        _id: departmentId,
+        collegeCode: resolvedCollegeCode,
+      }).lean();
+
+      if (!departmentDoc) {
+        return next(new AppError("Invalid department for college", 400));
+      }
+
+      studentProfileData.department = departmentDoc.name;
+      studentProfileData.departmentId = departmentDoc._id;
+    }
 
     await StudentProfile.create(studentProfileData);
   }
@@ -172,6 +219,21 @@ export const protect = catchAsync(async (req, res, next) => {
     );
   }
 
+  if (!currentUser.collegeCode) {
+    currentUser.collegeCode = resolveCollegeCode({ user: currentUser });
+    await currentUser.save({ validateBeforeSave: false });
+  }
+
+  if (!currentUser.department) {
+    const [studentProfile, facultyProfile] = await Promise.all([
+      StudentProfile.findOne({ userId: currentUser._id }).select("department").lean(),
+      mongoose.model("FacultyProfile").findOne({ userId: currentUser._id }).select("department").lean(),
+    ]);
+
+    currentUser.department = studentProfile?.department || facultyProfile?.department || null;
+    await currentUser.save({ validateBeforeSave: false });
+  }
+
   // 4) Check if user changed password after the token was issued
   if (currentUser.changedPasswordAfter(decoded.iat)) {
     return next(
@@ -188,6 +250,10 @@ export const restrictTo = (...roles) => {
   return (req, res, next) => {
     const roleName = (req.user.role && req.user.role.name) || req.user.roleName;
     logger.debug(`[restrictTo] required roles: ${JSON.stringify(roles)} | user.role: ${JSON.stringify(req.user.role)} | user.roleName: ${req.user.roleName} | resolved roleName: ${roleName}`);
+    if (roleName && roleName.toLowerCase() === "super-admin") {
+      return next();
+    }
+
     const hasPermission = roleName && roles.some(role => role.toLowerCase() === roleName.toLowerCase());
 
     if (!hasPermission) {

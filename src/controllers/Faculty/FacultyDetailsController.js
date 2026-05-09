@@ -3,7 +3,15 @@ import Role from "../../models/Role.js";
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
 import FacultyProfile from "../../models/Faculty/FacultyDetails.js";
+import Department from "../../models/Department.js";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload.js";
+import {
+  getScopedCollegeCode,
+  getScopedDepartment,
+  mergeCollegeScope,
+  resolveCollegeCode,
+} from "../../utils/tenantContext.js";
+import { resolveDepartmentForCollege } from "../../utils/departmentResolver.js";
 
 import fs from 'fs';
 import path from 'path';
@@ -18,6 +26,7 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
     userId,
     fullName,
     department,
+    departmentId,
     cabin,
     personalEmail,
     email,
@@ -34,6 +43,7 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
     physicallyChallenged,
     isForeigner,
     photo,
+    collegeCode,
   } = req.body;
 
   let photoUrl = photo;
@@ -47,6 +57,48 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
     }
   }
 
+  const resolvedCollegeCode = resolveCollegeCode({
+    body: { collegeCode },
+    user: req.user,
+  });
+
+  const scopedDepartment = getScopedDepartment(req);
+  if (scopedDepartment && department && department !== scopedDepartment) {
+    return next(
+      new AppError("Department does not match your scoped department", 403)
+    );
+  }
+
+  const effectiveDepartment = department || scopedDepartment;
+  let resolvedDepartmentId = departmentId;
+  let normalizedDepartment = effectiveDepartment;
+
+  if (effectiveDepartment) {
+    const departmentDoc = await resolveDepartmentForCollege({
+      department: effectiveDepartment,
+      collegeCode: resolvedCollegeCode,
+    });
+
+    if (!departmentDoc) {
+      return next(new AppError("Invalid department for college", 400));
+    }
+
+    normalizedDepartment = departmentDoc.name;
+    resolvedDepartmentId = departmentDoc._id;
+  } else if (departmentId) {
+    const departmentDoc = await Department.findOne({
+      _id: departmentId,
+      collegeCode: resolvedCollegeCode,
+    }).lean();
+
+    if (!departmentDoc) {
+      return next(new AppError("Invalid department for college", 400));
+    }
+
+    normalizedDepartment = departmentDoc.name;
+    resolvedDepartmentId = departmentDoc._id;
+  }
+
   const profileData = {
     userId,
     fullName: {
@@ -54,7 +106,8 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
       middleName: fullName?.middleName,
       lastName: fullName?.lastName,
     },
-    department,
+    department: normalizedDepartment,
+    departmentId: resolvedDepartmentId,
     cabin,
     personalEmail,
     email,
@@ -71,11 +124,13 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
     physicallyChallenged,
     isForeigner,
     photo: photoUrl,
+    collegeCode: resolvedCollegeCode,
   };
 
   try {
+    const collegeScope = mergeCollegeScope({ userId }, resolvedCollegeCode);
     const updatedProfile = await FacultyProfile.findOneAndUpdate(
-      { userId }, 
+      collegeScope,
       { $set: profileData },
       { upsert: true, new: true }
     );
@@ -97,7 +152,9 @@ export const createOrUpdateFacultyProfile = catchAsync(async (req, res, next) =>
 export const getFacultyProfileById = catchAsync(async (req, res, next) => {
   const { id } = req.params;
 
-  const facultyProfile = await FacultyProfile.findOne({ userId: id });
+  const collegeCode = getScopedCollegeCode(req);
+  const filter = mergeCollegeScope({ userId: id }, collegeCode);
+  const facultyProfile = await FacultyProfile.findOne(filter);
 
   if (!facultyProfile) {
     return next(new AppError("Faculty profile not found", 404));
@@ -133,7 +190,9 @@ export const Faculty = catchAsync(async (req, res, next) => {
 export const deleteFacultyProfileById = catchAsync(async (req, res, next) => {
   const { id } = req.params;
 
-  const deletedProfile = await FacultyProfile.findOneAndDelete({ userId: id });
+  const collegeCode = getScopedCollegeCode(req);
+  const filter = mergeCollegeScope({ userId: id }, collegeCode);
+  const deletedProfile = await FacultyProfile.findOneAndDelete(filter);
 
   if (!deletedProfile) {
     return next(new AppError("Faculty profile not found for deletion", 404));

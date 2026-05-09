@@ -13,7 +13,10 @@ const handleValidationErrorDB = (err) => {
 };
 
 const handleDuplicateFieldsDB = (err) => {
-  const message = `Duplicate field value : ${err.keyValue.name}. Please use another value!`;
+  // err.keyValue could have different keys (email, phone, etc.)
+  const key = err.keyValue && Object.keys(err.keyValue)[0];
+  const val = key ? err.keyValue[key] : undefined;
+  const message = `Duplicate field value : ${key || "field"}: ${val || "undefined"}. Please use another value!`;
   return new AppError(message, 400);
 };
 
@@ -72,24 +75,32 @@ export default (err, req, res, next) => {
   err.statusCode = err.statusCode || 500;
   err.status = err.status || "error";
 
-  let error = Object.assign(Object.create(Object.getPrototypeOf(err)), err);
-  error.message = err.message;
-  error.name = err.name;
-  error.code = err.code;
+  const error = {
+    ...err,
+    statusCode: err.statusCode,
+    status: err.status,
+    message: err.message,
+    name: err.name,
+    code: err.code,
+    stack: err.stack,
+    isOperational: err.isOperational,
+  };
 
-  if (error.name === "CastError") error = handleCastErrorDB(error);
-  if (error.code === 11000) error = handleDuplicateFieldsDB(error);
-  if (error.name === "ValidationError") error = handleValidationErrorDB(error);
-  if (error.name === "JsonWebTokenError") error = handleJWTError();
-  if (error.name === "TokenExpiredError") error = handleJWTExpiredError();
-  if (error.name === "UnauthorizedError") error = handleUnauthorizedError();
+  let normalizedError = error;
+
+  if (normalizedError.name === "CastError") normalizedError = handleCastErrorDB(normalizedError);
+  if (normalizedError.code === 11000) normalizedError = handleDuplicateFieldsDB(normalizedError);
+  if (normalizedError.name === "ValidationError") normalizedError = handleValidationErrorDB(normalizedError);
+  if (normalizedError.name === "JsonWebTokenError") normalizedError = handleJWTError();
+  if (normalizedError.name === "TokenExpiredError") normalizedError = handleJWTExpiredError();
+  if (normalizedError.name === "UnauthorizedError") normalizedError = handleUnauthorizedError();
 
   if (process.env.NODE_ENV === "development") {
-    sendErrorDev(error, res);
+    sendErrorDev(normalizedError, req, res);
   } else if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "test") {
-    sendErrorProd(error, res);
+    sendErrorProd(normalizedError, res);
   } else {
     // Fallback if NODE_ENV is unset or something else
-    sendErrorDev(error, res);
+    sendErrorDev(normalizedError, req, res);
   }
 };

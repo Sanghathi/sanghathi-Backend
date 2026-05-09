@@ -12,9 +12,10 @@ const MiniProjectSchema = new mongoose.Schema({
     miniproject: [
         {
             title: String,
+            semester: { type: Number, min: 1, max: 8 },
             manHours: Number,
             startDate: Date,
-            completedDate: Date, 
+            completedDate: Date,
         },
     ],
 });

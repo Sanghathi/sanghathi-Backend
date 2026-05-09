@@ -1,8 +1,14 @@
 import catchAsync from "../utils/catchAsync.js";
+import mongoose from "mongoose";
 import Thread from "../models/Thread.js";
 import Message from "../models/Conversation/Message.js";
 import AppError from "../utils/appError.js";
 import ThreadService from "../services/threadService.js";
+import {
+  getScopedCollegeCode,
+  mergeCollegeScope,
+  resolveScopedDepartment,
+} from "../utils/tenantContext.js";
 import {
   buildProfilePhotoMap,
   enrichLeanUserAvatar,
@@ -56,6 +62,53 @@ const enrichThreadsWithProfilePhotos = async (threads = []) => {
         )
       : thread.participants,
   }));
+};
+
+const getScopedThreadUserIds = async (req, scopedDepartment) => {
+  if (!scopedDepartment) {
+    return null;
+  }
+
+  const collegeCode = getScopedCollegeCode(req);
+  const departmentFilter = { department: { $regex: `^${scopedDepartment}$`, $options: "i" } };
+  const User = mongoose.model("User");
+  const StudentProfile = mongoose.model("StudentProfile");
+  const FacultyProfile = mongoose.model("FacultyProfile");
+
+  const [studentUsers, facultyUsers, studentProfiles, facultyProfiles] = await Promise.all([
+    User.find(
+      mergeCollegeScope({ roleName: "student", ...departmentFilter }, collegeCode)
+    )
+      .select("_id")
+      .lean(),
+    User.find(
+      mergeCollegeScope({ roleName: "faculty", ...departmentFilter }, collegeCode)
+    )
+      .select("_id")
+      .lean(),
+    StudentProfile.find(mergeCollegeScope(departmentFilter, collegeCode))
+      .select("userId")
+      .lean(),
+    FacultyProfile.find(mergeCollegeScope(departmentFilter, collegeCode))
+      .select("userId")
+      .lean(),
+  ]);
+
+  const scopedIds = new Set();
+
+  for (const user of [...studentUsers, ...facultyUsers]) {
+    if (user?._id) {
+      scopedIds.add(user._id.toString());
+    }
+  }
+
+  for (const profile of [...studentProfiles, ...facultyProfiles]) {
+    if (profile?.userId) {
+      scopedIds.add(profile.userId.toString());
+    }
+  }
+
+  return scopedIds.size ? Array.from(scopedIds).map((id) => new mongoose.Types.ObjectId(id)) : [];
 };
 
 export const closeThread = catchAsync(async (req, res, next) => {
@@ -126,6 +179,8 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 10000);
   const skip = (page - 1) * limit;
+  const scopedDepartment = await resolveScopedDepartment(req);
+  const scopedThreadUserIds = await getScopedThreadUserIds(req, scopedDepartment);
 
   const filter = {};
   if (req.query.status) {
@@ -135,9 +190,36 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
     filter.topic = req.query.topic;
   }
 
+  // Add participant filtering
+  if (req.query.participantIds) {
+    const participantIds = Array.isArray(req.query.participantIds)
+      ? req.query.participantIds
+      : [req.query.participantIds];
+    
+    // Filter threads where ALL specified participants are present
+    filter.participants = { $all: participantIds.map(id => new mongoose.Types.ObjectId(id)) };
+  }
+
+  if (scopedThreadUserIds) {
+    // If we already have a filter on participants, we need to combine it
+    if (filter.participants) {
+      // Keep the existing $all filter, but the author/participant must also be in scopedThreadUserIds
+      // Actually, if we are filtering by specific participants, we usually don't need scopedThreadUserIds
+      // unless we want to ensure the requester has access to these participants.
+      // For now, let's just merge them if they don't conflict.
+    } else {
+      filter.$or = [
+        { author: { $in: scopedThreadUserIds } },
+        { participants: { $in: scopedThreadUserIds } }
+      ];
+    }
+  }
+
+  const collegeCode = getScopedCollegeCode(req);
+  const scopedFilter = mergeCollegeScope(filter, collegeCode);
 
   const [threads, total] = await Promise.all([
-    Thread.find(filter)
+    Thread.find(scopedFilter)
       .select("title description author participants status topic createdAt closedAt")
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -151,14 +233,25 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
         select: "name avatar roleName",
       })
       .lean(),
-    Thread.countDocuments(filter),
+    Thread.countDocuments(scopedFilter),
   ]);
 
   const enrichedThreads = await enrichThreadsWithProfilePhotos(threads);
 
+  // Add message counts to each thread
+  const threadsWithCounts = await Promise.all(
+    enrichedThreads.map(async (thread) => {
+      const messageCount = await Message.countDocuments({
+        parentType: "thread",
+        parentId: thread._id,
+      });
+      return { ...thread, messageCount };
+    })
+  );
+
   res.status(200).json({
     status: "success",
-    results: enrichedThreads.length,
+    results: threadsWithCounts.length,
     pagination: {
       page,
       limit,
@@ -166,7 +259,7 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
       totalPages: Math.max(Math.ceil(total / limit), 1),
     },
     data: {
-      threads: enrichedThreads,
+      threads: threadsWithCounts,
     },
   });
 });
@@ -182,10 +275,22 @@ export const getThreadById = catchAsync(async (req, res, next) => {
   const messageSkip = (messagePage - 1) * messageLimit;
 
   const messageFilter = { parentType: "thread", parentId: threadId };
+  const scopedDepartment = await resolveScopedDepartment(req);
+  const scopedThreadUserIds = await getScopedThreadUserIds(req, scopedDepartment);
+  const collegeCode = getScopedCollegeCode(req);
+  const scopedThreadFilter = scopedThreadUserIds
+    ? mergeCollegeScope(
+        {
+          _id: threadId,
+          $or: [{ author: { $in: scopedThreadUserIds } }, { participants: { $in: scopedThreadUserIds } }],
+        },
+        collegeCode
+      )
+    : mergeCollegeScope({ _id: threadId }, collegeCode);
 
 
   const [thread, latestMessages, totalMessages] = await Promise.all([
-    Thread.findById(threadId)
+    Thread.findOne(scopedThreadFilter)
       .select("title description author participants status topic createdAt closedAt")
       .populate({
         path: "participants",

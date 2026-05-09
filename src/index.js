@@ -58,7 +58,11 @@ import feedbackRoutes from "./routes/Feedback/feedbackRoutes.js";
 import ComplaintRoutes from "./routes/Complain/ComplaintRoutes.js";
 import formDraftRoutes from "./routes/formDraftRoutes.js";
 import uploadHistoryRoutes from "./routes/Admin/uploadHistoryRoutes.js";
+import dataRoutes from "./routes/Admin/dataRoutes.js";
 import morganMiddleware from "./utils/morganMiddleware.js";
+import collegeRoutes from "./routes/collegeRoutes.js";
+import departmentRoutes from "./routes/departmentRoutes.js";
+import hodRoutes from "./routes/hodRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,12 +76,25 @@ app.set('trust proxy', 1);
 
 //1) GLOBAL MIDDLEWARE
 // Configure CORS to allow requests from any origin during development
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://sanghathi.com",
+];
+
+// Add all local IP patterns for development
+if (process.env.NODE_ENV === "development") {
+  allowedOrigins.push(
+    /^http:\/\/(\d+\.\d+\.\d+\.\d+):3000$/, // Allow any IP on port 3000
+    /^http:\/\/(\d+\.\d+\.\d+\.\d+):5173$/, // Allow any IP on port 5173
+    /^http:\/\/127\.0\.0\.1/,
+    /^http:\/\/\[::1\]/ // IPv6 localhost
+  );
+}
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://sanghathi.com",
-    ],
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -92,7 +109,8 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "script-src": ["'self'", "static.cloudflareinsights.com"],
+        "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'", "static.cloudflareinsights.com", "www.googletagmanager.com", "https://www.googletagmanager.com"],
+        "connect-src": ["'self'", "https://region1.google-analytics.com", "https://www.google-analytics.com", "https://*.google-analytics.com"]
       },
     },
   })
@@ -144,6 +162,7 @@ app.use("/api/v1/admissions", admissionRoutes);
 app.use("/api/v1/contact-details", contactDetailsRoutes);
 app.use("/api/parent-details", parentDetailsRoutes);
 app.use("/api/faculty", facultyRouter);
+app.use("/api/hod", hodRoutes);
 app.use("/api/career-counselling", CareerCounsellingRoutes);
 app.use("/api/proffessional-body", ProffessionalBodyRoutes);
 app.use("/api/mooc-data", MoocRoutes);
@@ -166,6 +185,9 @@ app.use("/api/feedback",feedbackRoutes);
 app.use("/api/complaint", ComplaintRoutes);
 app.use("/api/forms", formDraftRoutes);
 app.use("/api/admin", uploadHistoryRoutes);
+app.use("/api/admin", dataRoutes);
+app.use("/api", collegeRoutes);
+app.use("/api", departmentRoutes);
 
 if (process.env.NODE_ENV !== "production") {
   app.use("/api/test-summary", testSummaryRoutes);
@@ -184,6 +206,15 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 swaggerDocs(app);
+
+// Basic landing route for direct browser access to the backend.
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "success",
+    message: "Sanghathi backend is running",
+    docs: "/api-docs",
+  });
+});
 
 // Handle non-existing routes
 app.all("*", (req, res, next) => {
