@@ -1,14 +1,5 @@
 import { Router } from "express";
-import {
-  getAllUsers,
-  createUser,
-  getUser,
-  updateUser,
-  deleteUser,
-  getUserByUSN,
-  resetPassword,
-  setStrCoordinatorDepartment,
-} from "../controllers/userController.js";
+import * as userController from "../controllers/userController.js";
 import {
   signup,
   login,
@@ -166,7 +157,7 @@ router.use(protect);
  *       403:
  *         description: User is not a STR Coordinator
  */
-router.patch("/set-department", setStrCoordinatorDepartment);
+router.patch("/set-department", userController.setStrCoordinatorDepartment);
 
 /**
  * @swagger
@@ -185,7 +176,7 @@ router.patch("/set-department", setStrCoordinatorDepartment);
  *       200:
  *         description: User details
  */
-router.get("/usn/:usn", restrictTo("admin", "faculty", "hod", "director", "strcoordinator"), getUserByUSN);
+router.get("/usn/:usn", restrictTo("admin", "faculty", "hod", "director", "strcoordinator"), userController.getUserByUSN);
 
 /**
  * @swagger
@@ -217,8 +208,8 @@ router.get("/usn/:usn", restrictTo("admin", "faculty", "hod", "director", "strco
  *         description: User created successfully
  */
 router.route("/")
-  .get(restrictTo("admin", "faculty", "hod", "director", "strcoordinator"), getAllUsers)
-  .post(restrictTo("admin", "hod", "director"), createUser);
+  .get(restrictTo("admin", "faculty", "hod", "director", "strcoordinator"), userController.getAllUsers)
+  .post(restrictTo("admin", "hod", "director"), userController.createUser);
 
 /**
  * @swagger
@@ -275,9 +266,9 @@ router.route("/")
  *         description: User deleted
  */
 router.route("/:id")
-  .get(getUser)
-  .patch(restrictTo("admin", "hod", "director"), updateUser)
-  .delete(restrictTo("admin", "hod", "director"), deleteUser);
+  .get(userController.getUser)
+  .patch(restrictTo("admin", "hod", "director"), userController.updateUser)
+  .delete(restrictTo("admin", "hod", "director"), userController.deleteUser);
 
 /**
  * @swagger
@@ -298,6 +289,6 @@ router.route("/:id")
  */
 router.route("/:id/threads").get(getAllThreadsOfUser);
 
-router.post("/reset-password", resetPassword);
+router.post("/reset-password", userController.resetPassword);
 
 export default router;
