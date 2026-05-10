@@ -74,16 +74,16 @@ router.post("/notify-open-thread-students", restrictTo("faculty"), async (req, r
       });
     }
 
-    const subject = `Attention needed: your mentor has a message for you`;
-    const body = `Dear student,\n\nThis is a friendly but important reminder from ${mentorName}. We noticed that your attendance needs attention and your mentor has shared a note for students with active/open threads.\n\nPlease open your Sanghathi thread now and respond promptly: ${threadUrl}\n\nOpen threads count: ${openThreads.length}\n\nRegards,\nSanghathi`;
+    const subject = `New reply from your mentor`;
+    const body = `Dear student,\n\nYou have a new mentor reply waiting in Sanghathi. Please review your active thread and respond when you can.\n\nOpen the conversation here: ${threadUrl}\n\nActive threads found: ${openThreads.length}\n\nRegards,\nSanghathi`;
     const html = `
-      <div style="font-family: Inter, Arial, sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 55%, #2563eb 100%); padding: 24px; border-radius: 18px; color: #e5f0ff;">
+      <div style="font-family: Inter, Arial, sans-serif; background: linear-gradient(135deg, #111827 0%, #1d4ed8 52%, #0ea5e9 100%); padding: 24px; border-radius: 18px; color: #e5f0ff;">
         <div style="max-width: 680px; margin: 0 auto; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); border-radius: 18px; padding: 28px; box-shadow: 0 20px 45px rgba(15, 23, 42, 0.28);">
-          <div style="display:inline-block; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.16); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; margin-bottom: 16px;">Attendance Alert</div>
-          <h1 style="margin: 0 0 12px; font-size: 28px; line-height: 1.2; color: #ffffff;">Action needed from your mentor</h1>
-          <p style="margin: 0 0 14px; font-size: 16px; color: #dbeafe;">Hello, this is a reminder from <strong>${mentorName}</strong>. Your attendance needs immediate attention, and your mentor would like you to check your active thread and reply as soon as possible.</p>
-          <div style="background: rgba(255,255,255,0.12); border-left: 4px solid #fbbf24; padding: 14px 16px; border-radius: 12px; margin: 18px 0; color: #fff7d6; font-weight: 600;">
-            Open threads found: ${openThreads.length}
+          <div style="display:inline-block; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.16); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; margin-bottom: 16px;">Mentor Reply</div>
+          <h1 style="margin: 0 0 12px; font-size: 28px; line-height: 1.2; color: #ffffff;">A new thread reply is waiting</h1>
+          <p style="margin: 0 0 14px; font-size: 16px; color: #dbeafe;">Hello, <strong>${mentorName}</strong> has sent a new message in your thread. Open the conversation and reply so the discussion stays active and visible.</p>
+          <div style="background: rgba(255,255,255,0.12); border-left: 4px solid #34d399; padding: 14px 16px; border-radius: 12px; margin: 18px 0; color: #ecfdf5; font-weight: 600;">
+            Active threads found: ${openThreads.length}
           </div>
           <div style="margin: 20px 0 24px;">
             <a href="${threadUrl}" style="display:inline-block; background: #f8fafc; color: #1d4ed8; text-decoration:none; padding: 14px 22px; border-radius: 12px; font-weight: 800; box-shadow: 0 12px 30px rgba(255,255,255,0.22);">Open Thread & Reply Now</a>
