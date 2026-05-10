@@ -4,6 +4,8 @@ import Competition from "../models/CareerReview/Competition.js";
 import StudentProfile from "../models/Student/Profile.js";
 import Mentorship from "../models/Mentorship.js";
 import User from "../models/User.js";
+import sendEmail from "../utils/email.js";
+import logger from "../utils/logger.js";
 import { resolveScopedDepartment } from "../utils/tenantContext.js";
 
 const MINIMUM_ATTENDANCE = 75;
@@ -218,6 +220,93 @@ export const getAttendanceReport = catchAsync(async (req, res) => {
     status: "success",
     data: {
       attendance: filteredRows,
+    },
+  });
+});
+
+export const sendLowAttendanceEmail = catchAsync(async (req, res) => {
+  const { dryRun = false, recipientIds = [] } = req.body;
+  const mentorId = req.user?._id;
+  const mentorName = req.user?.name || "your mentor";
+  const frontendHost = (process.env.CLIENT_HOST || process.env.FRONTEND_HOST || "https://sanghathi.com").replace(/\/$/, "");
+  const alertsUrl = `${frontendHost}/faculty/alerts`;
+
+  if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
+    return res.status(400).json({
+      status: "fail",
+      message: "No recipients provided",
+    });
+  }
+
+  const users = await User.find({ _id: { $in: recipientIds }, roleName: "student" })
+    .select("_id name email")
+    .lean();
+
+  const studentEmails = users.filter((user) => user?.email).map((user) => user.email.trim());
+
+  if (!studentEmails.length) {
+    return res.status(200).json({
+      status: "success",
+      message: "No valid student email recipients found.",
+      data: {
+        recipients: [],
+        subject: null,
+        text: null,
+        html: null,
+        alertsUrl,
+        dryRun: true,
+      },
+    });
+  }
+
+  const subject = `Your attendance is below the minimum threshold`;
+  const body = `Dear student,\n\nThis is an important reminder from ${mentorName}. Your attendance has fallen below 75%, which is the minimum required threshold.\n\nPlease take immediate action to improve your attendance. You can review your detailed attendance records and reach out to your mentor for support.\n\nAccess the alerts portal here: ${alertsUrl}\n\nIf you have any questions or concerns, please don't hesitate to contact your mentor.\n\nRegards,\nSanghathi`;
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; background: linear-gradient(135deg, #1f2937 0%, #dc2626 52%, #ef4444 100%); padding: 24px; border-radius: 18px; color: #fef2f2;">
+      <div style="max-width: 680px; margin: 0 auto; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); border-radius: 18px; padding: 28px; box-shadow: 0 20px 45px rgba(15, 23, 42, 0.28);">
+        <div style="display:inline-block; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.16); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; margin-bottom: 16px;">Attendance Alert</div>
+        <h1 style="margin: 0 0 12px; font-size: 28px; line-height: 1.2; color: #ffffff;">Your attendance is below the required threshold</h1>
+        <p style="margin: 0 0 14px; font-size: 16px; color: #fee2e2;">Hello, this is a reminder from <strong>${mentorName}</strong>. Your attendance has fallen below 75%, which is the minimum required. Immediate action is needed to improve your attendance record.</p>
+        <div style="background: rgba(255,255,255,0.12); border-left: 4px solid #fca5a5; padding: 14px 16px; border-radius: 12px; margin: 18px 0; color: #fecaca; font-weight: 600;">
+          Minimum required attendance: 75%
+        </div>
+        <div style="margin: 20px 0 24px;">
+          <a href="${alertsUrl}" style="display:inline-block; background: #fff5f5; color: #991b1b; text-decoration:none; padding: 14px 22px; border-radius: 12px; font-weight: 800; box-shadow: 0 12px 30px rgba(255,255,255,0.22);">View Attendance Details</a>
+        </div>
+        <p style="margin: 0; font-size: 14px; color: #fecaca;">If you cannot access the link, open Sanghathi and go to your alerts page.</p>
+        <p style="margin: 18px 0 0; font-size: 14px; color: #fecaca;">Regards,<br/><strong>Sanghathi</strong></p>
+      </div>
+    </div>
+  `;
+
+  if (dryRun) {
+    return res.status(200).json({
+      status: "success",
+      message: "Email preview ready.",
+      data: {
+        recipients: studentEmails,
+        subject,
+        text: body,
+        html,
+        alertsUrl,
+        dryRun: true,
+      },
+    });
+  }
+
+  await sendEmail({
+    email: studentEmails,
+    subject,
+    message: body,
+    html,
+  });
+
+  res.status(200).json({
+    status: "success",
+    message: "Email notification sent to low-attendance students.",
+    data: {
+      recipients: studentEmails.length,
+      alertsUrl,
     },
   });
 });
