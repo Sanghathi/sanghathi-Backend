@@ -309,13 +309,15 @@ export const getFeedbackOverview = catchAsync(async (req, res) => {
   const semesterScope = semester || activeWindow?.semester;
   const roundScope = feedbackRound || activeWindow?.feedbackRound;
   
+  const isDeptScopedRole = ["hod", "director", "strcoordinator"].includes(
+    req.user.roleName
+  );
+
   const feedbackFilter = buildFeedbackFilter({
     semester: semesterScope,
     feedbackRound: roundScope,
     userId,
-    department: (req.user.roleName === 'hod' || req.user.roleName === 'director') 
-      ? (scopedDepartment || department) 
-      : department,
+    department: isDeptScopedRole ? (scopedDepartment || department) : department,
     college: college || req.user.collegeCode
   });
 
@@ -337,7 +339,42 @@ export const getFeedbackOverview = catchAsync(async (req, res) => {
     ]),
   ]);
 
-  const latestFeedback = feedbacks[0] || null;
+  // Get mentorship data to add mentor info to feedbacks
+  const studentIds = feedbacks.map(f => f.userId._id).filter(id => id);
+  const mentorships = await Mentorship.find({ menteeId: { $in: studentIds } })
+    .select("mentorId menteeId")
+    .lean();
+  
+  const menteeToMentorMap = {};
+  const mentorIds = new Set();
+  for (const mentorship of mentorships) {
+    menteeToMentorMap[mentorship.menteeId.toString()] = mentorship.mentorId.toString();
+    mentorIds.add(mentorship.mentorId.toString());
+  }
+  
+  // Fetch mentor data
+  const mentors = await User.find({ _id: { $in: Array.from(mentorIds) } })
+    .select("_id name email")
+    .lean();
+  
+  const mentorMap = {};
+  for (const mentor of mentors) {
+    mentorMap[mentor._id.toString()] = mentor;
+  }
+  
+  // Enrich feedbacks with mentor information
+  const enrichedFeedbacks = feedbacks.map(feedback => {
+    const mentorId = menteeToMentorMap[feedback.userId._id.toString()];
+    if (mentorId && mentorMap[mentorId]) {
+      const mentor = mentorMap[mentorId];
+      feedback.mentorId = mentor._id;
+      feedback.mentorName = mentor.name;
+      feedback.mentorEmail = mentor.email;
+    }
+    return feedback;
+  });
+
+  const latestFeedback = enrichedFeedbacks[0] || null;
   const selection = activeWindow
     ? {
         semester: activeWindow.semester,
@@ -360,7 +397,7 @@ export const getFeedbackOverview = catchAsync(async (req, res) => {
         roundCounts,
         semesterCounts,
       },
-      feedbacks,
+      feedbacks: enrichedFeedbacks,
     },
   });
 });
@@ -403,7 +440,11 @@ export const getFeedbackStats = catchAsync(async (req, res, next) => {
   }
 
   const scopedDepartment = await resolveScopedDepartment(req);
-  const activeDepartment = (req.user.roleName === 'hod' || req.user.roleName === 'director')
+  const isDeptScopedRole = ["hod", "director", "strcoordinator"].includes(
+    req.user.roleName
+  );
+
+  const activeDepartment = isDeptScopedRole
     ? (scopedDepartment || department)
     : (department || scopedDepartment);
 
@@ -437,8 +478,8 @@ export const getFeedbackStats = catchAsync(async (req, res, next) => {
   if (semester) {
     enrollmentFilter.sem = Number(semester);
   }
-  if (department) {
-    enrollmentFilter.department = department;
+  if (activeDepartment) {
+    enrollmentFilter.department = activeDepartment;
   }
 
   const totalEnrolled = await User.countDocuments(enrollmentFilter);
@@ -492,8 +533,11 @@ export const getFeedbackByMentor = catchAsync(async (req, res, next) => {
     }
   }
 
-  if (department) {
-    feedbackFilter.department = department;
+  const scopedDepartment = await resolveScopedDepartment(req);
+  const activeDepartment = scopedDepartment || department;
+
+  if (activeDepartment) {
+    feedbackFilter.department = activeDepartment;
   }
 
   // Fetch mentor and feedback data

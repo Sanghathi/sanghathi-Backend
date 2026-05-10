@@ -14,6 +14,7 @@ import {
   mergeCollegeScope,
   resolveCollegeCode,
 } from "../utils/tenantContext.js";
+import Mentorship from "../models/Mentorship.js";
 
 const parseBoolean = (value, defaultValue = true) => {
   if (value === undefined) {
@@ -46,6 +47,85 @@ const sanitizeSelectFields = (rawFields, allowedFields, fallbackFields) => {
     .filter((field) => field.length > 0 && allowedFields.has(field));
 
   return fields.length ? fields.join(" ") : fallbackFields;
+};
+
+const attachMentorData = async (users = [], collegeCode) => {
+  const studentIds = users
+    .filter((user) => user?.roleName === "student" && user?._id)
+    .map((user) => user._id);
+
+  if (!studentIds.length) {
+    return users;
+  }
+
+  const mentorships = await Mentorship.find({
+    menteeId: { $in: studentIds },
+  })
+    .select("mentorId menteeId")
+    .lean();
+
+  if (!mentorships.length) {
+    return users;
+  }
+
+  const mentorIds = [
+    ...new Set(
+      mentorships
+        .map((mentorship) => mentorship?.mentorId)
+        .filter(Boolean)
+        .map((mentorId) => mentorId.toString())
+    ),
+  ];
+
+  if (!mentorIds.length) {
+    return users;
+  }
+
+  const mentors = await User.find(
+    mergeCollegeScope(
+      { _id: { $in: mentorIds.map((id) => new mongoose.Types.ObjectId(id)) } },
+      collegeCode
+    )
+  )
+    .select("_id name email avatar roleName")
+    .lean();
+
+  const mentorMap = new Map(
+    mentors.map((mentor) => [mentor._id.toString(), mentor])
+  );
+  const menteeToMentorMap = new Map(
+    mentorships.map((mentorship) => [
+      mentorship.menteeId.toString(),
+      mentorship.mentorId.toString(),
+    ])
+  );
+
+  return users.map((user) => {
+    if (user?.roleName !== "student") {
+      return user;
+    }
+
+    const mentorId = menteeToMentorMap.get(user._id.toString());
+    if (!mentorId) {
+      return user;
+    }
+
+    const mentor = mentorMap.get(mentorId);
+    if (!mentor) {
+      return user;
+    }
+
+    return {
+      ...user,
+      mentor: {
+        _id: mentor._id,
+        name: mentor.name,
+        email: mentor.email,
+        avatar: mentor.avatar || null,
+        roleName: mentor.roleName,
+      },
+    };
+  });
 };
 
 
@@ -305,9 +385,11 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
     return enhancedUser;
   });
 
+  const usersWithMentors = await attachMentorData(enhancedUsers, collegeCode);
+
   return res.status(200).json({
     status: "success",
-    results: enhancedUsers.length,
+    results: usersWithMentors.length,
     pagination: {
       page,
       limit,
@@ -315,7 +397,7 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
       totalPages: Math.max(Math.ceil(total / limit), 1),
     },
     data: {
-      users: enhancedUsers,
+      users: usersWithMentors,
     },
   });
 });
@@ -450,13 +532,15 @@ export const getUser = catchAsync(async (req, res, next) => {
     }
   }
 
+    const [userWithMentor] = await attachMentorData([enhancedUser], collegeCode);
+
   // Final department scoping check if it was deferred
-  if (scopedDepartment && enhancedUser.department) {
+    if (scopedDepartment && userWithMentor.department) {
      const normalizedScoped = (scopedDepartment || "").trim().toLowerCase();
-     if (enhancedUser.department.trim().toLowerCase() !== normalizedScoped) {
+      if (userWithMentor.department.trim().toLowerCase() !== normalizedScoped) {
         logger.warn("[getUser] Defered department mismatch access denied", {
             requestedId: userId,
-            resolvedDept: enhancedUser.department,
+          resolvedDept: userWithMentor.department,
             scopedDept: normalizedScoped
         });
         return next(new AppError("Access denied for this department", 403));
@@ -466,7 +550,7 @@ export const getUser = catchAsync(async (req, res, next) => {
   return res.status(200).json({
     status: "success",
     data: {
-      user: enhancedUser,
+      user: userWithMentor,
     },
   });
 });
@@ -696,4 +780,28 @@ export const resetPasswordWithToken = catchAsync(async (req, res, next) => {
     status: "success",
     message: "Password reset successful",
   });
+});
+
+// Allow a STR Coordinator to set their department (used for director/strcoordinator flows)
+export const setStrCoordinatorDepartment = catchAsync(async (req, res, next) => {
+  const userId = req.user?._id;
+  const { department } = req.body;
+
+  if (!userId) return next(new AppError("Unauthorized", 401));
+
+  if (!department || typeof department !== "string" || !department.trim()) {
+    return next(new AppError("department is required", 400));
+  }
+
+  // Only allow users with roleName 'strcoordinator' to use this endpoint
+  const roleName = (req.user?.roleName || "").toString().toLowerCase();
+  if (roleName !== "strcoordinator") {
+    return next(new AppError("Only STR Coordinator users can set department via this endpoint", 403));
+  }
+
+  const updated = await User.findOneAndUpdate({ _id: userId }, { department: department.trim() }, { new: true });
+
+  if (!updated) return next(new AppError("User not found", 404));
+
+  res.status(200).json({ status: "success", data: { user: updated } });
 });

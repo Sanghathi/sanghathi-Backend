@@ -1,13 +1,5 @@
 import { Router } from "express";
-import {
-  getAllUsers,
-  createUser,
-  getUser,
-  updateUser,
-  deleteUser,
-  getUserByUSN,
-  resetPassword,
-} from "../controllers/userController.js";
+import * as userController from "../controllers/userController.js";
 import {
   signup,
   login,
@@ -145,6 +137,30 @@ router.use(protect);
 
 /**
  * @swagger
+ * /api/users/set-department:
+ *   patch:
+ *     summary: Set department for STR Coordinator
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               department:
+ *                 type: string
+ *                 example: "CSE"
+ *     responses:
+ *       200:
+ *         description: Department set successfully
+ *       403:
+ *         description: User is not a STR Coordinator
+ */
+router.patch("/set-department", userController.setStrCoordinatorDepartment);
+
+/**
+ * @swagger
  * /api/users/usn/{usn}:
  *   get:
  *     summary: Get user by USN
@@ -160,7 +176,7 @@ router.use(protect);
  *       200:
  *         description: User details
  */
-router.get("/usn/:usn", restrictTo("admin", "faculty", "hod", "director"), getUserByUSN);
+router.get("/usn/:usn", restrictTo("admin", "faculty", "hod", "director", "strcoordinator"), userController.getUserByUSN);
 
 /**
  * @swagger
@@ -192,8 +208,8 @@ router.get("/usn/:usn", restrictTo("admin", "faculty", "hod", "director"), getUs
  *         description: User created successfully
  */
 router.route("/")
-  .get(restrictTo("admin", "faculty", "hod", "director"), getAllUsers)
-  .post(restrictTo("admin", "hod", "director"), createUser);
+  .get(restrictTo("admin", "faculty", "hod", "director", "strcoordinator"), userController.getAllUsers)
+  .post(restrictTo("admin", "hod", "director"), userController.createUser);
 
 /**
  * @swagger
@@ -250,9 +266,9 @@ router.route("/")
  *         description: User deleted
  */
 router.route("/:id")
-  .get(getUser)
-  .patch(restrictTo("admin", "hod", "director"), updateUser)
-  .delete(restrictTo("admin", "hod", "director"), deleteUser);
+  .get(userController.getUser)
+  .patch(restrictTo("admin", "hod", "director"), userController.updateUser)
+  .delete(restrictTo("admin", "hod", "director"), userController.deleteUser);
 
 /**
  * @swagger
@@ -273,6 +289,6 @@ router.route("/:id")
  */
 router.route("/:id/threads").get(getAllThreadsOfUser);
 
-router.post("/reset-password", resetPassword);
+router.post("/reset-password", userController.resetPassword);
 
 export default router;
