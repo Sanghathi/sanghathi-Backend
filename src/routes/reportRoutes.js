@@ -17,7 +17,7 @@ router.get(
 
 router.get(
   "/attendance",
-  restrictTo("admin", "hod", "director", "strcoordinator"),
+  restrictTo("admin", "faculty", "hod", "director", "strcoordinator"),
   getAttendanceReport
 );
 

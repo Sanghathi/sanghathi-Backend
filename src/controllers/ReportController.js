@@ -63,6 +63,21 @@ const getDepartmentScope = async (req) => {
   return resolveScopedDepartment(req);
 };
 
+const getFacultyMenteeScope = async (req) => {
+  const roleName = (req.user?.roleName || req.user?.role?.name || "").toLowerCase();
+  if (roleName !== "faculty") {
+    return null;
+  }
+
+  const mentorId = toIdString(req.user?._id);
+  if (!mentorId) {
+    return new Set();
+  }
+
+  const mentorships = await Mentorship.find({ mentorId }).select("menteeId").lean();
+  return new Set(mentorships.map((mentorship) => toIdString(mentorship.menteeId)).filter(Boolean));
+};
+
 const buildSharedStudentMaps = async (userIds) => {
   const uniqueUserIds = [...new Set(userIds.map((id) => id.toString()))];
 
@@ -151,6 +166,7 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
 
 export const getAttendanceReport = catchAsync(async (req, res) => {
   const departmentScope = await getDepartmentScope(req);
+  const facultyMenteeScope = await getFacultyMenteeScope(req);
   const attendanceDocs = await Attendance.find().lean();
   const userIds = attendanceDocs.map((attendance) => attendance.userId);
   const { userMap, profileMap, mentorshipMap, mentorMap } = await buildSharedStudentMaps(userIds);
@@ -188,6 +204,8 @@ export const getAttendanceReport = catchAsync(async (req, res) => {
 
   const filteredRows = departmentScope
     ? rows.filter((row) => row.department === departmentScope)
+    : facultyMenteeScope
+      ? rows.filter((row) => facultyMenteeScope.has(row.userId))
     : rows;
 
   filteredRows.sort((a, b) => {
