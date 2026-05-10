@@ -120,6 +120,18 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
         status: competition.status || "",
         level: competition.level || "",
         eventAffiliation: competition.eventAffiliation || "",
+        // additional fields for detailed view and export
+        contactNumber: competition.contactNumber || "",
+        studentNames: Array.isArray(competition.studentNames) ? competition.studentNames : (competition.studentNames ? String(competition.studentNames).split(",").map(s => s.trim()) : []),
+        studentUSNs: Array.isArray(competition.studentUSNs) ? competition.studentUSNs : (competition.studentUSNs ? String(competition.studentUSNs).split(",").map(s => s.trim()) : []),
+        cashAwardOrTrophy: competition.cashAwardOrTrophy || "",
+        projectTitle: competition.projectTitle || "",
+        category: competition.category || "",
+        eventType: competition.eventType || "",
+        financialSupportRequested: !!competition.financialSupportRequested,
+        amountSanctioned: competition.amountSanctioned || "",
+        relatedTo: competition.relatedTo || "",
+        proofLink: competition.proofLink || "",
         createdAt: competition.createdAt || null,
       };
     })
