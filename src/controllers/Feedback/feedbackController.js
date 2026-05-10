@@ -339,7 +339,42 @@ export const getFeedbackOverview = catchAsync(async (req, res) => {
     ]),
   ]);
 
-  const latestFeedback = feedbacks[0] || null;
+  // Get mentorship data to add mentor info to feedbacks
+  const studentIds = feedbacks.map(f => f.userId._id).filter(id => id);
+  const mentorships = await Mentorship.find({ menteeId: { $in: studentIds } })
+    .select("mentorId menteeId")
+    .lean();
+  
+  const menteeToMentorMap = {};
+  const mentorIds = new Set();
+  for (const mentorship of mentorships) {
+    menteeToMentorMap[mentorship.menteeId.toString()] = mentorship.mentorId.toString();
+    mentorIds.add(mentorship.mentorId.toString());
+  }
+  
+  // Fetch mentor data
+  const mentors = await User.find({ _id: { $in: Array.from(mentorIds) } })
+    .select("_id name email")
+    .lean();
+  
+  const mentorMap = {};
+  for (const mentor of mentors) {
+    mentorMap[mentor._id.toString()] = mentor;
+  }
+  
+  // Enrich feedbacks with mentor information
+  const enrichedFeedbacks = feedbacks.map(feedback => {
+    const mentorId = menteeToMentorMap[feedback.userId._id.toString()];
+    if (mentorId && mentorMap[mentorId]) {
+      const mentor = mentorMap[mentorId];
+      feedback.mentorId = mentor._id;
+      feedback.mentorName = mentor.name;
+      feedback.mentorEmail = mentor.email;
+    }
+    return feedback;
+  });
+
+  const latestFeedback = enrichedFeedbacks[0] || null;
   const selection = activeWindow
     ? {
         semester: activeWindow.semester,
@@ -362,7 +397,7 @@ export const getFeedbackOverview = catchAsync(async (req, res) => {
         roundCounts,
         semesterCounts,
       },
-      feedbacks,
+      feedbacks: enrichedFeedbacks,
     },
   });
 });
