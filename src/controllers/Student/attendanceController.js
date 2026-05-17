@@ -176,24 +176,6 @@ export const submitAttendanceData = async (req, res) => {
       });
     }
 
-    let overallAttendance;
-    try {
-      overallAttendance = await checkMinimumAttendance(userId, semester, month, subjects);
-    }
-    catch (error) {
-      logger.error("Error in checkMinimumAttendance:", error);
-      return res.status(400).json({ 
-        message: "Error calculating attendance percentage",
-        details: error.message,
-        context: {
-          userId,
-          semester,
-          month,
-          subjectsCount: subjects.length
-        }
-      });
-    }
-
     // Helper function to check if subject is invalid
     const isInvalidSubject = (subject) => {
       // Check for null or undefined values
@@ -212,6 +194,84 @@ export const submitAttendanceData = async (req, res) => {
       return false;
     };
 
+    const normalizeValue = (value) =>
+      typeof value === "string" ? value.trim() : "";
+
+    const isPlaceholderValue = (value) => {
+      const normalizedValue = normalizeValue(value).toLowerCase();
+      return !normalizedValue || normalizedValue === "na" || normalizedValue === "n/a";
+    };
+
+    const valuesMatch = (left, right) =>
+      normalizeValue(left).toLowerCase() === normalizeValue(right).toLowerCase();
+
+    const findMatchingSubjectIndex = (existingSubjects, incomingSubject) =>
+      existingSubjects.findIndex((existingSubject) => {
+        const existingCodeIsPlaceholder = isPlaceholderValue(existingSubject.subjectCode);
+        const existingNameIsPlaceholder = isPlaceholderValue(existingSubject.subjectName);
+        const incomingCodeIsPlaceholder = isPlaceholderValue(incomingSubject.subjectCode);
+        const incomingNameIsPlaceholder = isPlaceholderValue(incomingSubject.subjectName);
+
+        const codesMatch =
+          !existingCodeIsPlaceholder &&
+          !incomingCodeIsPlaceholder &&
+          valuesMatch(existingSubject.subjectCode, incomingSubject.subjectCode);
+
+        if (codesMatch) {
+          return true;
+        }
+
+        const namesMatch =
+          !existingNameIsPlaceholder &&
+          !incomingNameIsPlaceholder &&
+          valuesMatch(existingSubject.subjectName, incomingSubject.subjectName);
+
+        if (namesMatch) {
+          return true;
+        }
+
+        const placeholderCodeWithMatchingName =
+          existingCodeIsPlaceholder &&
+          !existingNameIsPlaceholder &&
+          !incomingNameIsPlaceholder &&
+          valuesMatch(existingSubject.subjectName, incomingSubject.subjectName);
+
+        if (placeholderCodeWithMatchingName) {
+          return true;
+        }
+
+        const placeholderNameWithMatchingCode =
+          existingNameIsPlaceholder &&
+          !existingCodeIsPlaceholder &&
+          !incomingCodeIsPlaceholder &&
+          valuesMatch(existingSubject.subjectCode, incomingSubject.subjectCode);
+
+        return placeholderNameWithMatchingCode;
+      });
+
+    const mergeSubjectRecords = (existingSubject, incomingSubject) => ({
+      subjectCode: isPlaceholderValue(incomingSubject.subjectCode)
+        ? existingSubject.subjectCode
+        : incomingSubject.subjectCode,
+      subjectName: isPlaceholderValue(incomingSubject.subjectName)
+        ? existingSubject.subjectName
+        : incomingSubject.subjectName,
+      attendedClasses: incomingSubject.attendedClasses,
+      totalClasses: incomingSubject.totalClasses,
+    });
+
+    const isPlaceholderSubject = (subject) =>
+      isPlaceholderValue(subject.subjectCode) || isPlaceholderValue(subject.subjectName);
+
+    const calculateOverallAttendanceOrFail = async (attendanceSubjects) => {
+      try {
+        return await checkMinimumAttendance(userId, semester, month, attendanceSubjects);
+      } catch (error) {
+        logger.error("Error in checkMinimumAttendance:", error);
+        return null;
+      }
+    };
+
     // Prepare the subjects data with required fields and filter invalid ones
     const formattedSubjects = subjects
       .map(subject => ({
@@ -228,6 +288,21 @@ export const submitAttendanceData = async (req, res) => {
         status: "fail",
         message: "No valid subjects found in the provided data",
         details: "All subjects were filtered out due to invalid data (missing values, 'No Data' entries, numeric-only names, or zero totals)"
+      });
+    }
+
+    let overallAttendance = await calculateOverallAttendanceOrFail(formattedSubjects);
+
+    if (overallAttendance === null) {
+      return res.status(400).json({ 
+        message: "Error calculating attendance percentage",
+        details: "Failed to calculate attendance from the provided subject data",
+        context: {
+          userId,
+          semester,
+          month,
+          subjectsCount: formattedSubjects.length
+        }
       });
     }
 
@@ -279,33 +354,48 @@ export const submitAttendanceData = async (req, res) => {
           // Use the month at the found index
           const monthObj = semesterObj.months[monthIndex];
           
-          // Update existing month - merge subjects without duplicates
+          // Overwrite the month's real subject rows with the latest upload.
+          // Only carry forward old placeholder rows when they still have no
+          // corresponding subject in the new upload.
           const existingSubjects = monthObj.subjects.filter(subject => !isInvalidSubject(subject));
-          
-          // Create a map of existing subjects by code and name for quick lookup
-          const subjectMap = new Map();
-          existingSubjects.forEach((subject, index) => {
-            const key = subject.subjectCode || subject.subjectName;
-            subjectMap.set(key, index);
-          });
+          const placeholderSubjectsToKeep = existingSubjects.filter((existingSubject) =>
+            isPlaceholderSubject(existingSubject) &&
+            findMatchingSubjectIndex(formattedSubjects, existingSubject) === -1
+          );
+          const mergedSubjects = formattedSubjects.map((subject) => ({ ...subject }));
 
-          // Update or add subjects from new data
-          formattedSubjects.forEach(newSubject => {
-            const key = newSubject.subjectCode || newSubject.subjectName;
-            const existingIndex = subjectMap.get(key);
-            
-            if (existingIndex !== undefined) {
-              // Update existing subject
-              existingSubjects[existingIndex] = newSubject;
-            } else {
-              // Add new subject
-              existingSubjects.push(newSubject);
-              subjectMap.set(key, existingSubjects.length - 1);
+          placeholderSubjectsToKeep.forEach((placeholderSubject) => {
+            const existingSubjectIndex = findMatchingSubjectIndex(mergedSubjects, placeholderSubject);
+
+            if (existingSubjectIndex === -1) {
+              mergedSubjects.push(placeholderSubject);
+              return;
             }
+
+            mergedSubjects[existingSubjectIndex] = mergeSubjectRecords(
+              mergedSubjects[existingSubjectIndex],
+              placeholderSubject
+            );
           });
 
-          monthObj.subjects = existingSubjects;
+          overallAttendance = await calculateOverallAttendanceOrFail(mergedSubjects);
+
+          if (overallAttendance === null) {
+            return res.status(400).json({ 
+              message: "Error calculating attendance percentage",
+              details: "Failed to calculate attendance from merged subject data",
+              context: {
+                userId,
+                semester,
+                month,
+                subjectsCount: mergedSubjects.length
+              }
+            });
+          }
+
+          monthObj.subjects = mergedSubjects;
           monthObj.overallAttendance = overallAttendance;
+          attendance.markModified("semesters");
         }
       }
     }
