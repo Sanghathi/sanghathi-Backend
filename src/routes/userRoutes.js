@@ -176,7 +176,7 @@ router.patch("/set-department", userController.setStrCoordinatorDepartment);
  *       200:
  *         description: User details
  */
-router.get("/usn/:usn", restrictTo("admin", "faculty", "hod", "director", "strcoordinator"), userController.getUserByUSN);
+router.get("/usn/:usn", restrictTo("admin", "faculty", "hod", "director", "strcoordinator", "doe"), userController.getUserByUSN);
 
 /**
  * @swagger
@@ -208,7 +208,7 @@ router.get("/usn/:usn", restrictTo("admin", "faculty", "hod", "director", "strco
  *         description: User created successfully
  */
 router.route("/")
-  .get(restrictTo("admin", "faculty", "hod", "director", "strcoordinator"), userController.getAllUsers)
+  .get(restrictTo("admin", "faculty", "hod", "director", "strcoordinator", "doe"), userController.getAllUsers)
   .post(restrictTo("admin", "hod", "director"), userController.createUser);
 
 /**
@@ -266,7 +266,7 @@ router.route("/")
  *         description: User deleted
  */
 router.route("/:id")
-  .get(userController.getUser)
+  .get(restrictTo("admin", "faculty", "hod", "director", "strcoordinator", "doe"), userController.getUser)
   .patch(restrictTo("admin", "hod", "director"), userController.updateUser)
   .delete(restrictTo("admin", "hod", "director"), userController.deleteUser);
 

@@ -30,7 +30,7 @@ const inferDepartmentFromEmail = (email) => {
     return null;
   }
 
-  const rolePrefixes = new Set(["admin", "hod", "director"]);
+  const rolePrefixes = new Set(["admin", "hod", "director", "doe"]);
   if (!rolePrefixes.has(segments[0])) {
     return null;
   }
@@ -75,7 +75,7 @@ export const getScopedDepartment = (req) => {
   }
 
   const roleName = (req.user.role?.name || req.user.roleName || "").toLowerCase();
-  const isDeptScopedRole = ["admin", "director", "hod", "strcoordinator"].includes(roleName);
+  const isDeptScopedRole = ["admin", "director", "hod", "strcoordinator", "doe"].includes(roleName);
 
   if (isSuperAdmin(req.user)) {
     return normalizeDepartment(req?.query?.department) || null;
@@ -98,7 +98,7 @@ export const resolveScopedDepartment = async (req) => {
   if (!req?.user) return null;
 
   const roleName = (req.user.role?.name || req.user.roleName || "").toLowerCase();
-  const isDeptScopedRole = ["admin", "director", "hod", "strcoordinator"].includes(roleName);
+  const isDeptScopedRole = ["admin", "director", "hod", "strcoordinator", "doe"].includes(roleName);
 
   if (isSuperAdmin(req.user)) {
     return normalizeDepartment(req?.query?.department) || null;
