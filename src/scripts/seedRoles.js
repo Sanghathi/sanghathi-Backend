@@ -50,6 +50,11 @@ async function seedRoles() {
         name: "director",
         permissions: ["read:users", "create:users", "update:users"],
       },
+      {
+        id: 6,
+        name: "doe",
+        permissions: ["read:users"],
+      },
     ];
 
     await Promise.all(
