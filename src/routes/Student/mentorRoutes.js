@@ -718,7 +718,7 @@ router.get("/mentors-with-mentees", async (req, res) => {
 
     if (effectiveDepartment && effectiveDepartment !== "all") {
       mentorUserFilter.department = {
-        $regex: `^${effectiveDepartment}$`,
+        $regex: `^\\s*${effectiveDepartment}\\s*$`,
         $options: "i",
       };
     }

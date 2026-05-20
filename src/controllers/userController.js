@@ -208,20 +208,25 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
 
   if (scopedDepartment) {
     // Use a case-insensitive regex for department to avoid casing/whitespace mismatches
-    const deptRegex = new RegExp(`^${escapeRegex(scopedDepartment)}$`, "i");
+    const deptRegex = new RegExp(`^\\s*${escapeRegex(scopedDepartment)}\\s*$`, "i");
 
-    // Find profiles that belong to the scoped department (students + faculty)
+    // Find profiles and raw user rows that belong to the scoped department.
+    // Some records only store department on the User document, so we need both sources.
     const profileFilterForDept = mergeCollegeScope({ department: deptRegex }, collegeCode);
+    const userFilterForDept = mergeCollegeScope({ department: deptRegex }, collegeCode);
 
-    const [studentProfilesByDept, facultyProfilesByDept] = await Promise.all([
+    const [studentProfilesByDept, facultyProfilesByDept, scopedUsersByDept] = await Promise.all([
       mongoose.model("StudentProfile").find(profileFilterForDept).select("userId").lean(),
       mongoose.model("FacultyProfile").find(profileFilterForDept).select("userId").lean(),
+      User.find(userFilterForDept).select("_id").lean(),
     ]);
 
     const scopedProfileUserIds = [
       ...studentProfilesByDept.map((profile) => profile.userId),
       ...facultyProfilesByDept.map((profile) => profile.userId),
     ];
+
+    const scopedUserDepartmentIds = scopedUsersByDept.map((user) => user._id);
 
     // Also include department-scoped admin/director/hod users from the same department
     const deptScopedAdmins = await User.find(
@@ -236,12 +241,17 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
     const allowedOrReferencedFilter = {
       $or: [
         { department: deptRegex },
-        { _id: { $in: [...scopedProfileUserIds, ...deptAdminIds] } },
+        {
+          _id: {
+            $in: [...scopedProfileUserIds, ...scopedUserDepartmentIds, ...deptAdminIds],
+          },
+        },
       ],
     };
 
     logger.debug("[getAllUsers] scopedProfileUserIds count, deptAdminIds count:", {
       scopedProfileUserIds: scopedProfileUserIds.length,
+      scopedUserDepartmentIds: scopedUserDepartmentIds.length,
       deptAdminIds: deptAdminIds.length,
     });
     logger.debug("[getAllUsers] allowedOrReferencedFilter:", allowedOrReferencedFilter);
@@ -260,10 +270,12 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
             .lean();
 
           const mappedIds = profileUserIds.map((profile) => profile.userId).filter(Boolean);
+          const fallbackDeptIds = scopedUserDepartmentIds.filter(Boolean);
+          const roleScopedIds = [...new Set([...mappedIds, ...fallbackDeptIds])];
           logger.info("[getAllUsers] profileUserIds mapped count for role", { role: roleLower, count: mappedIds.length });
 
-          if (mappedIds.length > 0) {
-            filter._id = { $in: mappedIds };
+          if (roleScopedIds.length > 0) {
+            filter._id = { $in: roleScopedIds };
           } else {
             // Strictly enforce department scoping - if no profiles found in the department, return none
             filter._id = { $in: [] };
