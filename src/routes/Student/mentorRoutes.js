@@ -711,27 +711,45 @@ router.get("/mentors-with-mentees", async (req, res) => {
     );
 
     const FacultyProfile = mongoose.model("FacultyProfile");
-    let facultyProfileFilter = {};
+    const mentorUserFilter = mergeCollegeScope(
+      { _id: { $in: mentorIds }, roleName: "faculty" },
+      collegeCode
+    );
+
     if (effectiveDepartment && effectiveDepartment !== "all") {
-      facultyProfileFilter.department = effectiveDepartment;
-    } else {
-      facultyProfileFilter.userId = { $in: mentorIds };
+      mentorUserFilter.department = {
+        $regex: `^${effectiveDepartment}$`,
+        $options: "i",
+      };
     }
 
-    facultyProfileFilter = mergeCollegeScope(facultyProfileFilter, collegeCode);
+    const mentors = await User.find(mentorUserFilter)
+      .select("_id name email phone department roleName avatar")
+      .lean();
 
-    const facultyProfiles = await FacultyProfile.find(facultyProfileFilter)
+    if (!mentors.length) {
+      return res.status(200).json({
+        mentors: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 1,
+        },
+      });
+    }
+
+    const filteredMentorIds = mentors.map((mentor) => mentor._id);
+
+    const facultyProfiles = await FacultyProfile.find(
+      mergeCollegeScope({ userId: { $in: filteredMentorIds } }, collegeCode)
+    )
       .select("userId department cabin photo")
       .lean();
 
     const facultyProfileMap = new Map(
       facultyProfiles.map((profile) => [profile.userId.toString(), profile])
     );
-
-    const filteredMentorIds =
-      effectiveDepartment && effectiveDepartment !== "all"
-        ? facultyProfiles.map((profile) => profile.userId)
-        : mentorIds;
 
     if (!filteredMentorIds.length) {
       return res.status(200).json({
@@ -772,7 +790,7 @@ router.get("/mentors-with-mentees", async (req, res) => {
       menteeUsers.map((mentee) => [mentee._id.toString(), mentee.name])
     );
 
-    const mentors = await User.find(
+    const mentorUsers = await User.find(
       mergeCollegeScope(
         { _id: { $in: filteredMentorIds }, roleName: "faculty" },
         collegeCode
@@ -781,7 +799,7 @@ router.get("/mentors-with-mentees", async (req, res) => {
       .select("_id name email phone department roleName avatar")
       .lean();
 
-    const mentorsWithCounts = mentors.map((mentor) => {
+    const mentorsWithCounts = mentorUsers.map((mentor) => {
       const mentorKey = mentor._id.toString();
       const menteeCount = mentorCounts.get(mentor._id.toString()) || 0;
       const facultyProfile = facultyProfileMap.get(mentorKey);
