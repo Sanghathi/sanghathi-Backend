@@ -704,27 +704,35 @@ export const getUserByUSN = async (req, res) => {
   try {
     const { usn } = req.params;
     
-    // First, find the student profile with this USN
+    // First, find the student profile(s) with this USN
     const StudentProfile = mongoose.model("StudentProfile");
     const collegeCode = getScopedCollegeCode(req);
     const profileFilter = mergeCollegeScope({ usn }, collegeCode);
 
-    const studentProfile = await StudentProfile.findOne(profileFilter)
-      .select("userId")
-      .lean();
-    
-    if (!studentProfile) {
+    // Try to find a profile whose userId points to an existing User.
+    // This handles orphaned/duplicate studentprofile documents (same USN).
+    const candidateProfiles = await StudentProfile.find(profileFilter).select("userId").lean();
+
+    if (!candidateProfiles || candidateProfiles.length === 0) {
       return res.status(404).json({ message: "Student profile with this USN not found" });
     }
-    
-    // Find the user associated with this profile - using the userId field in the StudentProfile
-    const user = await User.findById(studentProfile.userId).select("_id").lean();
-    
-    if (!user) {
+
+    let foundUser = null;
+    for (const profile of candidateProfiles) {
+      if (!profile?.userId) continue;
+      const user = await User.findById(profile.userId).select("_id").lean();
+      if (user) {
+        foundUser = user;
+        break;
+      }
+    }
+
+    if (!foundUser) {
+      // No linked user exists for any of the profiles with this USN
       return res.status(404).json({ message: "User associated with this USN not found" });
     }
-    
-    res.json({ userId: user._id });
+
+    res.json({ userId: foundUser._id });
   } catch (error) {
     logger.error("Error in getUserByUSN:", error);
     res.status(500).json({ message: error.message });
