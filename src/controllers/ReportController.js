@@ -225,7 +225,7 @@ export const getAttendanceReport = catchAsync(async (req, res) => {
 });
 
 export const sendLowAttendanceEmail = catchAsync(async (req, res) => {
-  const { dryRun = false, recipientIds = [] } = req.body;
+  const { dryRun = false, recipientIds = [], recipientEmails = [] } = req.body;
   const mentorId = req.user?._id;
   const mentorName = req.user?.name || "your mentor";
   const frontendHost = (process.env.CLIENT_HOST || process.env.FRONTEND_HOST || "https://sanghathi.com").replace(/\/$/, "");
@@ -238,11 +238,19 @@ export const sendLowAttendanceEmail = catchAsync(async (req, res) => {
     });
   }
 
-  const users = await User.find({ _id: { $in: recipientIds }, roleName: "student" })
-    .select("_id name email")
-    .lean();
+  const explicitRecipientEmails = Array.isArray(recipientEmails)
+    ? recipientEmails.map((email) => String(email || "").trim()).filter(Boolean)
+    : [];
 
-  const studentEmails = users.filter((user) => user?.email).map((user) => user.email.trim());
+  let studentEmails = explicitRecipientEmails;
+
+  if (!studentEmails.length) {
+    const users = await User.find({ _id: { $in: recipientIds }, roleName: "student" })
+      .select("_id name email")
+      .lean();
+
+    studentEmails = users.filter((user) => user?.email).map((user) => user.email.trim());
+  }
 
   if (!studentEmails.length) {
     return res.status(200).json({

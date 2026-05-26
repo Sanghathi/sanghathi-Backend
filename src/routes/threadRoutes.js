@@ -36,6 +36,9 @@ router.post("/notify-open-thread-students", restrictTo("faculty"), async (req, r
     const mentorId = req.user?._id;
     const mentorName = req.user?.name || "your mentor";
     const dryRun = req.body?.dryRun === true;
+    const explicitRecipientEmails = Array.isArray(req.body?.recipientEmails)
+      ? req.body.recipientEmails.map((email) => String(email || "").trim()).filter(Boolean)
+      : [];
     const frontendHost = (process.env.CLIENT_HOST || process.env.FRONTEND_HOST || "https://sanghathi.com").replace(/\/$/, "");
     const threadUrl = `${frontendHost}/threads`;
 
@@ -50,13 +53,15 @@ router.post("/notify-open-thread-students", restrictTo("faculty"), async (req, r
       })
       .lean();
 
-    const studentEmails = [...new Set(
-      openThreads
-        .flatMap((thread) => Array.isArray(thread.participants) ? thread.participants : [])
-        .filter((participant) => participant?.roleName === "student" && participant?.email)
-        .map((participant) => participant.email.trim())
-        .filter(Boolean)
-    )];
+    const studentEmails = explicitRecipientEmails.length
+      ? [...new Set(explicitRecipientEmails)]
+      : [...new Set(
+          openThreads
+            .flatMap((thread) => Array.isArray(thread.participants) ? thread.participants : [])
+            .filter((participant) => participant?.roleName === "student" && participant?.email)
+            .map((participant) => participant.email.trim())
+            .filter(Boolean)
+        )];
 
     if (!studentEmails.length) {
       return res.status(200).json({
