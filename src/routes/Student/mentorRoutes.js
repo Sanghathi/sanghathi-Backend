@@ -673,46 +673,9 @@ router.get("/mentors-with-mentees", async (req, res) => {
     const scopedDepartment = getScopedDepartment(req);
     const effectiveDepartment = scopedDepartment || department;
 
-    const mentorships = await Mentorship.find()
-      .select("mentorId menteeId")
-      .lean();
-
-    const mentorCounts = new Map();
-    const mentorMenteeIdsMap = new Map();
-    mentorships.forEach((mentorship) => {
-      const mentorKey = mentorship.mentorId.toString();
-      mentorCounts.set(mentorKey, (mentorCounts.get(mentorKey) || 0) + 1);
-
-      if (!mentorMenteeIdsMap.has(mentorKey)) {
-        mentorMenteeIdsMap.set(mentorKey, new Set());
-      }
-
-      if (mentorship.menteeId) {
-        mentorMenteeIdsMap
-          .get(mentorKey)
-          .add(mentorship.menteeId.toString());
-      }
-    });
-
-    if (!mentorCounts.size) {
-      return res.status(200).json({
-        mentors: [],
-        pagination: {
-          page,
-          limit,
-          total: 0,
-          totalPages: 1,
-        },
-      });
-    }
-
-    const mentorIds = Array.from(mentorCounts.keys()).map(
-      (id) => new mongoose.Types.ObjectId(id)
-    );
-
     const FacultyProfile = mongoose.model("FacultyProfile");
     const mentorUserFilter = mergeCollegeScope(
-      { _id: { $in: mentorIds }, roleName: "faculty" },
+      { roleName: "faculty" },
       collegeCode
     );
 
@@ -739,10 +702,33 @@ router.get("/mentors-with-mentees", async (req, res) => {
       });
     }
 
-    const filteredMentorIds = mentors.map((mentor) => mentor._id);
+    const mentorIds = mentors.map((mentor) => mentor._id);
+
+    const mentorships = await Mentorship.find({
+      mentorId: { $in: mentorIds },
+    })
+      .select("mentorId menteeId")
+      .lean();
+
+    const mentorCounts = new Map();
+    const mentorMenteeIdsMap = new Map();
+
+    mentorIds.forEach((mentorId) => {
+      mentorCounts.set(mentorId.toString(), 0);
+      mentorMenteeIdsMap.set(mentorId.toString(), new Set());
+    });
+
+    mentorships.forEach((mentorship) => {
+      const mentorKey = mentorship.mentorId.toString();
+      mentorCounts.set(mentorKey, (mentorCounts.get(mentorKey) || 0) + 1);
+
+      if (mentorship.menteeId) {
+        mentorMenteeIdsMap.get(mentorKey)?.add(mentorship.menteeId.toString());
+      }
+    });
 
     const facultyProfiles = await FacultyProfile.find(
-      mergeCollegeScope({ userId: { $in: filteredMentorIds } }, collegeCode)
+      mergeCollegeScope({ userId: { $in: mentorIds } }, collegeCode)
     )
       .select("userId department cabin photo")
       .lean();
@@ -750,23 +736,10 @@ router.get("/mentors-with-mentees", async (req, res) => {
     const facultyProfileMap = new Map(
       facultyProfiles.map((profile) => [profile.userId.toString(), profile])
     );
-
-    if (!filteredMentorIds.length) {
-      return res.status(200).json({
-        mentors: [],
-        pagination: {
-          page,
-          limit,
-          total: 0,
-          totalPages: 1,
-        },
-      });
-    }
-
-    const filteredMentorKeys = filteredMentorIds.map((id) => id.toString());
     const menteeIdSet = new Set();
 
-    filteredMentorKeys.forEach((mentorKey) => {
+    mentorIds.forEach((mentorId) => {
+      const mentorKey = mentorId.toString();
       const menteeIdsForMentor = mentorMenteeIdsMap.get(mentorKey);
       if (menteeIdsForMentor) {
         menteeIdsForMentor.forEach((menteeId) => menteeIdSet.add(menteeId));
@@ -792,7 +765,7 @@ router.get("/mentors-with-mentees", async (req, res) => {
 
     const mentorUsers = await User.find(
       mergeCollegeScope(
-        { _id: { $in: filteredMentorIds }, roleName: "faculty" },
+        { _id: { $in: mentorIds }, roleName: "faculty" },
         collegeCode
       )
     )
