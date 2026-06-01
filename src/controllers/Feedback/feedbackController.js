@@ -5,7 +5,7 @@ import Mentorship from "../../models/Mentorship.js";
 import mongoose from "mongoose";
 import catchAsync from "../../utils/catchAsync.js";
 import AppError from "../../utils/appError.js";
-import { resolveScopedDepartment } from "../../utils/tenantContext.js";
+import { getScopedCollegeCode, mergeCollegeScope, resolveScopedDepartment } from "../../utils/tenantContext.js";
 
 const WINDOW_KEY = "global";
 
@@ -473,8 +473,9 @@ export const getFeedbackStats = catchAsync(async (req, res, next) => {
 
   const averageScoreOverall = statsAgg[0]?.averageScoreOverall || 0;
 
-  // Get total enrolled students dynamically from User model
-  const enrollmentFilter = { roleName: "student" };
+  // Count enrolled students from student profiles because semester lives there in this app.
+  const collegeCode = getScopedCollegeCode(req);
+  const enrollmentFilter = mergeCollegeScope({}, collegeCode);
   if (semester) {
     enrollmentFilter.sem = Number(semester);
   }
@@ -482,7 +483,7 @@ export const getFeedbackStats = catchAsync(async (req, res, next) => {
     enrollmentFilter.department = activeDepartment;
   }
 
-  const totalEnrolled = await User.countDocuments(enrollmentFilter);
+  const totalEnrolled = await mongoose.model("StudentProfile").countDocuments(enrollmentFilter);
   const responseRate = totalEnrolled > 0 ? ((respondedCount / totalEnrolled) * 100).toFixed(2) : 0;
 
   res.status(200).json({

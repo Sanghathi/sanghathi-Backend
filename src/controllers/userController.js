@@ -132,6 +132,7 @@ const attachMentorData = async (users = [], collegeCode) => {
 // Get all users with optional role filtering
 export const getAllUsers = catchAsync(async (req, res, next) => {
   const { role, q, fields } = req.query;
+  const semesterQuery = req.query.semester ?? req.query.sem;
   const includeProfiles = parseBoolean(req.query.includeProfiles, true);
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 500);
@@ -164,6 +165,7 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   );
 
   let filter = {};
+  const normalizedRole = (role || "").toString().toLowerCase();
 
   // If a role is provided in the query, filter by role
   if (role) {
@@ -258,9 +260,7 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
 
     // If a role is provided, prefer restricting by role + department/profile membership
     if (role) {
-      // normalize role string for comparisons
-      const roleLower = (role || "").toString().toLowerCase();
-      const profileModel = roleLower === "student" ? "StudentProfile" : roleLower === "faculty" ? "FacultyProfile" : null;
+      const profileModel = normalizedRole === "student" ? "StudentProfile" : normalizedRole === "faculty" ? "FacultyProfile" : null;
 
       if (profileModel) {
           const profileUserIds = await mongoose
@@ -272,7 +272,7 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
           const mappedIds = profileUserIds.map((profile) => profile.userId).filter(Boolean);
           const fallbackDeptIds = scopedUserDepartmentIds.filter(Boolean);
           const roleScopedIds = [...new Set([...mappedIds, ...fallbackDeptIds])];
-          logger.info("[getAllUsers] profileUserIds mapped count for role", { role: roleLower, count: mappedIds.length });
+          logger.info("[getAllUsers] profileUserIds mapped count for role", { role: normalizedRole, count: mappedIds.length });
 
           if (roleScopedIds.length > 0) {
             filter._id = { $in: roleScopedIds };
@@ -280,13 +280,34 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
             // Strictly enforce department scoping - if no profiles found in the department, return none
             filter._id = { $in: [] };
             logger.info("[getAllUsers] No department-matched profiles found for scoped role", {
-              role: roleLower,
+              role: normalizedRole,
               scopedDepartment,
             });
           }
         } else {
         // role provided but not student/faculty -> apply role filter and department/profile membership
         filter = { ...filter, $and: [allowedOrReferencedFilter] };
+      }
+
+      if (normalizedRole === "student" && semesterQuery !== undefined && semesterQuery !== null && `${semesterQuery}`.trim() !== "") {
+        const semesterNumber = Number(semesterQuery);
+        if (Number.isInteger(semesterNumber)) {
+          const semesterProfiles = await mongoose
+            .model("StudentProfile")
+            .find(mergeCollegeScope({ sem: semesterNumber }, collegeCode))
+            .select("userId")
+            .lean();
+
+          const semesterUserIds = semesterProfiles.map((profile) => profile.userId).filter(Boolean).map((id) => id.toString());
+
+          if (semesterUserIds.length > 0) {
+            const currentIds = Array.isArray(filter._id?.$in) ? filter._id.$in.map((id) => id.toString()) : null;
+            const filteredIds = currentIds ? currentIds.filter((id) => semesterUserIds.includes(id)) : semesterUserIds;
+            filter._id = { $in: filteredIds };
+          } else {
+            filter._id = { $in: [] };
+          }
+        }
       }
     } else {
       // No explicit role filter: restrict results to the scoped department and related users
