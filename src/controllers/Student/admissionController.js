@@ -24,16 +24,25 @@ export const createOrUpdateAdmissionDetails = catchAsync(async (req, res, next) 
     collegeCode: resolvedCollegeCode,
   };
 
-  const admissionDetails = await AdmissionDetails.findOneAndUpdate(
-    { userId },
-    admissionPayload,
-    { new: true, upsert: true, runValidators: true }
-  );
+  try {
+    const admissionDetails = await AdmissionDetails.findOneAndUpdate(
+      { userId },
+      admissionPayload,
+      { new: true, upsert: true, runValidators: true }
+    );
 
-  res.status(200).json({
-    status: 'success',
-    data: { admissionDetails }
-  });
+    res.status(200).json({
+      status: 'success',
+      data: { admissionDetails }
+    });
+  } catch (err) {
+    // Handle duplicate key errors (e.g., unique index on usn)
+    if (err && err.code === 11000) {
+      const field = Object.keys(err.keyValue || {}).join(', ') || 'field';
+      return next(new AppError(`Duplicate field value: ${field}. Please use another value.`, 400));
+    }
+    throw err;
+  }
 });
 
 export const getAdmissionDetailsByUserId = catchAsync(async (req, res, next) => {
