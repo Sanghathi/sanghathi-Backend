@@ -176,9 +176,17 @@ export const createNewThread = catchAsync(async (req, res, next) => {
   ]);
 
   const isStudentThread = (authorUser?.roleName || "").toLowerCase() === "student";
+  const isFacultyThread = ["faculty", "mentor", "hod", "director"].includes(
+    (authorUser?.roleName || "").toLowerCase()
+  );
   const facultyRecipients = [...new Map(
     participantUsers
       .filter((participant) => (participant?.roleName || "").toLowerCase() === "faculty" && participant?.email)
+      .map((participant) => [participant.email.toLowerCase(), participant.email.trim()])
+  ).values()];
+  const studentRecipients = [...new Map(
+    participantUsers
+      .filter((participant) => (participant?.roleName || "").toLowerCase() === "student" && participant?.email)
       .map((participant) => [participant.email.toLowerCase(), participant.email.trim()])
   ).values()];
 
@@ -219,6 +227,47 @@ export const createNewThread = catchAsync(async (req, res, next) => {
         threadId: enrichedThread._id,
         authorId: authorUser?._id,
         recipients: facultyRecipients,
+        error: error?.message || error,
+      });
+    }
+  }
+
+  if (isFacultyThread && studentRecipients.length) {
+    const frontendHost = (process.env.CLIENT_HOST || process.env.FRONTEND_HOST || "https://sanghathi.com").replace(/\/$/, "");
+    const threadUrl = `${frontendHost}/threads/${enrichedThread._id}`;
+    const facultyName = authorUser?.name || "your mentor";
+    const subject = `New thread created by ${facultyName}`;
+    const body = `Hello student,\n\n${facultyName} has created a new thread in Sanghathi. Please open the thread and respond when you can.\n\nOpen the conversation here: ${threadUrl}\n\nTopic: ${enrichedThread.topic}\nTitle: ${enrichedThread.title}\n\nRegards,\nSanghathi`;
+    const html = `
+      <div style="font-family: Inter, Arial, sans-serif; background: linear-gradient(135deg, #111827 0%, #1d4ed8 52%, #0ea5e9 100%); padding: 24px; border-radius: 18px; color: #e5f0ff;">
+        <div style="max-width: 680px; margin: 0 auto; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); border-radius: 18px; padding: 28px; box-shadow: 0 20px 45px rgba(15, 23, 42, 0.28);">
+          <div style="display:inline-block; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.16); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; margin-bottom: 16px;">New Thread</div>
+          <h1 style="margin: 0 0 12px; font-size: 28px; line-height: 1.2; color: #ffffff;">A new thread has been created</h1>
+          <p style="margin: 0 0 14px; font-size: 16px; color: #dbeafe;"><strong>${facultyName}</strong> created a new thread for you in Sanghathi.</p>
+          <div style="background: rgba(255,255,255,0.12); border-left: 4px solid #34d399; padding: 14px 16px; border-radius: 12px; margin: 18px 0; color: #ecfdf5; font-weight: 600;">
+            Topic: ${enrichedThread.topic}<br />
+            Title: ${enrichedThread.title}
+          </div>
+          <div style="margin: 20px 0 24px;">
+            <a href="${threadUrl}" style="display:inline-block; background: #f8fafc; color: #1d4ed8; text-decoration:none; padding: 14px 22px; border-radius: 12px; font-weight: 800; box-shadow: 0 12px 30px rgba(255,255,255,0.22);">Open Thread</a>
+          </div>
+          <p style="margin: 0; font-size: 14px; color: #bfdbfe;">Regards,<br/><strong>Sanghathi</strong></p>
+        </div>
+      </div>
+    `;
+
+    try {
+      await sendEmail({
+        email: studentRecipients,
+        subject,
+        message: body,
+        html,
+      });
+    } catch (error) {
+      logger.error("Failed to send faculty thread notification email", {
+        threadId: enrichedThread._id,
+        authorId: authorUser?._id,
+        recipients: studentRecipients,
         error: error?.message || error,
       });
     }
