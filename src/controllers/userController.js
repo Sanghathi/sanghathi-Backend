@@ -49,6 +49,17 @@ const sanitizeSelectFields = (rawFields, allowedFields, fallbackFields) => {
   return fields.length ? fields.join(" ") : fallbackFields;
 };
 
+const addAndFilter = (filter, condition) => {
+  if (!condition || !Object.keys(condition).length) {
+    return filter;
+  }
+
+  return {
+    ...filter,
+    $and: [...(filter.$and || []), condition],
+  };
+};
+
 const attachMentorData = async (users = [], collegeCode) => {
   const studentIds = users
     .filter((user) => user?.roleName === "student" && user?._id)
@@ -167,29 +178,35 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   let filter = {};
   const normalizedRole = (role || "").toString().toLowerCase();
 
-  // If a role is provided in the query, filter by role
+  // If a role is provided in the query, filter by role. Older imported users can
+  // have roleName without a populated role ObjectId, so support both shapes.
   if (role) {
     // match role case-insensitively
-    const roleDoc = await Role.findOne({ name: new RegExp(`^${role}$`, "i") }).select("_id").lean();
+    const roleRegex = new RegExp(`^${escapeRegex(role)}$`, "i");
+    const roleDoc = await Role.findOne({ name: roleRegex }).select("_id").lean();
 
     // If no valid role is found, throw an error
     if (!roleDoc) {
       return next(new AppError("Invalid role", 400));
     }
 
-    // Update filter to match the role ID
-    filter.role = roleDoc._id;
+    filter = addAndFilter(filter, {
+      $or: [{ role: roleDoc._id }, { roleName: roleRegex }],
+    });
   }
 
   if (q && typeof q === "string") {
     const escapedSearch = escapeRegex(q.trim());
     if (escapedSearch) {
       const searchRegex = new RegExp(escapedSearch, "i");
-      filter.$or = [
-        { name: searchRegex },
-        { email: searchRegex },
-        { phone: searchRegex },
-      ];
+      filter = addAndFilter(filter, {
+        $or: [
+          { name: searchRegex },
+          { email: searchRegex },
+          { phone: searchRegex },
+          { department: searchRegex },
+        ],
+      });
     }
   }
 
@@ -286,7 +303,7 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
           }
         } else {
         // role provided but not student/faculty -> apply role filter and department/profile membership
-        filter = { ...filter, $and: [allowedOrReferencedFilter] };
+        filter = addAndFilter(filter, allowedOrReferencedFilter);
       }
 
       if (normalizedRole === "student" && semesterQuery !== undefined && semesterQuery !== null && `${semesterQuery}`.trim() !== "") {
@@ -311,7 +328,7 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
       }
     } else {
       // No explicit role filter: restrict results to the scoped department and related users
-      filter = { ...filter, $and: [allowedOrReferencedFilter] };
+      filter = addAndFilter(filter, allowedOrReferencedFilter);
     }
   }
 
@@ -823,24 +840,39 @@ export const resetPasswordWithToken = catchAsync(async (req, res, next) => {
   });
 });
 
-// Allow a STR Coordinator to set their department (used for director/strcoordinator flows)
+// Allow cross-department roles to set or clear their active department scope.
 export const setStrCoordinatorDepartment = catchAsync(async (req, res, next) => {
   const userId = req.user?._id;
   const { department } = req.body;
 
   if (!userId) return next(new AppError("Unauthorized", 401));
 
-  if (!department || typeof department !== "string" || !department.trim()) {
+  if (typeof department !== "string") {
     return next(new AppError("department is required", 400));
   }
 
-  // Only allow users with roleName 'strcoordinator' to use this endpoint
   const roleName = (req.user?.roleName || "").toString().toLowerCase();
-  if (roleName !== "strcoordinator") {
-    return next(new AppError("Only STR Coordinator users can set department via this endpoint", 403));
+  const canSetDepartment = ["strcoordinator", "director", "super-admin"].includes(roleName);
+  if (!canSetDepartment) {
+    return next(new AppError("Only department-scoped admin users can set department via this endpoint", 403));
   }
 
-  const updated = await User.findOneAndUpdate({ _id: userId }, { department: department.trim() }, { new: true });
+  const normalizedDepartment = department.trim();
+  if (!normalizedDepartment) {
+    return next(new AppError("department is required", 400));
+  }
+
+  const storedDepartment = ["all", "all departments", "__all__"].includes(
+    normalizedDepartment.toLowerCase()
+  )
+    ? "All Departments"
+    : normalizedDepartment;
+
+  const updated = await User.findOneAndUpdate(
+    { _id: userId },
+    { department: storedDepartment },
+    { new: true }
+  );
 
   if (!updated) return next(new AppError("User not found", 404));
 

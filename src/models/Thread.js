@@ -27,7 +27,7 @@ const ThreadSchema = new mongoose.Schema({
   },
   topic: {
     type: String,
-    enum: ["general", "attendance", "performance", "well-being"],
+    enum: ["request for attendance", "general", "attendance", "performance", "well-being"],
     required: true,
   },
   messages: [

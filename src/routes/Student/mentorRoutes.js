@@ -15,6 +15,8 @@ import {
 import logger from "../../utils/logger.js";
 const router = Router();
 
+const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 router.use(protect);
 
 // Get all students with their profiles and mentor details
@@ -471,11 +473,11 @@ router.get("/allocation-students", async (req, res) => {
     let profileFilter = {};
 
     if (department && department !== "all") {
-      profileFilter.department = department;
+      profileFilter.department = { $regex: `^\\s*${escapeRegex(department)}\\s*$`, $options: "i" };
     }
 
     if (!profileFilter.department && scopedDepartment) {
-      profileFilter.department = scopedDepartment;
+      profileFilter.department = { $regex: `^\\s*${escapeRegex(scopedDepartment)}\\s*$`, $options: "i" };
     }
 
     if (sem && sem !== "all") {

@@ -21,7 +21,7 @@ router.get("/window", getFeedbackWindow);
 router.patch("/window", restrictTo("admin"), updateFeedbackWindow);
 router.get("/overview", restrictTo("admin", "hod", "director", "strcoordinator"), getFeedbackOverview);
 router.get("/stats/:semester/:round", restrictTo("admin", "hod", "director", "strcoordinator"), getFeedbackStats);
-router.get("/by-mentor/:mentorId", restrictTo("hod", "director", "strcoordinator"), getFeedbackByMentor);
+router.get("/by-mentor/:mentorId", restrictTo("admin", "hod", "director", "strcoordinator"), getFeedbackByMentor);
 router.get("/student/:studentId", getFeedbackByStudent);
 router.get("/user/:userId", getFeedbackByUserId);
 router.post("/", createOrUpdateFeedback);

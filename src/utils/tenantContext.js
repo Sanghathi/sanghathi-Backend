@@ -16,7 +16,16 @@ export const normalizeDepartment = (value) => {
     return null;
   }
 
-  return value.toString().trim();
+  const normalized = value.toString().trim();
+  if (!normalized) {
+    return null;
+  }
+
+  if (["all", "all departments", "__all__"].includes(normalized.toLowerCase())) {
+    return null;
+  }
+
+  return normalized;
 };
 
 const inferDepartmentFromEmail = (email) => {
@@ -76,9 +85,15 @@ export const getScopedDepartment = (req) => {
 
   const roleName = (req.user.role?.name || req.user.roleName || "").toLowerCase();
   const isDeptScopedRole = ["admin", "director", "hod", "strcoordinator", "doe"].includes(roleName);
+  const requestedDepartment = normalizeDepartment(req?.query?.department);
+  const canUseRequestedDepartment = ["admin", "director", "strcoordinator", "doe"].includes(roleName);
 
   if (isSuperAdmin(req.user)) {
-    return normalizeDepartment(req?.query?.department) || null;
+    return requestedDepartment || normalizeDepartment(req.user.department) || null;
+  }
+
+  if (canUseRequestedDepartment && Object.prototype.hasOwnProperty.call(req?.query || {}, "department")) {
+    return requestedDepartment;
   }
 
   if (!isDeptScopedRole) {
@@ -99,9 +114,15 @@ export const resolveScopedDepartment = async (req) => {
 
   const roleName = (req.user.role?.name || req.user.roleName || "").toLowerCase();
   const isDeptScopedRole = ["admin", "director", "hod", "strcoordinator", "doe"].includes(roleName);
+  const requestedDepartment = normalizeDepartment(req?.query?.department);
+  const canUseRequestedDepartment = ["admin", "director", "strcoordinator", "doe"].includes(roleName);
 
   if (isSuperAdmin(req.user)) {
-    return normalizeDepartment(req?.query?.department) || null;
+    return requestedDepartment || normalizeDepartment(req.user.department) || null;
+  }
+
+  if (canUseRequestedDepartment && Object.prototype.hasOwnProperty.call(req?.query || {}, "department")) {
+    return requestedDepartment;
   }
 
   if (!isDeptScopedRole) return null;

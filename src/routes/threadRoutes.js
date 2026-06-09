@@ -24,10 +24,28 @@ const createThreadSchema = z.object({
   topic: z.string().trim().min(1),
 });
 
-const threadMessageSchema = z.object({
-  body: z.string().trim().min(1),
-  senderId: z.string().trim().min(1),
+const threadAttachmentSchema = z.object({
+  url: z.string().trim().url(),
+  publicId: z.string().trim().optional(),
+  originalName: z.string().trim().optional(),
+  resourceType: z.string().trim().optional(),
+  mimeType: z.string().trim().optional(),
+  bytes: z.number().int().nonnegative().max(10 * 1024 * 1024).optional(),
 });
+
+const threadMessageSchema = z
+  .object({
+    body: z.string().trim().optional().default(""),
+    senderId: z.string().trim().min(1),
+    attachments: z.array(threadAttachmentSchema).max(5).optional().default([]),
+  })
+  .refine(
+    (value) => value.body.length > 0 || value.attachments.length > 0,
+    {
+      path: ["body"],
+      message: "Message text or attachment is required",
+    }
+  );
 
 router.use(protect);
 
