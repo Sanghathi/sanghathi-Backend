@@ -268,7 +268,7 @@ router.route("/")
 router.route("/:id")
   .get(restrictTo("admin", "faculty", "hod", "director", "strcoordinator", "doe"), userController.getUser)
   .patch(restrictTo("admin", "hod", "director"), userController.updateUser)
-  .delete(restrictTo("admin", "hod", "director"), userController.deleteUser);
+  .delete(restrictTo("admin"), userController.deleteUser);
 
 /**
  * @swagger

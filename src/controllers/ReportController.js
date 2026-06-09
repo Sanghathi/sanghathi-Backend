@@ -1,12 +1,14 @@
 import catchAsync from "../utils/catchAsync.js";
 import Attendance from "../models/Student/Attendance.js";
 import Competition from "../models/CareerReview/Competition.js";
+import MoocData from "../models/CareerReview/Mooc.js";
+import MiniProjectData from "../models/CareerReview/MiniProject.js";
 import StudentProfile from "../models/Student/Profile.js";
 import Mentorship from "../models/Mentorship.js";
 import User from "../models/User.js";
 import sendEmail from "../utils/email.js";
 import logger from "../utils/logger.js";
-import { resolveScopedDepartment } from "../utils/tenantContext.js";
+import { normalizeDepartment, resolveScopedDepartment } from "../utils/tenantContext.js";
 
 const MINIMUM_ATTENDANCE = 75;
 
@@ -21,6 +23,69 @@ const getFullName = (profile, fallbackName = "") => {
 };
 
 const toIdString = (value) => (value ? value.toString() : "");
+
+const isSportsCompetition = (competition = {}) => {
+  const category = String(competition?.category || "").trim().toLowerCase();
+  const eventType = String(competition?.eventType || "").trim().toLowerCase();
+  return category === "sports" || eventType === "sports";
+};
+
+const buildScopedStudentSet = async (departmentScope) => {
+  const [users, profiles] = await Promise.all([
+    User.find({ roleName: "student" }).select("_id department").lean(),
+    StudentProfile.find().select("userId department").lean(),
+  ]);
+
+  const studentMap = new Map();
+
+  users.forEach((user) => {
+    const userId = toIdString(user._id);
+    if (!userId) return;
+    studentMap.set(userId, {
+      department: user.department || "",
+    });
+  });
+
+  profiles.forEach((profile) => {
+    const userId = toIdString(profile.userId);
+    if (!userId) return;
+    const existing = studentMap.get(userId) || {};
+    studentMap.set(userId, {
+      ...existing,
+      department: profile.department || existing.department || "",
+    });
+  });
+
+  const scopedIds = [...studentMap.entries()]
+    .filter(([_userId, data]) => {
+      if (!departmentScope) {
+        return true;
+      }
+
+      return normalizeDepartment(data.department) === departmentScope;
+    })
+    .map(([userId]) => userId);
+
+  return new Set(scopedIds);
+};
+
+const countSubmittedUsers = (docs = [], scopedStudentSet = null, userIdSelector = (doc) => doc.userId) => {
+  const submittedIds = new Set();
+
+  docs.forEach((doc) => {
+    const userId = toIdString(userIdSelector(doc));
+    if (!userId) return;
+    if (scopedStudentSet && !scopedStudentSet.has(userId)) return;
+    submittedIds.add(userId);
+  });
+
+  return submittedIds.size;
+};
+
+const buildSubmissionSummary = (submittedCount, totalStudents) => ({
+  submitted: submittedCount,
+  notSubmitted: Math.max(totalStudents - submittedCount, 0),
+});
 
 const getLatestAttendanceSnapshot = (attendanceDoc) => {
   const semesters = Array.isArray(attendanceDoc?.semesters) ? attendanceDoc.semesters : [];
@@ -109,9 +174,17 @@ const buildSharedStudentMaps = async (userIds) => {
 
 export const getCompetitionReport = catchAsync(async (req, res) => {
   const departmentScope = await getDepartmentScope(req);
-  const competitions = await Competition.find().sort({ createdAt: -1 }).lean();
+  const [competitions, moocDocs, miniProjectDocs, scopedStudentSet] = await Promise.all([
+    Competition.find().sort({ createdAt: -1 }).lean(),
+    MoocData.find().select("userId").lean(),
+    MiniProjectData.find().select("userId").lean(),
+    buildScopedStudentSet(departmentScope),
+  ]);
   const userIds = competitions.map((competition) => competition.userId);
   const { userMap, profileMap, mentorshipMap, mentorMap } = await buildSharedStudentMaps(userIds);
+  const totalStudents = scopedStudentSet.size;
+  const competitionDocs = competitions.filter((competition) => !isSportsCompetition(competition));
+  const sportsDocs = competitions.filter((competition) => isSportsCompetition(competition));
 
   const rows = competitions
     .map((competition) => {
@@ -120,7 +193,9 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
       const profile = profileMap.get(userId) || {};
       const mentorship = mentorshipMap.get(userId);
       const mentor = mentorship ? mentorMap.get(toIdString(mentorship.mentorId)) : null;
-      const department = profile.department || user.department || competition.department || "";
+      const department = normalizeDepartment(
+        profile.department || user.department || competition.department || ""
+      ) || "";
 
       return {
         id: competition._id,
@@ -145,7 +220,6 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
         projectTitle: competition.projectTitle || "",
         category: competition.category || "",
         eventType: competition.eventType || "",
-        financialSupportRequested: !!competition.financialSupportRequested,
         amountSanctioned: competition.amountSanctioned || "",
         relatedTo: competition.relatedTo || "",
         proofLink: competition.proofLink || "",
@@ -155,13 +229,33 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
     .filter((row) => Boolean(row.userId));
 
   const filteredRows = departmentScope
-    ? rows.filter((row) => row.department === departmentScope)
+    ? rows.filter((row) => normalizeDepartment(row.department) === departmentScope)
     : rows;
+
+  const summary = {
+    "MOOC Courses": buildSubmissionSummary(
+      countSubmittedUsers(moocDocs, scopedStudentSet),
+      totalStudents
+    ),
+    "Mini Project": buildSubmissionSummary(
+      countSubmittedUsers(miniProjectDocs, scopedStudentSet),
+      totalStudents
+    ),
+    Competition: buildSubmissionSummary(
+      countSubmittedUsers(competitionDocs, scopedStudentSet),
+      totalStudents
+    ),
+    Sports: buildSubmissionSummary(
+      countSubmittedUsers(sportsDocs, scopedStudentSet),
+      totalStudents
+    ),
+  };
 
   res.status(200).json({
     status: "success",
     data: {
       competitions: filteredRows,
+      summary,
     },
   });
 });
@@ -186,7 +280,7 @@ export const getAttendanceReport = catchAsync(async (req, res) => {
         return null;
       }
 
-      const department = profile.department || user.department || "";
+      const department = normalizeDepartment(profile.department || user.department || "") || "";
 
       return {
         id: attendance._id,
@@ -205,7 +299,7 @@ export const getAttendanceReport = catchAsync(async (req, res) => {
     .filter((row) => row && Number(row.overallAttendance) < MINIMUM_ATTENDANCE);
 
   const filteredRows = departmentScope
-    ? rows.filter((row) => row.department === departmentScope)
+    ? rows.filter((row) => normalizeDepartment(row.department) === departmentScope)
     : facultyMenteeScope
       ? rows.filter((row) => facultyMenteeScope.has(row.userId))
     : rows;

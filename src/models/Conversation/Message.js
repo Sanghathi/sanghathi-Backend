@@ -16,7 +16,20 @@ const MessageSchema = new mongoose.Schema({
   },
   body: {
     type: String,
-    required: true,
+    default: "",
+  },
+  attachments: {
+    type: [
+      {
+        url: String,
+        publicId: String,
+        originalName: String,
+        resourceType: String,
+        mimeType: String,
+        bytes: Number,
+      },
+    ],
+    default: [],
   },
   createdAt: {
     type: Date,

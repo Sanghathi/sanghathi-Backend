@@ -1,3 +1,4 @@
+import cloudinary from '../config/cloudinary.js';
 import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinaryUpload.js';
 import catchAsync from '../utils/catchAsync.js';
 import AppError from '../utils/appError.js';
@@ -52,4 +53,36 @@ export const deleteProfileImage = catchAsync(async (req, res, next) => {
     });
     return next(new AppError('Failed to delete image', 500));
   }
+});
+
+export const uploadThreadAttachment = catchAsync(async (req, res, next) => {
+  if (!req.file) {
+    return next(new AppError('No attachment provided', 400));
+  }
+
+  const isImage = req.file.mimetype?.startsWith('image/');
+  const resourceType = isImage ? 'image' : 'raw';
+  const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+  const result = await cloudinary.uploader.upload(dataUri, {
+    folder: 'thread-attachments',
+    resource_type: resourceType,
+    type: 'upload',
+    access_mode: 'public',
+    use_filename: true,
+    unique_filename: true,
+  });
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      attachment: {
+        url: result.secure_url,
+        publicId: result.public_id,
+        originalName: req.file.originalname,
+        resourceType: result.resource_type,
+        mimeType: req.file.mimetype,
+        bytes: req.file.size,
+      },
+    },
+  });
 });

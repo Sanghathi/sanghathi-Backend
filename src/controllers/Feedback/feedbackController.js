@@ -605,7 +605,13 @@ export const getFeedbackByStudent = catchAsync(async (req, res, next) => {
     .sort({ feedbackRound: 1, submittedAt: -1 });
 
   if (feedbacks.length === 0) {
-    return next(new AppError("No feedback found for this student", 404));
+    return res.status(200).json({
+      status: "success",
+      data: {
+        feedbacks: [],
+        feedbackByRound: {},
+      },
+    });
   }
 
   // Group by round for easier consumption
