@@ -161,7 +161,7 @@ const getFacultyMenteeScope = async (req) => {
 };
 
 const buildSharedStudentMaps = async (userIds) => {
-  const uniqueUserIds = [...new Set(userIds.map((id) => id.toString()))];
+  const uniqueUserIds = [...new Set(userIds.map(toIdString).filter(Boolean))];
 
   const [users, profiles, mentorships] = await Promise.all([
     User.find({ _id: { $in: uniqueUserIds }, roleName: "student" })
@@ -200,7 +200,8 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
     ...moocDocs.map((doc) => doc.userId),
     ...miniProjectDocs.map((doc) => doc.userId),
   ];
-  const { userMap, profileMap, mentorshipMap, mentorMap } = await buildSharedStudentMaps(userIds);
+  const allRelevantUserIds = [...new Set([...userIds.map(toIdString), ...scopedStudentSet].filter(Boolean))];
+  const { userMap, profileMap, mentorshipMap, mentorMap } = await buildSharedStudentMaps(allRelevantUserIds);
   const totalStudents = scopedStudentSet.size;
   const competitionDocs = competitions.filter((competition) => !isSportsCompetition(competition));
   const sportsDocs = competitions.filter((competition) => isSportsCompetition(competition));
@@ -329,6 +330,47 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
       });
     });
   });
+
+  const appendPendingRows = (section, submittedDocs, userIdSelector = (doc) => doc.userId) => {
+    const submittedIds = new Set(
+      submittedDocs
+        .map((doc) => toIdString(userIdSelector(doc)))
+        .filter((userId) => userId && scopedStudentSet.has(userId))
+    );
+
+    scopedStudentSet.forEach((userId) => {
+      if (submittedIds.has(userId)) return;
+
+      rows.push({
+        id: `pending-${section.toLowerCase().replace(/\s+/g, "-")}-${userId}`,
+        ...buildBaseStudentRow(userId),
+        reportSection: section,
+        eventName: "Not submitted",
+        organizedBy: "",
+        eventDate: null,
+        status: "Pending",
+        level: "",
+        eventAffiliation: "",
+        contactNumber: "",
+        studentNames: [],
+        studentUSNs: [],
+        cashAwardOrTrophy: "",
+        projectTitle: "",
+        category: section,
+        eventType: section,
+        amountSanctioned: "",
+        relatedTo: section,
+        proofLink: "",
+        createdAt: null,
+        isPendingSubmission: true,
+      });
+    });
+  };
+
+  appendPendingRows("Competition", competitionDocs);
+  appendPendingRows("Sports", sportsDocs);
+  appendPendingRows("MOOC Courses", moocDocs);
+  appendPendingRows("Mini Project", miniProjectDocs);
 
   const filteredRows = departmentScope
     ? rows.filter((row) => departmentsMatch(row.department, departmentScope))
