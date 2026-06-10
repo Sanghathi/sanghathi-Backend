@@ -30,6 +30,21 @@ const isSportsCompetition = (competition = {}) => {
   return category === "sports" || eventType === "sports";
 };
 
+const departmentKey = (value) => {
+  const normalized = normalizeDepartment(value);
+  if (!normalized) return "";
+  const text = normalized.toString().trim().toUpperCase();
+  if (text.includes("INFORMATION") && text.includes("SCIENCE")) return "ISE";
+  if (text.includes("COMPUTER") && text.includes("APPLICATION")) return "MCA";
+  return text;
+};
+
+const departmentsMatch = (left, right) => {
+  const leftKey = departmentKey(left);
+  const rightKey = departmentKey(right);
+  return Boolean(leftKey && rightKey && leftKey === rightKey);
+};
+
 const buildScopedStudentSet = async (departmentScope) => {
   const [users, profiles] = await Promise.all([
     User.find({ roleName: "student" }).select("_id department").lean(),
@@ -62,7 +77,7 @@ const buildScopedStudentSet = async (departmentScope) => {
         return true;
       }
 
-      return normalizeDepartment(data.department) === departmentScope;
+      return departmentsMatch(data.department, departmentScope);
     })
     .map(([userId]) => userId);
 
@@ -176,8 +191,8 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
   const departmentScope = await getDepartmentScope(req);
   const [competitions, moocDocs, miniProjectDocs, scopedStudentSet] = await Promise.all([
     Competition.find().sort({ createdAt: -1 }).lean(),
-    MoocData.find().select("userId").lean(),
-    MiniProjectData.find().select("userId").lean(),
+    MoocData.find().select("userId mooc createdAt").lean(),
+    MiniProjectData.find().select("userId miniproject createdAt").lean(),
     buildScopedStudentSet(departmentScope),
   ]);
   const userIds = [
@@ -216,11 +231,21 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
         baseRow.department || competition.department || ""
       ) || "";
       const reportSection = isSportsCompetition(competition) ? "Sports" : "Competition";
+      const studentNames = Array.isArray(competition.studentNames)
+        ? competition.studentNames
+        : (competition.studentNames ? String(competition.studentNames).split(",").map(s => s.trim()) : []);
+      const studentUSNs = Array.isArray(competition.studentUSNs)
+        ? competition.studentUSNs
+        : (competition.studentUSNs ? String(competition.studentUSNs).split(",").map(s => s.trim()) : []);
 
       return {
         id: competition._id,
         ...baseRow,
         reportSection,
+        name: baseRow.name || studentNames[0] || "",
+        email: baseRow.email || competition.email || "",
+        usn: baseRow.usn || studentUSNs[0] || "",
+        mentorName: baseRow.mentorName || competition.mentorName || "",
         department,
         sem: baseRow.sem || competition.sem || "",
         eventName: competition.eventName || "",
@@ -231,8 +256,8 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
         eventAffiliation: competition.eventAffiliation || "",
         // additional fields for detailed view and export
         contactNumber: competition.contactNumber || "",
-        studentNames: Array.isArray(competition.studentNames) ? competition.studentNames : (competition.studentNames ? String(competition.studentNames).split(",").map(s => s.trim()) : []),
-        studentUSNs: Array.isArray(competition.studentUSNs) ? competition.studentUSNs : (competition.studentUSNs ? String(competition.studentUSNs).split(",").map(s => s.trim()) : []),
+        studentNames,
+        studentUSNs,
         cashAwardOrTrophy: competition.cashAwardOrTrophy || "",
         projectTitle: competition.projectTitle || "",
         category: competition.category || "",
@@ -306,7 +331,7 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
   });
 
   const filteredRows = departmentScope
-    ? rows.filter((row) => normalizeDepartment(row.department) === departmentScope)
+    ? rows.filter((row) => departmentsMatch(row.department, departmentScope))
     : rows;
 
   const summary = {
