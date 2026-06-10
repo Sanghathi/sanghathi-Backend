@@ -67,9 +67,8 @@ export const isSuperAdmin = (user) => {
 };
 
 export const isGlobalDirectorAccount = (user) => {
-  const roleName = (user?.roleName || user?.role?.name || "").toLowerCase();
   const email = (user?.email || "").toLowerCase();
-  return roleName === "director" && email === "director.mentoring@cmrit.ac.in";
+  return email === "director.mentoring@cmrit.ac.in";
 };
 
 export const getScopedCollegeCode = (req) => {
