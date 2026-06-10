@@ -30,6 +30,21 @@ const isSportsCompetition = (competition = {}) => {
   return category === "sports" || eventType === "sports";
 };
 
+const departmentKey = (value) => {
+  const normalized = normalizeDepartment(value);
+  if (!normalized) return "";
+  const text = normalized.toString().trim().toUpperCase();
+  if (text.includes("INFORMATION") && text.includes("SCIENCE")) return "ISE";
+  if (text.includes("COMPUTER") && text.includes("APPLICATION")) return "MCA";
+  return text;
+};
+
+const departmentsMatch = (left, right) => {
+  const leftKey = departmentKey(left);
+  const rightKey = departmentKey(right);
+  return Boolean(leftKey && rightKey && leftKey === rightKey);
+};
+
 const buildScopedStudentSet = async (departmentScope) => {
   const [users, profiles] = await Promise.all([
     User.find({ roleName: "student" }).select("_id department").lean(),
@@ -62,7 +77,7 @@ const buildScopedStudentSet = async (departmentScope) => {
         return true;
       }
 
-      return normalizeDepartment(data.department) === departmentScope;
+      return departmentsMatch(data.department, departmentScope);
     })
     .map(([userId]) => userId);
 
@@ -146,7 +161,7 @@ const getFacultyMenteeScope = async (req) => {
 };
 
 const buildSharedStudentMaps = async (userIds) => {
-  const uniqueUserIds = [...new Set(userIds.map((id) => id.toString()))];
+  const uniqueUserIds = [...new Set(userIds.map(toIdString).filter(Boolean))];
 
   const [users, profiles, mentorships] = await Promise.all([
     User.find({ _id: { $in: uniqueUserIds }, roleName: "student" })
@@ -176,36 +191,64 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
   const departmentScope = await getDepartmentScope(req);
   const [competitions, moocDocs, miniProjectDocs, scopedStudentSet] = await Promise.all([
     Competition.find().sort({ createdAt: -1 }).lean(),
-    MoocData.find().select("userId").lean(),
-    MiniProjectData.find().select("userId").lean(),
+    MoocData.find().select("userId mooc createdAt").lean(),
+    MiniProjectData.find().select("userId miniproject createdAt").lean(),
     buildScopedStudentSet(departmentScope),
   ]);
-  const userIds = competitions.map((competition) => competition.userId);
-  const { userMap, profileMap, mentorshipMap, mentorMap } = await buildSharedStudentMaps(userIds);
+  const userIds = [
+    ...competitions.map((competition) => competition.userId),
+    ...moocDocs.map((doc) => doc.userId),
+    ...miniProjectDocs.map((doc) => doc.userId),
+  ];
+  const allRelevantUserIds = [...new Set([...userIds.map(toIdString), ...scopedStudentSet].filter(Boolean))];
+  const { userMap, profileMap, mentorshipMap, mentorMap } = await buildSharedStudentMaps(allRelevantUserIds);
   const totalStudents = scopedStudentSet.size;
   const competitionDocs = competitions.filter((competition) => !isSportsCompetition(competition));
   const sportsDocs = competitions.filter((competition) => isSportsCompetition(competition));
 
+  const buildBaseStudentRow = (userIdValue) => {
+    const userId = toIdString(userIdValue);
+    const user = userMap.get(userId) || {};
+    const profile = profileMap.get(userId) || {};
+    const mentorship = mentorshipMap.get(userId);
+    const mentor = mentorship ? mentorMap.get(toIdString(mentorship.mentorId)) : null;
+    const department = normalizeDepartment(profile.department || user.department || "") || "";
+
+    return {
+      userId,
+      name: getFullName(profile, user.name),
+      email: user.email || profile.email || "",
+      usn: profile.usn || "",
+      mentorName: mentor?.name || "",
+      department,
+      sem: profile.sem ?? user.sem ?? "",
+    };
+  };
+
   const rows = competitions
     .map((competition) => {
-      const userId = toIdString(competition.userId);
-      const user = userMap.get(userId) || {};
-      const profile = profileMap.get(userId) || {};
-      const mentorship = mentorshipMap.get(userId);
-      const mentor = mentorship ? mentorMap.get(toIdString(mentorship.mentorId)) : null;
+      const baseRow = buildBaseStudentRow(competition.userId);
       const department = normalizeDepartment(
-        profile.department || user.department || competition.department || ""
+        baseRow.department || competition.department || ""
       ) || "";
+      const reportSection = isSportsCompetition(competition) ? "Sports" : "Competition";
+      const studentNames = Array.isArray(competition.studentNames)
+        ? competition.studentNames
+        : (competition.studentNames ? String(competition.studentNames).split(",").map(s => s.trim()) : []);
+      const studentUSNs = Array.isArray(competition.studentUSNs)
+        ? competition.studentUSNs
+        : (competition.studentUSNs ? String(competition.studentUSNs).split(",").map(s => s.trim()) : []);
 
       return {
         id: competition._id,
-        userId,
-        name: getFullName(profile, user.name),
-        email: user.email || profile.email || "",
-        usn: profile.usn || "",
-        mentorName: mentor?.name || "",
+        ...baseRow,
+        reportSection,
+        name: baseRow.name || studentNames[0] || "",
+        email: baseRow.email || competition.email || "",
+        usn: baseRow.usn || studentUSNs[0] || "",
+        mentorName: baseRow.mentorName || competition.mentorName || "",
         department,
-        sem: profile.sem ?? competition.sem ?? user.sem ?? "",
+        sem: baseRow.sem || competition.sem || "",
         eventName: competition.eventName || "",
         organizedBy: competition.organizedBy || "",
         eventDate: competition.eventDate || null,
@@ -214,8 +257,8 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
         eventAffiliation: competition.eventAffiliation || "",
         // additional fields for detailed view and export
         contactNumber: competition.contactNumber || "",
-        studentNames: Array.isArray(competition.studentNames) ? competition.studentNames : (competition.studentNames ? String(competition.studentNames).split(",").map(s => s.trim()) : []),
-        studentUSNs: Array.isArray(competition.studentUSNs) ? competition.studentUSNs : (competition.studentUSNs ? String(competition.studentUSNs).split(",").map(s => s.trim()) : []),
+        studentNames,
+        studentUSNs,
         cashAwardOrTrophy: competition.cashAwardOrTrophy || "",
         projectTitle: competition.projectTitle || "",
         category: competition.category || "",
@@ -228,8 +271,109 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
     })
     .filter((row) => Boolean(row.userId));
 
+  moocDocs.forEach((doc) => {
+    const baseRow = buildBaseStudentRow(doc.userId);
+    (Array.isArray(doc.mooc) ? doc.mooc : []).forEach((course, index) => {
+      rows.push({
+        id: `${doc._id}-mooc-${index}`,
+        ...baseRow,
+        reportSection: "MOOC Courses",
+        sem: course.semester || baseRow.sem || "",
+        eventName: course.title || "MOOC Course",
+        organizedBy: course.portal || "",
+        eventDate: course.completedDate || course.startDate || null,
+        status: course.completedDate ? "Completed" : "In Progress",
+        level: "",
+        eventAffiliation: "",
+        contactNumber: "",
+        studentNames: [],
+        studentUSNs: [],
+        cashAwardOrTrophy: "",
+        projectTitle: course.title || "",
+        category: "MOOC Courses",
+        eventType: "MOOC Courses",
+        amountSanctioned: "",
+        relatedTo: "MOOC Courses",
+        proofLink: course.certificateLink || "",
+        score: course.score ?? "",
+        createdAt: doc.createdAt || null,
+      });
+    });
+  });
+
+  miniProjectDocs.forEach((doc) => {
+    const baseRow = buildBaseStudentRow(doc.userId);
+    (Array.isArray(doc.miniproject) ? doc.miniproject : []).forEach((project, index) => {
+      rows.push({
+        id: `${doc._id}-mini-${index}`,
+        ...baseRow,
+        reportSection: "Mini Project",
+        sem: project.semester || baseRow.sem || "",
+        eventName: project.title || "Mini Project",
+        organizedBy: "",
+        eventDate: project.completedDate || project.startDate || null,
+        status: project.completedDate ? "Completed" : "In Progress",
+        level: "",
+        eventAffiliation: "",
+        contactNumber: "",
+        studentNames: [],
+        studentUSNs: [],
+        cashAwardOrTrophy: "",
+        projectTitle: project.title || "",
+        category: "Mini Project",
+        eventType: "Mini Project",
+        amountSanctioned: "",
+        relatedTo: "Mini Project",
+        proofLink: "",
+        manHours: project.manHours ?? "",
+        createdAt: doc.createdAt || null,
+      });
+    });
+  });
+
+  const appendPendingRows = (section, submittedDocs, userIdSelector = (doc) => doc.userId) => {
+    const submittedIds = new Set(
+      submittedDocs
+        .map((doc) => toIdString(userIdSelector(doc)))
+        .filter((userId) => userId && scopedStudentSet.has(userId))
+    );
+
+    scopedStudentSet.forEach((userId) => {
+      if (submittedIds.has(userId)) return;
+
+      rows.push({
+        id: `pending-${section.toLowerCase().replace(/\s+/g, "-")}-${userId}`,
+        ...buildBaseStudentRow(userId),
+        reportSection: section,
+        eventName: "Not submitted",
+        organizedBy: "",
+        eventDate: null,
+        status: "Pending",
+        level: "",
+        eventAffiliation: "",
+        contactNumber: "",
+        studentNames: [],
+        studentUSNs: [],
+        cashAwardOrTrophy: "",
+        projectTitle: "",
+        category: section,
+        eventType: section,
+        amountSanctioned: "",
+        relatedTo: section,
+        proofLink: "",
+        createdAt: null,
+        isPendingSubmission: true,
+      });
+    });
+  };
+
+  appendPendingRows("Competition", competitionDocs);
+  appendPendingRows("Sports", sportsDocs);
+  appendPendingRows("MOOC Courses", moocDocs);
+  appendPendingRows("Mini Project", miniProjectDocs);
+
   const filteredRows = departmentScope
-    ? rows.filter((row) => normalizeDepartment(row.department) === departmentScope)
+    ? rows.filter((row) => departmentsMatch(row.department, departmentScope))
     : rows;
 
   const summary = {

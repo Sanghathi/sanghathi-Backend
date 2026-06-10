@@ -66,6 +66,11 @@ export const isSuperAdmin = (user) => {
   return roleName.toLowerCase() === "super-admin";
 };
 
+export const isGlobalDirectorAccount = (user) => {
+  const email = (user?.email || "").toLowerCase();
+  return email === "director.mentoring@cmrit.ac.in";
+};
+
 export const getScopedCollegeCode = (req) => {
   if (!req?.user) {
     return null;
@@ -80,6 +85,10 @@ export const getScopedCollegeCode = (req) => {
 
 export const getScopedDepartment = (req) => {
   if (!req?.user) {
+    return null;
+  }
+
+  if (isGlobalDirectorAccount(req.user)) {
     return null;
   }
 
@@ -111,6 +120,10 @@ import mongoose from "mongoose";
  */
 export const resolveScopedDepartment = async (req) => {
   if (!req?.user) return null;
+
+  if (isGlobalDirectorAccount(req.user)) {
+    return null;
+  }
 
   const roleName = (req.user.role?.name || req.user.roleName || "").toLowerCase();
   const isDeptScopedRole = ["admin", "director", "hod", "strcoordinator", "doe"].includes(roleName);

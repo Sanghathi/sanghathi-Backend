@@ -304,10 +304,11 @@ export const getFeedbackByUserId = catchAsync(async (req, res, next) => {
 
 export const getFeedbackOverview = catchAsync(async (req, res) => {
   const activeWindow = await findFeedbackWindow();
-  const { semester, feedbackRound, userId, department, college } = req.query;
+  const { semester, feedbackRound, userId, department, college, all } = req.query;
   const scopedDepartment = await resolveScopedDepartment(req);
-  const semesterScope = semester || activeWindow?.semester;
-  const roundScope = feedbackRound || activeWindow?.feedbackRound;
+  const includeAllFeedback = all === "true" || all === true;
+  const semesterScope = includeAllFeedback ? semester : (semester || activeWindow?.semester);
+  const roundScope = includeAllFeedback ? feedbackRound : (feedbackRound || activeWindow?.feedbackRound);
   
   const isDeptScopedRole = ["hod", "director", "strcoordinator"].includes(
     req.user.roleName
@@ -321,7 +322,7 @@ export const getFeedbackOverview = catchAsync(async (req, res) => {
     college: college || req.user.collegeCode
   });
 
-  const [feedbacks, totalCount, roundCounts, semesterCounts] = await Promise.all([
+  const [feedbacks, totalCount, roundCounts, semesterCounts, departmentCounts] = await Promise.all([
     Feedback.find(feedbackFilter)
       .sort({ createdAt: -1 })
       .populate(FEEDBACK_POPULATE)
@@ -335,6 +336,11 @@ export const getFeedbackOverview = catchAsync(async (req, res) => {
     Feedback.aggregate([
       { $match: feedbackFilter },
       { $group: { _id: "$semester", count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ]),
+    Feedback.aggregate([
+      { $match: feedbackFilter },
+      { $group: { _id: "$department", count: { $sum: 1 } } },
       { $sort: { _id: 1 } },
     ]),
   ]);
@@ -396,6 +402,7 @@ export const getFeedbackOverview = catchAsync(async (req, res) => {
         totalCount,
         roundCounts,
         semesterCounts,
+        departmentCounts,
       },
       feedbacks: enrichedFeedbacks,
     },
