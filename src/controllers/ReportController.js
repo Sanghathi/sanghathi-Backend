@@ -180,32 +180,49 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
     MiniProjectData.find().select("userId").lean(),
     buildScopedStudentSet(departmentScope),
   ]);
-  const userIds = competitions.map((competition) => competition.userId);
+  const userIds = [
+    ...competitions.map((competition) => competition.userId),
+    ...moocDocs.map((doc) => doc.userId),
+    ...miniProjectDocs.map((doc) => doc.userId),
+  ];
   const { userMap, profileMap, mentorshipMap, mentorMap } = await buildSharedStudentMaps(userIds);
   const totalStudents = scopedStudentSet.size;
   const competitionDocs = competitions.filter((competition) => !isSportsCompetition(competition));
   const sportsDocs = competitions.filter((competition) => isSportsCompetition(competition));
 
+  const buildBaseStudentRow = (userIdValue) => {
+    const userId = toIdString(userIdValue);
+    const user = userMap.get(userId) || {};
+    const profile = profileMap.get(userId) || {};
+    const mentorship = mentorshipMap.get(userId);
+    const mentor = mentorship ? mentorMap.get(toIdString(mentorship.mentorId)) : null;
+    const department = normalizeDepartment(profile.department || user.department || "") || "";
+
+    return {
+      userId,
+      name: getFullName(profile, user.name),
+      email: user.email || profile.email || "",
+      usn: profile.usn || "",
+      mentorName: mentor?.name || "",
+      department,
+      sem: profile.sem ?? user.sem ?? "",
+    };
+  };
+
   const rows = competitions
     .map((competition) => {
-      const userId = toIdString(competition.userId);
-      const user = userMap.get(userId) || {};
-      const profile = profileMap.get(userId) || {};
-      const mentorship = mentorshipMap.get(userId);
-      const mentor = mentorship ? mentorMap.get(toIdString(mentorship.mentorId)) : null;
+      const baseRow = buildBaseStudentRow(competition.userId);
       const department = normalizeDepartment(
-        profile.department || user.department || competition.department || ""
+        baseRow.department || competition.department || ""
       ) || "";
+      const reportSection = isSportsCompetition(competition) ? "Sports" : "Competition";
 
       return {
         id: competition._id,
-        userId,
-        name: getFullName(profile, user.name),
-        email: user.email || profile.email || "",
-        usn: profile.usn || "",
-        mentorName: mentor?.name || "",
+        ...baseRow,
+        reportSection,
         department,
-        sem: profile.sem ?? competition.sem ?? user.sem ?? "",
+        sem: baseRow.sem || competition.sem || "",
         eventName: competition.eventName || "",
         organizedBy: competition.organizedBy || "",
         eventDate: competition.eventDate || null,
@@ -227,6 +244,66 @@ export const getCompetitionReport = catchAsync(async (req, res) => {
       };
     })
     .filter((row) => Boolean(row.userId));
+
+  moocDocs.forEach((doc) => {
+    const baseRow = buildBaseStudentRow(doc.userId);
+    (Array.isArray(doc.mooc) ? doc.mooc : []).forEach((course, index) => {
+      rows.push({
+        id: `${doc._id}-mooc-${index}`,
+        ...baseRow,
+        reportSection: "MOOC Courses",
+        sem: course.semester || baseRow.sem || "",
+        eventName: course.title || "MOOC Course",
+        organizedBy: course.portal || "",
+        eventDate: course.completedDate || course.startDate || null,
+        status: course.completedDate ? "Completed" : "In Progress",
+        level: "",
+        eventAffiliation: "",
+        contactNumber: "",
+        studentNames: [],
+        studentUSNs: [],
+        cashAwardOrTrophy: "",
+        projectTitle: course.title || "",
+        category: "MOOC Courses",
+        eventType: "MOOC Courses",
+        amountSanctioned: "",
+        relatedTo: "MOOC Courses",
+        proofLink: course.certificateLink || "",
+        score: course.score ?? "",
+        createdAt: doc.createdAt || null,
+      });
+    });
+  });
+
+  miniProjectDocs.forEach((doc) => {
+    const baseRow = buildBaseStudentRow(doc.userId);
+    (Array.isArray(doc.miniproject) ? doc.miniproject : []).forEach((project, index) => {
+      rows.push({
+        id: `${doc._id}-mini-${index}`,
+        ...baseRow,
+        reportSection: "Mini Project",
+        sem: project.semester || baseRow.sem || "",
+        eventName: project.title || "Mini Project",
+        organizedBy: "",
+        eventDate: project.completedDate || project.startDate || null,
+        status: project.completedDate ? "Completed" : "In Progress",
+        level: "",
+        eventAffiliation: "",
+        contactNumber: "",
+        studentNames: [],
+        studentUSNs: [],
+        cashAwardOrTrophy: "",
+        projectTitle: project.title || "",
+        category: "Mini Project",
+        eventType: "Mini Project",
+        amountSanctioned: "",
+        relatedTo: "Mini Project",
+        proofLink: "",
+        manHours: project.manHours ?? "",
+        createdAt: doc.createdAt || null,
+      });
+    });
+  });
 
   const filteredRows = departmentScope
     ? rows.filter((row) => normalizeDepartment(row.department) === departmentScope)

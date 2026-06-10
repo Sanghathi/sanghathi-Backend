@@ -304,10 +304,11 @@ export const getFeedbackByUserId = catchAsync(async (req, res, next) => {
 
 export const getFeedbackOverview = catchAsync(async (req, res) => {
   const activeWindow = await findFeedbackWindow();
-  const { semester, feedbackRound, userId, department, college } = req.query;
+  const { semester, feedbackRound, userId, department, college, all } = req.query;
   const scopedDepartment = await resolveScopedDepartment(req);
-  const semesterScope = semester || activeWindow?.semester;
-  const roundScope = feedbackRound || activeWindow?.feedbackRound;
+  const includeAllFeedback = all === "true" || all === true;
+  const semesterScope = includeAllFeedback ? semester : (semester || activeWindow?.semester);
+  const roundScope = includeAllFeedback ? feedbackRound : (feedbackRound || activeWindow?.feedbackRound);
   
   const isDeptScopedRole = ["hod", "director", "strcoordinator"].includes(
     req.user.roleName
