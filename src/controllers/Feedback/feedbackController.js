@@ -322,7 +322,7 @@ export const getFeedbackOverview = catchAsync(async (req, res) => {
     college: college || req.user.collegeCode
   });
 
-  const [feedbacks, totalCount, roundCounts, semesterCounts] = await Promise.all([
+  const [feedbacks, totalCount, roundCounts, semesterCounts, departmentCounts] = await Promise.all([
     Feedback.find(feedbackFilter)
       .sort({ createdAt: -1 })
       .populate(FEEDBACK_POPULATE)
@@ -336,6 +336,11 @@ export const getFeedbackOverview = catchAsync(async (req, res) => {
     Feedback.aggregate([
       { $match: feedbackFilter },
       { $group: { _id: "$semester", count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ]),
+    Feedback.aggregate([
+      { $match: feedbackFilter },
+      { $group: { _id: "$department", count: { $sum: 1 } } },
       { $sort: { _id: 1 } },
     ]),
   ]);
@@ -397,6 +402,7 @@ export const getFeedbackOverview = catchAsync(async (req, res) => {
         totalCount,
         roundCounts,
         semesterCounts,
+        departmentCounts,
       },
       feedbacks: enrichedFeedbacks,
     },
