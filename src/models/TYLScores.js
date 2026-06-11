@@ -16,15 +16,7 @@ const TYLScoresSchema = new mongoose.Schema(
         },
         scores: {
           type: Object,
-          default: {
-            "Language Proficiency in English": { target: "", actual: "" },
-            "Aptitude": { target: "", actual: "" },
-            "Core Fundamentals": { target: "", actual: "" },
-            "Certifications": { target: "", actual: "" },
-            "Experiential Mini Projects": { target: "", actual: "" },
-            "Internships": { target: "", actual: "" },
-            "Soft Skills": { target: "", actual: "" }
-          }
+          default: {}
         }
       }
     ]

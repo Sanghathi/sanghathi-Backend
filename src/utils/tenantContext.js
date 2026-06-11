@@ -88,14 +88,14 @@ export const getScopedDepartment = (req) => {
     return null;
   }
 
-  if (isGlobalDirectorAccount(req.user)) {
-    return null;
-  }
-
   const roleName = (req.user.role?.name || req.user.roleName || "").toLowerCase();
   const isDeptScopedRole = ["admin", "director", "hod", "strcoordinator", "doe"].includes(roleName);
   const requestedDepartment = normalizeDepartment(req?.query?.department);
   const canUseRequestedDepartment = ["admin", "director", "strcoordinator", "doe"].includes(roleName);
+
+  if (isGlobalDirectorAccount(req.user)) {
+    return requestedDepartment || normalizeDepartment(req.user.department) || null;
+  }
 
   if (isSuperAdmin(req.user)) {
     return requestedDepartment || normalizeDepartment(req.user.department) || null;
@@ -121,14 +121,14 @@ import mongoose from "mongoose";
 export const resolveScopedDepartment = async (req) => {
   if (!req?.user) return null;
 
-  if (isGlobalDirectorAccount(req.user)) {
-    return null;
-  }
-
   const roleName = (req.user.role?.name || req.user.roleName || "").toLowerCase();
   const isDeptScopedRole = ["admin", "director", "hod", "strcoordinator", "doe"].includes(roleName);
   const requestedDepartment = normalizeDepartment(req?.query?.department);
   const canUseRequestedDepartment = ["admin", "director", "strcoordinator", "doe"].includes(roleName);
+
+  if (isGlobalDirectorAccount(req.user)) {
+    return requestedDepartment || normalizeDepartment(req.user.department) || null;
+  }
 
   if (isSuperAdmin(req.user)) {
     return requestedDepartment || normalizeDepartment(req.user.department) || null;

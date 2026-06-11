@@ -862,11 +862,24 @@ export const setStrCoordinatorDepartment = catchAsync(async (req, res, next) => 
     return next(new AppError("department is required", 400));
   }
 
-  const storedDepartment = ["all", "all departments", "__all__"].includes(
-    normalizedDepartment.toLowerCase()
-  )
-    ? "All Departments"
-    : normalizedDepartment;
+  const isGlobalDirector = (req.user?.email || "").toLowerCase() === "director.mentoring@cmrit.ac.in";
+  const normalizedLower = normalizedDepartment.toLowerCase();
+  if (isGlobalDirector && ["all", "all departments", "__all__"].includes(normalizedLower)) {
+    const updated = await User.findOneAndUpdate(
+      { _id: userId },
+      { department: "All Departments" },
+      { new: true }
+    );
+
+    if (!updated) return next(new AppError("User not found", 404));
+
+    return res.status(200).json({ status: "success", data: { user: updated } });
+  }
+
+  const storedDepartment = normalizedDepartment.toUpperCase();
+  if (!["ISE", "MCA"].includes(storedDepartment)) {
+    return next(new AppError("Department must be ISE or MCA", 400));
+  }
 
   const updated = await User.findOneAndUpdate(
     { _id: userId },
