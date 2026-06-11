@@ -708,6 +708,7 @@ export const getTylReport = catchAsync(async (req, res) => {
         semester,
         label: departmentKind === "mca" ? `Semester ${semester}` : (semester === 1 ? "Semester 1 (Physics Cycle)" : semester === 2 ? "Semester 2 (Chemistry Cycle)" : `Semester ${semester}`),
         ...summary.summary,
+        subjects: summary.rows,
       };
     });
 
@@ -721,10 +722,15 @@ export const getTylReport = catchAsync(async (req, res) => {
     const clearedSemesters = semesterSummaries.filter((semester) => semester.cleared).length;
     const pendingSemesters = semesterSummaries.filter((semester) => semester.hasAnyData && !semester.cleared).length;
     const noDataSemesters = semesterSummaries.filter((semester) => !semester.hasAnyData).length;
+    const subjectNames = [...new Set(
+      semesterSummaries.flatMap((semester) => (Array.isArray(semester.subjects) ? semester.subjects : []).map((subject) => subject.subject))
+    )];
 
     if (latestSemester) {
       const stats = initializeStats(latestSemester.semester);
       stats.total += 1;
+      stats.subjectCount = latestSemester.subjects?.length || stats.subjectCount || 0;
+      stats.subjects = latestSemester.subjects?.map((subject) => subject.subject) || stats.subjects || [];
       if (latestSemester.cleared) {
         stats.cleared += 1;
       } else {
@@ -746,6 +752,7 @@ export const getTylReport = catchAsync(async (req, res) => {
       clearedSemesters,
       pendingSemesters,
       noDataSemesters,
+      subjectNames,
       semesterSummaries,
     });
   });
