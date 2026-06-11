@@ -6,9 +6,10 @@ import MiniProjectData from "../models/CareerReview/MiniProject.js";
 import StudentProfile from "../models/Student/Profile.js";
 import Mentorship from "../models/Mentorship.js";
 import User from "../models/User.js";
+import TYLScores from "../models/TYLScores.js";
 import sendEmail from "../utils/email.js";
 import logger from "../utils/logger.js";
-import { normalizeDepartment, resolveScopedDepartment } from "../utils/tenantContext.js";
+import { isGlobalDirectorAccount, normalizeDepartment, resolveScopedDepartment } from "../utils/tenantContext.js";
 
 const MINIMUM_ATTENDANCE = 75;
 
@@ -101,6 +102,201 @@ const buildSubmissionSummary = (submittedCount, totalStudents) => ({
   submitted: submittedCount,
   notSubmitted: Math.max(totalStudents - submittedCount, 0),
 });
+
+const MCA_TYL_PLAN = {
+  1: [
+    { area: "Language", subject: "L2", maxMarks: 100, passMarks: 50 },
+    { area: "Language", subject: "L3", maxMarks: 100, passMarks: 50 },
+    { area: "Aptitude", subject: "A2", maxMarks: 100, passMarks: 50 },
+    { area: "Aptitude", subject: "A3", maxMarks: 100, passMarks: 50 },
+    { area: "Core Test", subject: "C3 Odd", maxMarks: 100, passMarks: 25 },
+    { area: "Core Test", subject: "C3 Even", maxMarks: 100, passMarks: 25 },
+    { area: "Core Test", subject: "C3 Full", maxMarks: 100, passMarks: 25 },
+    { area: "Core Test", subject: "C4 Odd", maxMarks: 100, passMarks: 25 },
+    { area: "Core Test", subject: "C4 Full", maxMarks: 100, passMarks: 25 },
+    { area: "Programming", subject: "P2-Java", maxMarks: 100, passMarks: 60 },
+    { area: "Programming", subject: "P3-FSD", maxMarks: 100, passMarks: 60 },
+    { area: "Programming", subject: "P3-Java", maxMarks: 100, passMarks: 60 },
+    { area: "Programming", subject: "P3-Python", maxMarks: 100, passMarks: 50 },
+    { area: "Programming", subject: "P4-Java", maxMarks: 100, passMarks: 100 },
+    { area: "Programming", subject: "P4-FSD", maxMarks: 100, passMarks: 60 },
+    { area: "Soft Skills", subject: "S2", maxMarks: 100, passMarks: 50 },
+    { area: "Soft Skills", subject: "S3", maxMarks: 100, passMarks: 50 },
+  ],
+};
+
+const NON_MCA_TYL_PLAN = {
+  1: [
+    { area: "Language", subject: "L1", maxMarks: 100, passMarks: 65 },
+    { area: "Soft Skills", subject: "S1", maxMarks: 100, passMarks: 50 },
+    { area: "Programming", subject: "P1 C", maxMarks: 100, passMarks: 50 },
+    { area: "Core Test", subject: "C2 Odd", maxMarks: 100, passMarks: 10 },
+  ],
+  2: [
+    { area: "Language", subject: "L2", maxMarks: 100, passMarks: 65 },
+    { area: "Aptitude", subject: "A1", maxMarks: 100, passMarks: 50 },
+    { area: "Programming", subject: "P2 Python", maxMarks: 100, passMarks: 50 },
+    { area: "Core Test", subject: "C2 Full", maxMarks: 100, passMarks: 10 },
+  ],
+  3: [
+    { area: "Language", subject: "L3", maxMarks: 100, passMarks: 70 },
+    { area: "Soft Skills", subject: "S2", maxMarks: 100, passMarks: 50 },
+    { area: "Programming", subject: "P3 Java", maxMarks: 100, passMarks: 60 },
+    { area: "Core Test", subject: "C3 Odd", maxMarks: 100, passMarks: 25 },
+  ],
+  4: [
+    { area: "Language", subject: "L4", maxMarks: 100, passMarks: 70 },
+    { area: "Aptitude", subject: "A2", maxMarks: 100, passMarks: 50 },
+    { area: "Programming", subject: "P3 Python", maxMarks: 100, passMarks: 60 },
+    { area: "Core Test", subject: "C3 Full", maxMarks: 100, passMarks: 50 },
+  ],
+  5: [
+    { area: "Aptitude", subject: "A3", maxMarks: 100, passMarks: 50 },
+    { area: "Soft Skills", subject: "S3", maxMarks: 100, passMarks: 50 },
+    { area: "Programming", subject: "P4 Part 1", maxMarks: 100, passMarks: 70 },
+    { area: "Programming", subject: "P4 MAD", maxMarks: 100, passMarks: 70 },
+    { area: "Core Test", subject: "C4 Odd", maxMarks: 100, passMarks: 50 },
+  ],
+  6: [
+    { area: "Aptitude", subject: "A4", maxMarks: 100, passMarks: 65 },
+    { area: "Soft Skills", subject: "S4", maxMarks: 100, passMarks: 50 },
+    { area: "Programming", subject: "P4 Part 2", maxMarks: 100, passMarks: 70 },
+    { area: "Programming", subject: "P4 DS", maxMarks: 100, passMarks: 70 },
+    { area: "Core Test", subject: "C4 Full", maxMarks: 100, passMarks: 50 },
+  ],
+};
+
+const getTylDepartmentKind = (department = "") =>
+  String(department || "").toUpperCase().includes("MCA") ? "mca" : "nonMca";
+
+const getTylPlan = (department = "", semester = 0) => {
+  const kind = getTylDepartmentKind(department);
+  if (kind === "mca") {
+    return MCA_TYL_PLAN[semester] || [];
+  }
+
+  return NON_MCA_TYL_PLAN[semester] || [];
+};
+
+const hasMeaningfulTylScore = (score = {}) => {
+  if (!score || typeof score !== "object") {
+    return false;
+  }
+
+  const result = String(score.result || "").trim().toUpperCase();
+  const mark = score.mark ?? score.actual;
+
+  if (mark !== null && mark !== undefined && String(mark).trim() !== "") {
+    return true;
+  }
+
+  if (result && result !== "NO DATA") {
+    return true;
+  }
+
+  return false;
+};
+
+const getTylDisplayScore = (score = {}) => {
+  if (!score || typeof score !== "object") {
+    return "";
+  }
+
+  const mark = score.mark ?? score.actual;
+  if (mark !== null && mark !== undefined && String(mark).trim() !== "") {
+    const numericMark = Number(mark);
+    return Number.isFinite(numericMark) ? numericMark : mark;
+  }
+
+  return "";
+};
+
+const normalizeTylResult = (score = {}, passMarks = 0) => {
+  const explicit = String(score.result || "").trim().toUpperCase();
+  if (explicit === "PASS" || explicit === "FAIL" || explicit === "NO DATA") {
+    return explicit;
+  }
+
+  const mark = Number(score.mark ?? score.actual);
+  if (Number.isFinite(mark)) {
+    return mark >= passMarks ? "PASS" : "FAIL";
+  }
+
+  return "NO DATA";
+};
+
+const buildTylSemesterSummary = (semesterData, semesterPlan = []) => {
+  const scores = semesterData?.scores && typeof semesterData.scores === "object" ? semesterData.scores : {};
+  const scoreMap = new Map(
+    Object.entries(scores).filter(([, value]) => value && typeof value === "object")
+  );
+  const plannedNames = new Set(semesterPlan.map((subject) => subject.subject));
+  const rows = semesterPlan.map((subject) => {
+    const score = scoreMap.get(subject.subject);
+    const result = score ? normalizeTylResult(score, subject.passMarks) : "NO DATA";
+    const hasScore = score && hasMeaningfulTylScore(score);
+
+    return {
+      area: subject.area,
+      subject: subject.subject,
+      scored: hasScore ? getTylDisplayScore(score) : "",
+      maximum: Number(score?.maxMarks ?? subject.maxMarks),
+      expected: Number(score?.passMarks ?? score?.target ?? subject.passMarks),
+      result,
+    };
+  });
+  const extras = [...scoreMap.entries()]
+    .filter(([subject]) => !plannedNames.has(subject))
+    .map(([subject, score]) => ({
+      area: "Uploaded",
+      subject,
+      scored: hasMeaningfulTylScore(score) ? getTylDisplayScore(score) : "",
+      maximum: Number(score?.maxMarks ?? 0) || "",
+      expected: Number(score?.passMarks ?? score?.target ?? 0) || "",
+      result: normalizeTylResult(score, Number(score?.passMarks ?? score?.target ?? 0)),
+    }));
+
+  const allRows = [...rows, ...extras];
+  const passed = rows.filter((row) => row.result === "PASS").length;
+  const pending = rows.filter((row) => row.result === "FAIL").length;
+  const noData = rows.filter((row) => row.result === "NO DATA").length;
+  const total = rows.length;
+  const hasAnyData = rows.some((row) => row.result !== "NO DATA");
+
+  return {
+    rows: allRows,
+    summary: {
+      passed,
+      pending,
+      noData,
+      total,
+      hasAnyData,
+      cleared: total > 0 && passed === total,
+    },
+  };
+};
+
+const getLatestMeaningfulSemester = (semesterSummaries = []) => {
+  const latest = [...semesterSummaries]
+    .filter((semester) => semester.hasAnyData)
+    .sort((left, right) => Number(right.semester || 0) - Number(left.semester || 0))[0];
+
+  return latest || null;
+};
+
+const getTylDepartmentScope = async (req) => {
+  const roleName = (req.user?.roleName || req.user?.role?.name || "").toLowerCase();
+  if (roleName === "admin" || roleName === "super-admin" || isGlobalDirectorAccount(req.user)) {
+    const requestedDepartment = normalizeDepartment(req?.query?.department);
+    return requestedDepartment || null;
+  }
+
+  if (["hod", "director", "strcoordinator", "doe"].includes(roleName)) {
+    return resolveScopedDepartment(req);
+  }
+
+  return null;
+};
 
 const getLatestAttendanceSnapshot = (attendanceDoc) => {
   const semesters = Array.isArray(attendanceDoc?.semesters) ? attendanceDoc.semesters : [];
@@ -458,6 +654,134 @@ export const getAttendanceReport = catchAsync(async (req, res) => {
     status: "success",
     data: {
       attendance: filteredRows,
+    },
+  });
+});
+
+export const getTylReport = catchAsync(async (req, res) => {
+  const departmentScope = await getTylDepartmentScope(req);
+  const tylDocs = await TYLScores.find().lean();
+  const userIds = tylDocs.map((doc) => doc.userId);
+  const { userMap, profileMap, mentorshipMap, mentorMap } = await buildSharedStudentMaps(userIds);
+
+  const rows = [];
+  const semesterStats = new Map();
+  const initializeStats = (semester) => {
+    if (!semesterStats.has(semester)) {
+      semesterStats.set(semester, {
+        semester,
+        total: 0,
+        cleared: 0,
+        pending: 0,
+        noData: 0,
+      });
+    }
+
+    return semesterStats.get(semester);
+  };
+
+  tylDocs.forEach((doc) => {
+    const userId = toIdString(doc.userId);
+    const user = userMap.get(userId) || {};
+    const profile = profileMap.get(userId) || {};
+    const mentorship = mentorshipMap.get(userId);
+    const mentor = mentorship ? mentorMap.get(toIdString(mentorship.mentorId)) : null;
+    const department = normalizeDepartment(profile.department || user.department || "") || "";
+
+    if (departmentScope && normalizeDepartment(department) !== departmentScope) {
+      return;
+    }
+
+    if (!userId || (!user.name && !profile.fullName && !profile.name)) {
+      return;
+    }
+
+    const departmentKind = getTylDepartmentKind(department);
+    const allowedSemesters = departmentKind === "mca" ? [1, 2, 3, 4] : [1, 2, 3, 4, 5, 6];
+    const semesters = Array.isArray(doc.semesters) ? doc.semesters : [];
+    const semesterSummaries = allowedSemesters.map((semester) => {
+      const plan = getTylPlan(department, semester);
+      const semesterData = semesters.find((entry) => Number(entry.semester) === Number(semester));
+      const summary = buildTylSemesterSummary(semesterData, plan);
+
+      return {
+        semester,
+        label: departmentKind === "mca" ? `Semester ${semester}` : (semester === 1 ? "Semester 1 (Physics Cycle)" : semester === 2 ? "Semester 2 (Chemistry Cycle)" : `Semester ${semester}`),
+        ...summary.summary,
+        subjects: summary.rows,
+      };
+    });
+
+    const latestSemester = getLatestMeaningfulSemester(semesterSummaries);
+    const latestStatus = latestSemester
+      ? latestSemester.cleared
+        ? "CLEARED"
+        : "PENDING"
+      : "NO DATA";
+
+    const clearedSemesters = semesterSummaries.filter((semester) => semester.cleared).length;
+    const pendingSemesters = semesterSummaries.filter((semester) => semester.hasAnyData && !semester.cleared).length;
+    const noDataSemesters = semesterSummaries.filter((semester) => !semester.hasAnyData).length;
+    const subjectNames = [...new Set(
+      semesterSummaries.flatMap((semester) => (Array.isArray(semester.subjects) ? semester.subjects : []).map((subject) => subject.subject))
+    )];
+
+    if (latestSemester) {
+      const stats = initializeStats(latestSemester.semester);
+      stats.total += 1;
+      stats.subjectCount = latestSemester.subjects?.length || stats.subjectCount || 0;
+      stats.subjects = latestSemester.subjects?.map((subject) => subject.subject) || stats.subjects || [];
+      if (latestSemester.cleared) {
+        stats.cleared += 1;
+      } else {
+        stats.pending += 1;
+      }
+    }
+
+    rows.push({
+      id: doc._id,
+      userId,
+      name: getFullName(profile, user.name),
+      email: user.email || profile.email || "",
+      usn: profile.usn || "",
+      mentorName: mentor?.name || "",
+      department,
+      latestSemester: latestSemester?.semester || null,
+      latestSemesterLabel: latestSemester?.label || "No data",
+      latestStatus,
+      clearedSemesters,
+      pendingSemesters,
+      noDataSemesters,
+      subjectNames,
+      semesterSummaries,
+    });
+  });
+
+  rows.sort((left, right) => {
+    if ((right.latestSemester || 0) !== (left.latestSemester || 0)) {
+      return Number(right.latestSemester || 0) - Number(left.latestSemester || 0);
+    }
+    return (left.name || "").localeCompare(right.name || "");
+  });
+
+  const totalStudents = rows.length;
+  const clearedStudents = rows.filter((row) => row.latestStatus === "CLEARED").length;
+  const pendingStudents = rows.filter((row) => row.latestStatus === "PENDING").length;
+  const noDataStudents = rows.filter((row) => row.latestStatus === "NO DATA").length;
+
+  const semesterSummary = Array.from(semesterStats.values()).sort((a, b) => a.semester - b.semester);
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      tyl: rows,
+      summary: {
+        totalStudents,
+        clearedStudents,
+        pendingStudents,
+        noDataStudents,
+        semesterStats: semesterSummary,
+      },
     },
   });
 });
