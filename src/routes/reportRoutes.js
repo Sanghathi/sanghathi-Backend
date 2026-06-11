@@ -3,6 +3,7 @@ import { protect, restrictTo } from "../controllers/authController.js";
 import {
   getCompetitionReport,
   getAttendanceReport,
+  getTylReport,
   sendLowAttendanceEmail,
 } from "../controllers/ReportController.js";
 
@@ -20,6 +21,12 @@ router.get(
   "/attendance",
   restrictTo("admin", "faculty", "hod", "director", "strcoordinator"),
   getAttendanceReport
+);
+
+router.get(
+  "/tyl",
+  restrictTo("admin", "hod", "director", "strcoordinator"),
+  getTylReport
 );
 
 router.post(
