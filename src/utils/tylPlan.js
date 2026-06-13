@@ -148,7 +148,7 @@ export const getTylPlan = (department = "", semester = 0) => {
   const plan = NON_MCA_TYL_PLANS[Number(semester)];
   return {
     label: plan?.label || `Semester ${semester}`,
-    subjects: (plan?.subjects || []).map((subjectName) => subjectByName.get(subjectName)).filter(Boolean),
+    subjects: NON_MCA_TYL_SUBJECTS,
   };
 };
 

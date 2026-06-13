@@ -342,14 +342,9 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
             .map((id) => id.toString());
 
           if (studentIds.length > 0) {
-            const mentorships = await Mentorship.find(
-              mergeCollegeScope(
-                {
-                  menteeId: { $in: studentIds.map((id) => new mongoose.Types.ObjectId(id)) },
-                },
-                collegeCode
-              )
-            )
+            const mentorships = await Mentorship.find({
+              menteeId: { $in: studentIds.map((id) => new mongoose.Types.ObjectId(id)) },
+            })
               .select("mentorId")
               .lean();
 

@@ -668,7 +668,7 @@ router.delete("/unassign", async (req, res) => {
 // Get all mentors who have assigned mentees with their details
 router.get("/mentors-with-mentees", async (req, res) => {
   try {
-    const { department } = req.query;
+    const { department, semester } = req.query;
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
     const collegeCode = getScopedCollegeCode(req);
@@ -706,9 +706,27 @@ router.get("/mentors-with-mentees", async (req, res) => {
 
     const mentorIds = mentors.map((mentor) => mentor._id);
 
-    const mentorships = await Mentorship.find({
+    const semesterNumber = Number(semester);
+    const hasSemesterFilter = Number.isInteger(semesterNumber) && semesterNumber > 0;
+    let mentorshipFilter = {
       mentorId: { $in: mentorIds },
-    })
+    };
+
+    if (hasSemesterFilter) {
+      const semesterProfiles = await mongoose
+        .model("StudentProfile")
+        .find(mergeCollegeScope({ sem: semesterNumber }, collegeCode))
+        .select("userId")
+        .lean();
+
+      const semesterMenteeIds = semesterProfiles.map((profile) => profile.userId).filter(Boolean);
+      mentorshipFilter = {
+        ...mentorshipFilter,
+        menteeId: { $in: semesterMenteeIds },
+      };
+    }
+
+    const mentorships = await Mentorship.find(mentorshipFilter)
       .select("mentorId menteeId")
       .lean();
 
@@ -795,7 +813,7 @@ router.get("/mentors-with-mentees", async (req, res) => {
         menteeCount,
         menteeNames,
       };
-    });
+    }).filter((mentor) => !hasSemesterFilter || mentor.menteeCount > 0);
 
     mentorsWithCounts.sort((a, b) => b.menteeCount - a.menteeCount);
 

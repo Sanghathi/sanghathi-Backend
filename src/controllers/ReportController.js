@@ -164,7 +164,6 @@ const buildTylSemesterSummary = (semesterData, semesterPlan = []) => {
       .map(([subject, value]) => [canonicalizeTylSubject(subject), value])
   );
   const plannedSubjects = Array.isArray(semesterPlan?.subjects) ? semesterPlan.subjects : semesterPlan;
-  const plannedNames = new Set(plannedSubjects.map((subject) => subject.subject));
   const rows = plannedSubjects.map((subject) => {
     const score = scoreMap.get(subject.subject);
     const result = score ? normalizeTylResult(score, subject.passMarks) : "NO DATA";
@@ -179,18 +178,7 @@ const buildTylSemesterSummary = (semesterData, semesterPlan = []) => {
       result,
     };
   });
-  const extras = [...scoreMap.entries()]
-    .filter(([subject]) => !plannedNames.has(subject))
-    .map(([subject, score]) => ({
-      area: "Uploaded",
-      subject,
-      scored: hasMeaningfulTylScore(score) ? getTylDisplayScore(score) : "",
-      maximum: Number(score?.maxMarks ?? 0) || "",
-      expected: Number(score?.passMarks ?? score?.target ?? 0) || "",
-      result: normalizeTylResult(score, Number(score?.passMarks ?? score?.target ?? 0)),
-    }));
 
-  const allRows = [...rows, ...extras];
   const passed = rows.filter((row) => row.result === "PASS").length;
   const pending = rows.filter((row) => row.result === "FAIL").length;
   const noData = rows.filter((row) => row.result === "NO DATA").length;
@@ -198,7 +186,7 @@ const buildTylSemesterSummary = (semesterData, semesterPlan = []) => {
   const hasAnyData = rows.some((row) => row.result !== "NO DATA");
 
   return {
-    rows: allRows,
+    rows,
     summary: {
       passed,
       pending,
