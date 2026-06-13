@@ -25,7 +25,8 @@
     "db:rollback-iat-local": "node scripts/rollback-iat-local.mjs",
     "db:seed-tenants": "node scripts/seed-tenants.mjs",
     "db:backfill-department-ids": "node scripts/backfill-department-ids.mjs",
-    "db:import-mca-external-sem1": "node scripts/import-mca-external-sem1.mjs"
+    "db:import-mca-external-sem1": "node scripts/import-mca-external-sem1.mjs",
+    "db:seed-new-departments": "node src/scripts/seedNewDepartments.mjs"
   },
   "repository": {
     "type": "git",

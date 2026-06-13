@@ -10,6 +10,12 @@ import TYLScores from "../models/TYLScores.js";
 import sendEmail from "../utils/email.js";
 import logger from "../utils/logger.js";
 import { isGlobalDirectorAccount, normalizeDepartment, resolveScopedDepartment } from "../utils/tenantContext.js";
+import {
+  canonicalizeTylSubject,
+  getTylDepartmentKind,
+  getTylPlan,
+  getTylSemesterOptions,
+} from "../utils/tylPlan.js";
 
 const MINIMUM_ATTENDANCE = 75;
 
@@ -103,81 +109,6 @@ const buildSubmissionSummary = (submittedCount, totalStudents) => ({
   notSubmitted: Math.max(totalStudents - submittedCount, 0),
 });
 
-const MCA_TYL_PLAN = {
-  1: [
-    { area: "Language", subject: "L2", maxMarks: 100, passMarks: 50 },
-    { area: "Language", subject: "L3", maxMarks: 100, passMarks: 50 },
-    { area: "Aptitude", subject: "A2", maxMarks: 100, passMarks: 50 },
-    { area: "Aptitude", subject: "A3", maxMarks: 100, passMarks: 50 },
-    { area: "Core Test", subject: "C3 Odd", maxMarks: 100, passMarks: 25 },
-    { area: "Core Test", subject: "C3 Even", maxMarks: 100, passMarks: 25 },
-    { area: "Core Test", subject: "C3 Full", maxMarks: 100, passMarks: 25 },
-    { area: "Core Test", subject: "C4 Odd", maxMarks: 100, passMarks: 25 },
-    { area: "Core Test", subject: "C4 Full", maxMarks: 100, passMarks: 25 },
-    { area: "Programming", subject: "P2-Java", maxMarks: 100, passMarks: 60 },
-    { area: "Programming", subject: "P3-FSD", maxMarks: 100, passMarks: 60 },
-    { area: "Programming", subject: "P3-Java", maxMarks: 100, passMarks: 60 },
-    { area: "Programming", subject: "P3-Python", maxMarks: 100, passMarks: 50 },
-    { area: "Programming", subject: "P4-Java", maxMarks: 100, passMarks: 100 },
-    { area: "Programming", subject: "P4-FSD", maxMarks: 100, passMarks: 60 },
-    { area: "Soft Skills", subject: "S2", maxMarks: 100, passMarks: 50 },
-    { area: "Soft Skills", subject: "S3", maxMarks: 100, passMarks: 50 },
-  ],
-};
-
-const NON_MCA_TYL_PLAN = {
-  1: [
-    { area: "Language", subject: "L1", maxMarks: 100, passMarks: 65 },
-    { area: "Soft Skills", subject: "S1", maxMarks: 100, passMarks: 50 },
-    { area: "Programming", subject: "P1 C", maxMarks: 100, passMarks: 50 },
-    { area: "Core Test", subject: "C2 Odd", maxMarks: 100, passMarks: 10 },
-  ],
-  2: [
-    { area: "Language", subject: "L2", maxMarks: 100, passMarks: 65 },
-    { area: "Aptitude", subject: "A1", maxMarks: 100, passMarks: 50 },
-    { area: "Programming", subject: "P2 Python", maxMarks: 100, passMarks: 50 },
-    { area: "Core Test", subject: "C2 Full", maxMarks: 100, passMarks: 10 },
-  ],
-  3: [
-    { area: "Language", subject: "L3", maxMarks: 100, passMarks: 70 },
-    { area: "Soft Skills", subject: "S2", maxMarks: 100, passMarks: 50 },
-    { area: "Programming", subject: "P3 Java", maxMarks: 100, passMarks: 60 },
-    { area: "Core Test", subject: "C3 Odd", maxMarks: 100, passMarks: 25 },
-  ],
-  4: [
-    { area: "Language", subject: "L4", maxMarks: 100, passMarks: 70 },
-    { area: "Aptitude", subject: "A2", maxMarks: 100, passMarks: 50 },
-    { area: "Programming", subject: "P3 Python", maxMarks: 100, passMarks: 60 },
-    { area: "Core Test", subject: "C3 Full", maxMarks: 100, passMarks: 50 },
-  ],
-  5: [
-    { area: "Aptitude", subject: "A3", maxMarks: 100, passMarks: 50 },
-    { area: "Soft Skills", subject: "S3", maxMarks: 100, passMarks: 50 },
-    { area: "Programming", subject: "P4 Part 1", maxMarks: 100, passMarks: 70 },
-    { area: "Programming", subject: "P4 MAD", maxMarks: 100, passMarks: 70 },
-    { area: "Core Test", subject: "C4 Odd", maxMarks: 100, passMarks: 50 },
-  ],
-  6: [
-    { area: "Aptitude", subject: "A4", maxMarks: 100, passMarks: 65 },
-    { area: "Soft Skills", subject: "S4", maxMarks: 100, passMarks: 50 },
-    { area: "Programming", subject: "P4 Part 2", maxMarks: 100, passMarks: 70 },
-    { area: "Programming", subject: "P4 DS", maxMarks: 100, passMarks: 70 },
-    { area: "Core Test", subject: "C4 Full", maxMarks: 100, passMarks: 50 },
-  ],
-};
-
-const getTylDepartmentKind = (department = "") =>
-  String(department || "").toUpperCase().includes("MCA") ? "mca" : "nonMca";
-
-const getTylPlan = (department = "", semester = 0) => {
-  const kind = getTylDepartmentKind(department);
-  if (kind === "mca") {
-    return MCA_TYL_PLAN[semester] || [];
-  }
-
-  return NON_MCA_TYL_PLAN[semester] || [];
-};
-
 const hasMeaningfulTylScore = (score = {}) => {
   if (!score || typeof score !== "object") {
     return false;
@@ -212,14 +143,14 @@ const getTylDisplayScore = (score = {}) => {
 };
 
 const normalizeTylResult = (score = {}, passMarks = 0) => {
-  const explicit = String(score.result || "").trim().toUpperCase();
-  if (explicit === "PASS" || explicit === "FAIL" || explicit === "NO DATA") {
-    return explicit;
-  }
-
   const mark = Number(score.mark ?? score.actual);
   if (Number.isFinite(mark)) {
     return mark >= passMarks ? "PASS" : "FAIL";
+  }
+
+  const explicit = String(score.result || "").trim().toUpperCase();
+  if (explicit === "NO DATA") {
+    return explicit;
   }
 
   return "NO DATA";
@@ -228,10 +159,12 @@ const normalizeTylResult = (score = {}, passMarks = 0) => {
 const buildTylSemesterSummary = (semesterData, semesterPlan = []) => {
   const scores = semesterData?.scores && typeof semesterData.scores === "object" ? semesterData.scores : {};
   const scoreMap = new Map(
-    Object.entries(scores).filter(([, value]) => value && typeof value === "object")
+    Object.entries(scores)
+      .filter(([, value]) => value && typeof value === "object")
+      .map(([subject, value]) => [canonicalizeTylSubject(subject), value])
   );
-  const plannedNames = new Set(semesterPlan.map((subject) => subject.subject));
-  const rows = semesterPlan.map((subject) => {
+  const plannedSubjects = Array.isArray(semesterPlan?.subjects) ? semesterPlan.subjects : semesterPlan;
+  const rows = plannedSubjects.map((subject) => {
     const score = scoreMap.get(subject.subject);
     const result = score ? normalizeTylResult(score, subject.passMarks) : "NO DATA";
     const hasScore = score && hasMeaningfulTylScore(score);
@@ -245,18 +178,7 @@ const buildTylSemesterSummary = (semesterData, semesterPlan = []) => {
       result,
     };
   });
-  const extras = [...scoreMap.entries()]
-    .filter(([subject]) => !plannedNames.has(subject))
-    .map(([subject, score]) => ({
-      area: "Uploaded",
-      subject,
-      scored: hasMeaningfulTylScore(score) ? getTylDisplayScore(score) : "",
-      maximum: Number(score?.maxMarks ?? 0) || "",
-      expected: Number(score?.passMarks ?? score?.target ?? 0) || "",
-      result: normalizeTylResult(score, Number(score?.passMarks ?? score?.target ?? 0)),
-    }));
 
-  const allRows = [...rows, ...extras];
   const passed = rows.filter((row) => row.result === "PASS").length;
   const pending = rows.filter((row) => row.result === "FAIL").length;
   const noData = rows.filter((row) => row.result === "NO DATA").length;
@@ -264,7 +186,7 @@ const buildTylSemesterSummary = (semesterData, semesterPlan = []) => {
   const hasAnyData = rows.some((row) => row.result !== "NO DATA");
 
   return {
-    rows: allRows,
+    rows,
     summary: {
       passed,
       pending,
@@ -697,7 +619,7 @@ export const getTylReport = catchAsync(async (req, res) => {
     }
 
     const departmentKind = getTylDepartmentKind(department);
-    const allowedSemesters = departmentKind === "mca" ? [1, 2, 3, 4] : [1, 2, 3, 4, 5, 6];
+    const allowedSemesters = getTylSemesterOptions(department);
     const semesters = Array.isArray(doc.semesters) ? doc.semesters : [];
     const semesterSummaries = allowedSemesters.map((semester) => {
       const plan = getTylPlan(department, semester);
@@ -706,7 +628,7 @@ export const getTylReport = catchAsync(async (req, res) => {
 
       return {
         semester,
-        label: departmentKind === "mca" ? `Semester ${semester}` : (semester === 1 ? "Semester 1 (Physics Cycle)" : semester === 2 ? "Semester 2 (Chemistry Cycle)" : `Semester ${semester}`),
+        label: plan.label || (departmentKind === "mca" ? `Semester ${semester}` : `Semester ${semester}`),
         ...summary.summary,
         subjects: summary.rows,
       };

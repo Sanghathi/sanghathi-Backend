@@ -15,6 +15,7 @@ import {
   resolveCollegeCode,
 } from "../utils/tenantContext.js";
 import Mentorship from "../models/Mentorship.js";
+import { resolveDepartmentForCollege } from "../utils/departmentResolver.js";
 
 const parseBoolean = (value, defaultValue = true) => {
   if (value === undefined) {
@@ -321,6 +322,53 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
             const currentIds = Array.isArray(filter._id?.$in) ? filter._id.$in.map((id) => id.toString()) : null;
             const filteredIds = currentIds ? currentIds.filter((id) => semesterUserIds.includes(id)) : semesterUserIds;
             filter._id = { $in: filteredIds };
+          } else {
+            filter._id = { $in: [] };
+          }
+        }
+      }
+
+      if (normalizedRole === "faculty" && semesterQuery !== undefined && semesterQuery !== null && `${semesterQuery}`.trim() !== "") {
+        const semesterNumber = Number(semesterQuery);
+        if (Number.isInteger(semesterNumber)) {
+          const studentProfiles = await mongoose
+            .model("StudentProfile")
+            .find(mergeCollegeScope({ sem: semesterNumber }, collegeCode))
+            .select("userId")
+            .lean();
+
+          const studentIds = studentProfiles
+            .map((profile) => profile.userId)
+            .filter(Boolean)
+            .map((id) => id.toString());
+
+          if (studentIds.length > 0) {
+            const mentorships = await Mentorship.find({
+              menteeId: { $in: studentIds.map((id) => new mongoose.Types.ObjectId(id)) },
+            })
+              .select("mentorId")
+              .lean();
+
+            const mentorIdsForSemester = [
+              ...new Set(
+                mentorships
+                  .map((mentorship) => mentorship?.mentorId)
+                  .filter(Boolean)
+                  .map((mentorId) => mentorId.toString())
+              ),
+            ];
+
+            if (mentorIdsForSemester.length > 0) {
+              const currentIds = Array.isArray(filter._id?.$in)
+                ? filter._id.$in.map((id) => id.toString())
+                : null;
+              const filteredIds = currentIds
+                ? currentIds.filter((id) => mentorIdsForSemester.includes(id))
+                : mentorIdsForSemester;
+              filter._id = { $in: filteredIds };
+            } else {
+              filter._id = { $in: [] };
+            }
           } else {
             filter._id = { $in: [] };
           }
@@ -876,14 +924,18 @@ export const setStrCoordinatorDepartment = catchAsync(async (req, res, next) => 
     return res.status(200).json({ status: "success", data: { user: updated } });
   }
 
-  const storedDepartment = normalizedDepartment.toUpperCase();
-  if (!["ISE", "MCA"].includes(storedDepartment)) {
-    return next(new AppError("Department must be ISE or MCA", 400));
+  const resolvedDepartment = await resolveDepartmentForCollege({
+    department: normalizedDepartment,
+    collegeCode: req.user?.collegeCode || "CMRIT",
+  });
+
+  if (!resolvedDepartment) {
+    return next(new AppError("Department is not available for this college", 400));
   }
 
   const updated = await User.findOneAndUpdate(
     { _id: userId },
-    { department: storedDepartment },
+    { department: resolvedDepartment.name },
     { new: true }
   );
 
