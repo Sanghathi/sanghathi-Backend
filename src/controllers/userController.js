@@ -15,6 +15,7 @@ import {
   resolveCollegeCode,
 } from "../utils/tenantContext.js";
 import Mentorship from "../models/Mentorship.js";
+import { resolveDepartmentForCollege } from "../utils/departmentResolver.js";
 
 const parseBoolean = (value, defaultValue = true) => {
   if (value === undefined) {
@@ -923,14 +924,18 @@ export const setStrCoordinatorDepartment = catchAsync(async (req, res, next) => 
     return res.status(200).json({ status: "success", data: { user: updated } });
   }
 
-  const storedDepartment = normalizedDepartment.toUpperCase();
-  if (!["ISE", "MCA"].includes(storedDepartment)) {
-    return next(new AppError("Department must be ISE or MCA", 400));
+  const resolvedDepartment = await resolveDepartmentForCollege({
+    department: normalizedDepartment,
+    collegeCode: req.user?.collegeCode || "CMRIT",
+  });
+
+  if (!resolvedDepartment) {
+    return next(new AppError("Department is not available for this college", 400));
   }
 
   const updated = await User.findOneAndUpdate(
     { _id: userId },
-    { department: storedDepartment },
+    { department: resolvedDepartment.name },
     { new: true }
   );
 

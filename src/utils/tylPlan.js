@@ -21,6 +21,8 @@ export const MCA_TYL_SUBJECTS = [
   { area: "Soft Skills", subject: "S3", maxMarks: 100, passMarks: 50 },
 ];
 
+export const MCA_LIKE_DEPARTMENTS = ["MCA", "CSE", "ECE", "AIDS", "AIML", "MBA"];
+
 export const NON_MCA_TYL_SUBJECTS = [
   { area: "Language", subject: "L1", maxMarks: 100, passMarks: 65 },
   { area: "Language", subject: "L2", maxMarks: 100, passMarks: 65 },
@@ -131,7 +133,9 @@ export const canonicalizeTylSubject = (subject = "") => {
 };
 
 export const getTylDepartmentKind = (department = "") =>
-  String(department || "").toUpperCase().includes("MCA") ? "mca" : "nonMca";
+  MCA_LIKE_DEPARTMENTS.includes(String(department || "").trim().toUpperCase())
+    ? "mca"
+    : "nonMca";
 
 export const getTylSemesterOptions = (department = "") =>
   getTylDepartmentKind(department) === "mca" ? [1, 2, 3, 4] : [1, 2, 3, 4, 5, 6];
