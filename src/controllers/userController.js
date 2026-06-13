@@ -326,6 +326,58 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
           }
         }
       }
+
+      if (normalizedRole === "faculty" && semesterQuery !== undefined && semesterQuery !== null && `${semesterQuery}`.trim() !== "") {
+        const semesterNumber = Number(semesterQuery);
+        if (Number.isInteger(semesterNumber)) {
+          const studentProfiles = await mongoose
+            .model("StudentProfile")
+            .find(mergeCollegeScope({ sem: semesterNumber }, collegeCode))
+            .select("userId")
+            .lean();
+
+          const studentIds = studentProfiles
+            .map((profile) => profile.userId)
+            .filter(Boolean)
+            .map((id) => id.toString());
+
+          if (studentIds.length > 0) {
+            const mentorships = await Mentorship.find(
+              mergeCollegeScope(
+                {
+                  menteeId: { $in: studentIds.map((id) => new mongoose.Types.ObjectId(id)) },
+                },
+                collegeCode
+              )
+            )
+              .select("mentorId")
+              .lean();
+
+            const mentorIdsForSemester = [
+              ...new Set(
+                mentorships
+                  .map((mentorship) => mentorship?.mentorId)
+                  .filter(Boolean)
+                  .map((mentorId) => mentorId.toString())
+              ),
+            ];
+
+            if (mentorIdsForSemester.length > 0) {
+              const currentIds = Array.isArray(filter._id?.$in)
+                ? filter._id.$in.map((id) => id.toString())
+                : null;
+              const filteredIds = currentIds
+                ? currentIds.filter((id) => mentorIdsForSemester.includes(id))
+                : mentorIdsForSemester;
+              filter._id = { $in: filteredIds };
+            } else {
+              filter._id = { $in: [] };
+            }
+          } else {
+            filter._id = { $in: [] };
+          }
+        }
+      }
     } else {
       // No explicit role filter: restrict results to the scoped department and related users
       filter = addAndFilter(filter, allowedOrReferencedFilter);
