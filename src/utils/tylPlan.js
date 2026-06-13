@@ -1,6 +1,7 @@
 export const TYL_BASE_COLUMNS = ["sl.no", "Email", "Full name", "USN", "Phone"];
 
 export const MCA_TYL_SUBJECTS = [
+  { area: "Language", subject: "L1", maxMarks: 100, passMarks: 50 },
   { area: "Language", subject: "L2", maxMarks: 100, passMarks: 50 },
   { area: "Language", subject: "L3", maxMarks: 100, passMarks: 50 },
   { area: "Aptitude", subject: "A2", maxMarks: 100, passMarks: 50 },
